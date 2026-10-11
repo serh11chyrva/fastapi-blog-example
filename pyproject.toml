@@ -1,0 +1,24 @@
+[project]
+name = "fastapi-blog-example"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "serh11chyrva", email = "chirva2428@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "beanie>=2.2.0",
+    "fastapi>=0.143.0",
+    "loguru>=0.7.3",
+    "motor>=3.7.1",
+    "pydantic>=2.14.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+fastapi-blog-example = "fastapi_blog_example:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
