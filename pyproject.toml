@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-fastapi-blog-example = "fastapi_blog_example:main"
+fastapi-blog-example = "fastapi_blog_example.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]
