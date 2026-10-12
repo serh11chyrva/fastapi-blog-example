@@ -195,6 +195,7 @@ Following yourself returns `400`. Repeated follow/unfollow requests are safe and
 | GET | `/posts/{post_id}` | Public | Read post |
 | PATCH | `/posts/{post_id}` | Author | Replace post text |
 | DELETE | `/posts/{post_id}` | Author | Soft-delete post |
+| GET | `/publications/{username}/{share_slug}` | Public | Resolve a shared `@username/slug--share-id` link |
 
 Create request and representative response:
 
@@ -227,8 +228,20 @@ Text must contain 1–280 non-whitespace characters. `PATCH` accepts the same co
 | GET | `/articles/{article_id}` | Public / author for draft | Read article |
 | PATCH | `/articles/{article_id}` | Author | Partially update article |
 | POST | `/articles/{article_id}/publish` | Author | Publish draft |
+| POST | `/articles/{article_id}/schedule` | Author | Schedule a future publication |
+| POST | `/articles/{article_id}/draft` | Author | Return an article to draft |
+| DELETE | `/articles/{article_id}` | Author | Soft-delete article |
+| PUT | `/articles/{article_id}/thumbnail` | Author | Upload JPEG, PNG, or WebP thumbnail |
 
-Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, or `published`. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 encoded bytes.
+Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, `scheduled`, or `published`. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 encoded bytes.
+
+Upload an optional thumbnail using multipart field `file` at `PUT /articles/{article_id}/thumbnail` (JPEG, PNG, or WebP; 10 MiB maximum by default). A published thumbnail is public; while an article is a draft or scheduled, only its author can retrieve the image. Set a future ISO 8601 timestamp with timezone to schedule publication:
+
+```json
+{"publish_at":"2026-10-13T09:00:00Z"}
+```
+
+The scheduler checks every 15 seconds. Returning to draft clears a pending schedule or unpublishes an article. Deleting an article soft-deletes it and removes it from public feeds.
 
 ```json
 {
