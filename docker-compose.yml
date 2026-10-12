@@ -2,30 +2,50 @@ services:
   api:
     build: .
     environment:
-      MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}@mongo:27017/?authSource=admin
+      MONGODB_URL: mongodb://${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}@mongo:27017/?authSource=${MONGODB_DATABASE:-blog}&replicaSet=rs0
       MONGODB_DATABASE: ${MONGODB_DATABASE:-blog}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_IDLE_DAYS: ${SESSION_IDLE_DAYS:-7}
+      SESSION_ABSOLUTE_DAYS: ${SESSION_ABSOLUTE_DAYS:-30}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://garage:3900}
+      S3_REGION: ${S3_REGION:-garage}
+      GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:?Set GARAGE_ACCESS_KEY in .env}
+      GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:?Set GARAGE_SECRET_KEY in .env}
+      AVATAR_BUCKET: ${AVATAR_BUCKET:-blog-avatars}
+      AVATAR_MAX_BYTES: ${AVATAR_MAX_BYTES:-5242880}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-DemoPassword123!}
     depends_on:
       mongo:
         condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
+      garage:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 10s
-      timeout: 10s
+      timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 25s
     restart: unless-stopped
 
   mongo:
     image: mongo:8.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/run/mongo-keyfile/keyfile"]
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
     ports:
       - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    depends_on:
+      mongo-keyfile-init:
+        condition: service_completed_successfully
     volumes:
+      - mongo_keyfile:/run/mongo-keyfile:ro
       - type: bind
         source: ./data/mongo
         target: /data/db
@@ -37,10 +57,41 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  mongo-keyfile-init:
+    image: alpine:3.22
+    environment:
+      MONGO_REPLICA_KEY: ${MONGO_REPLICA_KEY:?Set MONGO_REPLICA_KEY in .env}
+    volumes:
+      - mongo_keyfile:/run/mongo-keyfile
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - printf '%s' "$$MONGO_REPLICA_KEY" > /run/mongo-keyfile/keyfile; chown 999:999 /run/mongo-keyfile/keyfile; chmod 400 /run/mongo-keyfile/keyfile
+    restart: "no"
+
+  mongo-init:
+    image: mongo:8.0
+    environment:
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-blog}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./docker/mongo-init.js:/scripts/mongo-init.js:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        mongosh "mongodb://$$MONGO_ROOT_USERNAME:$$MONGO_ROOT_PASSWORD@mongo:27017/admin?authSource=admin"
+        --quiet --file /scripts/mongo-init.js
+    restart: "no"
+
   mongo-express:
     image: mongo-express:1.0.2-20-alpine3.19
     environment:
-      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}@mongo:27017/?authSource=admin
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}@mongo:27017/?authSource=admin&replicaSet=rs0
       ME_CONFIG_BASICAUTH: "true"
       ME_CONFIG_BASICAUTH_ENABLED: "true"
       ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME:?Set MONGO_EXPRESS_USERNAME in .env}
@@ -48,8 +99,8 @@ services:
     ports:
       - "127.0.0.1:${MONGO_EXPRESS_PORT:-8081}:8081"
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   redis:
@@ -65,13 +116,61 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  garage:
+    image: dxflrs/garage:v2.4.1
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?Set GARAGE_RPC_SECRET in .env}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}
+      GARAGE_METRICS_TOKEN: ${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}
+      GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_ACCESS_KEY:?Set GARAGE_ACCESS_KEY in .env}
+      GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_SECRET_KEY:?Set GARAGE_SECRET_KEY in .env}
+      GARAGE_DEFAULT_BUCKET: ${AVATAR_BUCKET:-blog-avatars}
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    configs:
+      - source: garage_config
+        target: /etc/garage.toml
+    volumes:
+      - type: bind
+        source: ./data/garage
+        target: /var/lib/garage
+    healthcheck:
+      test: ["CMD", "/garage", "-c", "/etc/garage.toml", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
   nginx:
-    image: nginx:1.29-alpine
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
     ports:
       - "127.0.0.1:${API_PORT:-8080}:80"
     depends_on:
       api:
         condition: service_healthy
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
+
+configs:
+  garage_config:
+    content: |
+      metadata_dir = "/var/lib/garage/meta"
+      data_dir = "/var/lib/garage/data"
+      db_engine = "sqlite"
+      replication_factor = 1
+      rpc_bind_addr = "0.0.0.0:3901"
+      rpc_public_addr = "garage:3901"
+      rpc_secret = "${GARAGE_RPC_SECRET:?Set GARAGE_RPC_SECRET in .env}"
+      [s3_api]
+      s3_region = "garage"
+      api_bind_addr = "0.0.0.0:3900"
+      root_domain = ".s3.garage.localhost"
+      advertise_endpoint = "http://garage:3900"
+      [admin]
+      api_bind_addr = "0.0.0.0:3903"
+      admin_token = "${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}"
+      metrics_token = "${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}"
+
+volumes:
+  mongo_keyfile:

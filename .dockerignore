@@ -1,6 +1,11 @@
 .git
 .venv
+src/frontend/node_modules
+src/frontend/dist
+data
 __pycache__
+.pytest_cache
+*.ruff_cache
 *.py[cod]
 .env
 .python-version

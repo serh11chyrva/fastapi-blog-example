@@ -221,6 +221,9 @@ __marimo__/
 
 # Local Docker database files
 /data/mongo/
+/data/garage/
+src/frontend/node_modules/
+src/frontend/dist/
 
 # Local Zed editor configuration
 .zed/
