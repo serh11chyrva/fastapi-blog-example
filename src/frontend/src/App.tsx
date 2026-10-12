@@ -269,6 +269,7 @@ function ArticleEditorPage() {
     if (!title.trim()) throw new Error("Add a title before saving your article.");
     const payload = { title, summary, body };
     let saved = article ? await api<Article>(`/articles/${article.id}`, { method: "PATCH", body: JSON.stringify(payload) }) : await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
+    setArticle(saved);
     if (thumbnailFile) {
       const form = new FormData(); form.set("file", thumbnailFile);
       saved = await api<Article>(`/articles/${saved.id}/thumbnail`, { method: "PUT", body: form });
