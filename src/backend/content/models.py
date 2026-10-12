@@ -11,6 +11,7 @@ class MicroPost(Document):
     author_id: PydanticObjectId
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     text: str
+    image_keys: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
@@ -30,6 +31,7 @@ class Article(Document):
     summary: str = ""
     body: dict[str, Any]
     thumbnail_key: str | None = None
+    inline_image_keys: list[str] = Field(default_factory=list)
     status: Literal["draft", "scheduled", "published"] = "draft"
     created_at: datetime
     updated_at: datetime

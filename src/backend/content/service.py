@@ -1,6 +1,6 @@
 from backend.content.models import Article, MicroPost
 from backend.content.schemas import ArticleResponse, MicroPostResponse
-from backend.content.urls import article_thumbnail_url, share_path
+from backend.content.urls import article_thumbnail_url, publication_image_url, share_path
 from backend.profiles.repository import ProfileRepository
 from backend.profiles.service import ProfileService
 
@@ -14,7 +14,8 @@ class ContentService:
         if author is None:
             raise LookupError("Author not found")
         return MicroPostResponse(
-            id=str(post.id), share_url=share_path(author.username, post.text, post.share_id), text=post.text, author_id=str(author.id), author_username=author.username,
+            id=str(post.id), share_url=share_path(author.username, post.text, post.share_id), text=post.text,
+            images=[publication_image_url(key, "post-images") for key in post.image_keys], author_id=str(author.id), author_username=author.username,
             author_display_name=author.display_name, author_avatar_url=ProfileService.avatar_url(author),
             created_at=post.created_at, updated_at=post.updated_at,
         )
@@ -25,7 +26,8 @@ class ContentService:
             raise LookupError("Author not found")
         return ArticleResponse(
             id=str(article.id), share_url=share_path(author.username, article.title, article.share_id), title=article.title,
-            summary=article.summary, body=article.body, thumbnail_url=article_thumbnail_url(article.thumbnail_key), status=article.status,
+            summary=article.summary, body=article.body, thumbnail_url=article_thumbnail_url(article.thumbnail_key),
+            inline_image_urls=[publication_image_url(key, "article-images") for key in article.inline_image_keys], status=article.status,
             author_id=str(author.id), author_username=author.username, author_display_name=author.display_name,
             author_avatar_url=ProfileService.avatar_url(author), created_at=article.created_at,
             updated_at=article.updated_at, scheduled_at=article.scheduled_at, published_at=article.published_at,

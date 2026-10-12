@@ -27,6 +27,7 @@ class MicroPostResponse(BaseModel):
     kind: Literal["micro_post"] = "micro_post"
     share_url: str | None = None
     text: str
+    images: list[str] = Field(default_factory=list)
     author_id: str
     author_username: str
     author_display_name: str
@@ -117,6 +118,7 @@ class ArticleResponse(BaseModel):
     summary: str
     body: dict[str, Any]
     thumbnail_url: str | None = None
+    inline_image_urls: list[str] = Field(default_factory=list)
     status: Literal["draft", "scheduled", "published"]
     author_id: str
     author_username: str
@@ -138,6 +140,7 @@ class FeedItem(BaseModel):
     text: str | None = None
     summary: str | None = None
     thumbnail_url: str | None = None
+    images: list[str] = Field(default_factory=list)
     author_id: str
     author_username: str
     author_display_name: str

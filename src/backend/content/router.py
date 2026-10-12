@@ -9,6 +9,8 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, Response, Up
 from backend.content.schemas import ArticleCreate, ArticleResponse, ArticleScheduleRequest, ArticleUpdate, MicroPostCreate, MicroPostResponse
 from backend.content.repository import ContentRepository
 from backend.content.service import ContentService
+from backend.content.urls import publication_image_url
+from backend.content.validation import article_image_keys
 from backend.core.audit import record_audit
 from backend.core.dependencies import CurrentUser, OptionalUser
 from backend.core.config import get_settings
@@ -99,8 +101,75 @@ async def delete_micro_post(post_id: str, request: Request, current_user: Curren
             post.updated_at = now
             await post.save(session=db_session)
             await record_audit(request, "MICRO_POST_DELETED", actor_id=current_user.id, target_type="micro_post", target_id=post_id, session=db_session)
+    for key in post.image_keys:
+        try:
+            await delete_avatar(request.app.state.s3_client, get_settings().avatar_bucket, key)
+        except Exception:
+            request.app.state.logger.exception("Failed to remove image from deleted post")
     await _bump_public_feed_version(request)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/posts/{post_id}/images", response_model=MicroPostResponse)
+async def upload_post_images(post_id: str, request: Request, current_user: CurrentUser, files: list[UploadFile] = File(...)) -> MicroPostResponse:
+    if not PydanticObjectId.is_valid(post_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    post = await content_repository.get_post(PydanticObjectId(post_id))
+    if post is None or post.deleted_at is not None or post.author_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    if not 1 <= len(files) <= 5:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose between one and five images")
+    settings = get_settings()
+    client = request.app.state.s3_client
+    uploaded_keys: list[str] = []
+    try:
+        for file in files:
+            data = await file.read(settings.publication_image_max_bytes + 1)
+            if len(data) > settings.publication_image_max_bytes:
+                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Each image must be at most 5 MB")
+            detected = _image_type(data)
+            if detected is None:
+                raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Use JPEG, PNG, or WebP images")
+            content_type, extension = detected
+            key = f"post-images/{uuid4().hex}.{extension}"
+            await put_avatar(client, settings.avatar_bucket, key, data, content_type)
+            uploaded_keys.append(key)
+    except HTTPException:
+        for key in uploaded_keys:
+            try:
+                await delete_avatar(client, settings.avatar_bucket, key)
+            except Exception:
+                request.app.state.logger.exception("Failed to clean up an incomplete post image upload")
+        raise
+    except Exception as exc:
+        for key in uploaded_keys:
+            try:
+                await delete_avatar(client, settings.avatar_bucket, key)
+            except Exception:
+                request.app.state.logger.exception("Failed to clean up an incomplete post image upload")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Image storage is unavailable") from exc
+    old_keys = post.image_keys
+    post.image_keys = uploaded_keys
+    post.updated_at = datetime.now(UTC)
+    try:
+        async with request.app.state.mongo_client.start_session() as db_session:
+            async with await db_session.start_transaction():
+                await post.save(session=db_session)
+                await record_audit(request, "MICRO_POST_IMAGES_CHANGED", actor_id=current_user.id, target_type="micro_post", target_id=post_id, metadata={"image_count": len(uploaded_keys)}, session=db_session)
+    except Exception:
+        for key in uploaded_keys:
+            try:
+                await delete_avatar(client, settings.avatar_bucket, key)
+            except Exception:
+                request.app.state.logger.exception("Failed to clean up a rolled-back post image upload")
+        raise
+    for key in old_keys:
+        try:
+            await delete_avatar(client, settings.avatar_bucket, key)
+        except Exception:
+            request.app.state.logger.exception("Failed to remove replaced post image")
+    await _bump_public_feed_version(request)
+    return await _post_response(post)
 
 
 @router.delete("/articles/{article_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -117,17 +186,19 @@ async def delete_article(article_id: str, request: Request, current_user: Curren
             article.updated_at = now
             await article.save(session=db_session)
             await record_audit(request, "ARTICLE_DELETED", actor_id=current_user.id, target_type="article", target_id=article_id, session=db_session)
-    if article.thumbnail_key:
+    for key in ([article.thumbnail_key] if article.thumbnail_key else []) + article.inline_image_keys:
         try:
-            await delete_avatar(request.app.state.s3_client, get_settings().avatar_bucket, article.thumbnail_key)
+            await delete_avatar(request.app.state.s3_client, get_settings().avatar_bucket, key)
         except Exception:
-            request.app.state.logger.exception("Failed to remove deleted article thumbnail")
+            request.app.state.logger.exception("Failed to remove media from deleted article")
     await _bump_public_feed_version(request)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/articles", response_model=ArticleResponse, status_code=status.HTTP_201_CREATED)
 async def create_article(payload: ArticleCreate, request: Request, current_user: CurrentUser) -> ArticleResponse:
+    if article_image_keys(payload.body):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Upload article images after creating a draft")
     now = datetime.now(UTC)
     article = Article(author_id=current_user.id, title=payload.title, summary=payload.summary, body=payload.body, status="draft", created_at=now, updated_at=now)
     client = request.app.state.mongo_client
@@ -217,6 +288,76 @@ async def read_article_thumbnail(object_name: str, request: Request, current_use
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thumbnail not found")
     data, content_type = result
+    cache_control = "public, max-age=3600" if article.status == "published" else "private, no-store"
+    return Response(content=data, media_type=content_type, headers={"Cache-Control": cache_control, "X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/articles/{article_id}/images", status_code=status.HTTP_201_CREATED)
+async def upload_article_image(article_id: str, request: Request, current_user: CurrentUser, file: UploadFile = File(...)) -> dict[str, str]:
+    if not PydanticObjectId.is_valid(article_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    article = await content_repository.get_article(PydanticObjectId(article_id))
+    if article is None or article.deleted_at is not None or article.author_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    if len(article.inline_image_keys) >= 30:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="An article can contain up to 30 inline images")
+    settings = get_settings()
+    data = await file.read(settings.publication_image_max_bytes + 1)
+    if len(data) > settings.publication_image_max_bytes:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Each image must be at most 5 MB")
+    detected = _image_type(data)
+    if detected is None:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Use a JPEG, PNG, or WebP image")
+    content_type, extension = detected
+    key = f"article-images/{uuid4().hex}.{extension}"
+    client = request.app.state.s3_client
+    try:
+        await put_avatar(client, settings.avatar_bucket, key, data, content_type)
+        article.inline_image_keys.append(key)
+        article.updated_at = datetime.now(UTC)
+        async with request.app.state.mongo_client.start_session() as db_session:
+            async with await db_session.start_transaction():
+                await article.save(session=db_session)
+                await record_audit(request, "ARTICLE_IMAGE_ADDED", actor_id=current_user.id, target_type="article", target_id=article_id, metadata={"image_count": len(article.inline_image_keys)}, session=db_session)
+    except Exception as exc:
+        try:
+            await delete_avatar(client, settings.avatar_bucket, key)
+        except Exception:
+            request.app.state.logger.exception("Failed to clean up an incomplete article image upload")
+        if isinstance(exc, HTTPException):
+            raise
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Image storage is unavailable") from exc
+    return {"url": publication_image_url(key, "article-images"), "alt_text": file.filename or "Article image"}
+
+
+@router.get("/media/article-images/{object_name}")
+async def read_article_image(object_name: str, request: Request, current_user: OptionalUser) -> Response:
+    if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", object_name):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    key = f"article-images/{object_name}"
+    article = await Article.find_one({"inline_image_keys": key, "deleted_at": None})
+    if article is None or (article.status != "published" and (current_user is None or current_user.id != article.author_id)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    result = await get_avatar(request.app.state.s3_client, get_settings().avatar_bucket, key)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    data, content_type = result
+    cache_control = "public, max-age=3600" if article.status == "published" else "private, no-store"
+    return Response(content=data, media_type=content_type, headers={"Cache-Control": cache_control, "X-Content-Type-Options": "nosniff"})
+
+
+@router.get("/media/post-images/{object_name}")
+async def read_post_image(object_name: str, request: Request) -> Response:
+    if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", object_name):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    key = f"post-images/{object_name}"
+    post = await MicroPost.find_one({"image_keys": key, "deleted_at": None})
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    result = await get_avatar(request.app.state.s3_client, get_settings().avatar_bucket, key)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    data, content_type = result
     return Response(content=data, media_type=content_type, headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"})
 
 
@@ -254,6 +395,8 @@ async def update_article(article_id: str, payload: ArticleUpdate, request: Reque
     if article is None or article.deleted_at is not None or article.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
     changes = payload.model_dump(exclude_unset=True)
+    if "body" in changes and changes["body"] is not None and not article_image_keys(changes["body"]).issubset(set(article.inline_image_keys)):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Article body references an image not uploaded to this article")
     for field, value in changes.items():
         if value is not None:
             setattr(article, field, value)
