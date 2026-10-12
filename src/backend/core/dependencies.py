@@ -1,0 +1,53 @@
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
+
+from fastapi import Depends, HTTPException, Request, status
+
+from backend.core.config import get_settings
+from backend.core.security import hash_session_token
+from backend.auth.models import AuthSession
+from backend.profiles.models import User
+
+
+async def get_current_user(request: Request) -> User:
+    token = request.cookies.get(get_settings().session_cookie_name)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+    now = datetime.now(UTC)
+    auth_session = await AuthSession.find_one(AuthSession.token_hash == hash_session_token(token))
+    if auth_session is None or auth_session.revoked_at is not None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid")
+    if auth_session.expires_at <= now or auth_session.last_seen_at + timedelta(days=get_settings().session_idle_days) <= now:
+        auth_session.revoked_at = now
+        await auth_session.save()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired")
+
+    user = await User.get(auth_session.user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is unavailable")
+
+    auth_session.last_seen_at = now
+    ip_address = request.headers.get("x-real-ip") or (request.client.host if request.client else None)
+    auth_session.ip_address = ip_address
+    auth_session.user_agent = request.headers.get("user-agent", "")[:512] or None
+    await auth_session.save()
+    request.state.auth_session = auth_session
+    request.state.current_user = user
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_optional_user(request: Request) -> User | None:
+    token = request.cookies.get(get_settings().session_cookie_name)
+    if not token:
+        return None
+    try:
+        return await get_current_user(request)
+    except HTTPException:
+        return None
+
+
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
