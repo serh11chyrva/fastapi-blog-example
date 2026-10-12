@@ -54,6 +54,10 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 - Frontend source lives under `src/frontend/`. Docker uses a Node.js build stage with cached npm dependencies, Vite production minification and separate React/editor chunks, then copies only static output into Nginx.
 - Tests are grouped by layer: `tests/unit/`, `tests/services/`, and `tests/api/`.
 
+## API reference
+
+The interactive OpenAPI interface is available at `/api/docs` and the raw schema at `/api/openapi.json`. See [docs/API.md](docs/API.md) for endpoint tables, authentication and cookie handling, request/response examples, pagination, upload rules, and common errors.
+
 ## Development checks
 
 Python dependencies are managed with `uv`:

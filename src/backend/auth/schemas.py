@@ -5,10 +5,12 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    username: str = Field(min_length=3, max_length=24)
-    display_name: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=12, max_length=256)
+    """Credentials and public identity for creating an account."""
+
+    email: EmailStr = Field(examples=["reader@example.com"])
+    username: str = Field(min_length=3, max_length=24, examples=["reader_one"])
+    display_name: str = Field(min_length=1, max_length=64, examples=["Avery Reader"])
+    password: str = Field(min_length=12, max_length=256, examples=["Correct-Horse-Battery-42"])
 
     @field_validator("username")
     @classmethod
@@ -33,11 +35,15 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    identifier: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=1, max_length=256)
+    """An email address or username and its password."""
+
+    identifier: str = Field(min_length=3, max_length=320, examples=["reader@example.com"])
+    password: str = Field(min_length=1, max_length=256, examples=["Correct-Horse-Battery-42"])
 
 
 class SessionResponse(BaseModel):
+    """A server-side session; the raw session token is never returned."""
+
     id: str
     created_at: datetime
     last_seen_at: datetime
@@ -48,6 +54,8 @@ class SessionResponse(BaseModel):
 
 
 class AuthResponse(BaseModel):
+    """Safe public account fields returned after registration or login."""
+
     id: str
     email: str
     username: str

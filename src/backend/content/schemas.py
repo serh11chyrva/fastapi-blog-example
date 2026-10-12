@@ -7,7 +7,9 @@ from backend.content.validation import validate_tiptap_document
 
 
 class MicroPostCreate(BaseModel):
-    text: str = Field(min_length=1, max_length=280)
+    """Text for a public micro-post; whitespace-only values are rejected."""
+
+    text: str = Field(min_length=1, max_length=280, examples=["A small idea worth sharing with the community."])
 
     @field_validator("text")
     @classmethod
@@ -19,6 +21,8 @@ class MicroPostCreate(BaseModel):
 
 
 class MicroPostResponse(BaseModel):
+    """Published micro-post with its public author card."""
+
     id: str
     kind: Literal["micro_post"] = "micro_post"
     text: str
@@ -31,9 +35,11 @@ class MicroPostResponse(BaseModel):
 
 
 class ArticleCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=160)
-    summary: str = Field(default="", max_length=320)
-    body: dict[str, Any]
+    """Article draft whose body is a validated TipTap JSON document."""
+
+    title: str = Field(min_length=1, max_length=160, examples=["Notes on building a reading habit"])
+    summary: str = Field(default="", max_length=320, examples=["A few practical ideas for making time to read."])
+    body: dict[str, Any] = Field(examples=[{"type": "doc", "content": [{"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Start small"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Ten minutes a day is enough to begin."}]}]}])
 
     @field_validator("title")
     @classmethod
@@ -56,9 +62,11 @@ class ArticleCreate(BaseModel):
 
 
 class ArticleUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=160)
-    summary: str | None = Field(default=None, max_length=320)
-    body: dict[str, Any] | None = None
+    """Partial article update. The author can edit drafts and publications."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=160, examples=["An updated title"])
+    summary: str | None = Field(default=None, max_length=320, examples=["An updated summary."])
+    body: dict[str, Any] | None = Field(default=None, examples=[{"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Updated article text."}]}]}])
 
     @field_validator("title")
     @classmethod
@@ -84,6 +92,8 @@ class ArticleUpdate(BaseModel):
 
 
 class ArticleResponse(BaseModel):
+    """Article data. Drafts are only visible to their author."""
+
     id: str
     kind: Literal["article"] = "article"
     title: str
@@ -100,6 +110,8 @@ class ArticleResponse(BaseModel):
 
 
 class FeedItem(BaseModel):
+    """Discriminated feed item: inspect `kind` to read `text` or `title`."""
+
     id: str
     kind: Literal["micro_post", "article"]
     title: str | None = None
@@ -113,5 +125,7 @@ class FeedItem(BaseModel):
 
 
 class FeedResponse(BaseModel):
+    """Chronological page. Pass `next_cursor` back to continue."""
+
     items: list[FeedItem]
     next_cursor: str | None

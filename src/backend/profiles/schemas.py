@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class LinkInput(BaseModel):
-    label: str = Field(min_length=1, max_length=32)
-    url: str = Field(min_length=8, max_length=500)
+    """A public profile link. Only HTTP and HTTPS URLs are accepted."""
+
+    label: str = Field(min_length=1, max_length=32, examples=["Website"])
+    url: str = Field(min_length=8, max_length=500, examples=["https://example.com"])
 
     @field_validator("url")
     @classmethod
@@ -18,9 +20,11 @@ class LinkInput(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=64)
-    bio: str | None = Field(default=None, max_length=280)
-    links: list[LinkInput] | None = Field(default=None, max_length=8)
+    """Partial profile update. Omitted fields are left unchanged."""
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=64, examples=["Avery Reader"])
+    bio: str | None = Field(default=None, max_length=280, examples=["Writing about books, software, and small discoveries."])
+    links: list[LinkInput] | None = Field(default=None, max_length=8, examples=[[{"label": "Website", "url": "https://example.com"}]])
 
     @field_validator("display_name")
     @classmethod
@@ -34,6 +38,8 @@ class ProfileUpdate(BaseModel):
 
 
 class BadgeResponse(BaseModel):
+    """A badge assigned to a profile in the demo."""
+
     code: str
     label: str
     description: str | None
@@ -41,6 +47,8 @@ class BadgeResponse(BaseModel):
 
 
 class ProfileResponse(BaseModel):
+    """A public profile, with follow state relative to the requesting viewer."""
+
     id: str
     username: str
     display_name: str
@@ -54,6 +62,8 @@ class ProfileResponse(BaseModel):
 
 
 class ProfileUserResponse(BaseModel):
+    """Compact profile card used by follower and following lists."""
+
     id: str
     username: str
     display_name: str
