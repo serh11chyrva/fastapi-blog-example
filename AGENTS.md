@@ -6,8 +6,8 @@
 
 ## Application Structure
 
-- Keep application code under `src/fastapi_blog_example/`.
-- As the application grows, organize routers, services, models, and configuration in separate package areas. Keep `main.py` focused on application creation and wiring.
+- Keep backend application code under `src/backend/` and frontend application code under `src/frontend/`.
+- Organize routers, services, repositories, domain models, and configuration in focused package areas. Keep `main.py` focused on application creation and wiring.
 - Keep modules focused and avoid introducing layers that do not support a concrete feature.
 
 ## MongoDB
