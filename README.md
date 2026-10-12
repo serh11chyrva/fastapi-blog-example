@@ -41,7 +41,8 @@ MongoDB and Redis ports are bound to localhost for development. When connecting 
 - Append-only audit events for security, profile, follow, and publication actions.
 - Public profiles with bios, links, assigned demo badges, and uploaded JPEG, PNG, or WebP avatars.
 - Follow relationships and chronological public and following feeds.
-- 280-character micro-posts with UUID-suffixed share links and TipTap articles with image thumbnails, drafts, immediate publishing, and scheduled publishing.
+- 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
+- Editorial black-and-white UI with separate Posts and Articles profile tabs; article editing and reading use a full-screen writing and reading layout.
 - Responsive English UI; published content and profiles are readable without signing in.
 
 Likes, reposts, threaded micro-post replies, flat article comments, email delivery, OAuth/OIDC, and MFA are planned follow-up features.

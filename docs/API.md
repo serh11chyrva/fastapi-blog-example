@@ -139,6 +139,36 @@ Profile response example:
 
 Avatar uploads use `multipart/form-data` with the field name `file`. The default maximum is 5 MiB. Unsupported formats return `415`; oversized files return `413`.
 
+## Publication images
+
+| Method | Path | Access | Purpose |
+| --- | --- | --- | --- |
+| PUT | `/posts/{post_id}/images` | Session, post owner | Replace a post's image gallery (one to five files) |
+| POST | `/articles/{article_id}/images` | Session, article owner | Upload an image for insertion in the TipTap body |
+| PUT | `/articles/{article_id}/thumbnail` | Session, article owner | Replace the article cover image |
+| GET | `/media/post-images/{object_name}` | Public | Read an image attached to a public post |
+| GET | `/media/article-images/{object_name}` | Public or draft owner | Read an inline article image |
+| GET | `/media/article-thumbnails/{object_name}` | Public or draft owner | Read an article cover image |
+
+Uploads use `multipart/form-data`: use the `files` field for post galleries and `file` for article images and thumbnails. Gallery uploads replace the complete gallery. Post and inline article images are limited to 5 MiB each and JPEG, PNG, or WebP; posts accept up to five files and articles up to 30 inline images. The thumbnail limit is 10 MiB. Media endpoints only serve objects still attached to an accessible publication.
+
+Example post with three images:
+
+```sh
+curl -i -b cookies.txt -H "Origin: $BASE" \
+  -F "files=@cover.jpg" -F "files=@detail.png" -F "files=@sketch.webp" \
+  "$BASE/api/v1/posts/65f0c2a1b2c3d4e5f6071829/images"
+```
+
+Create an article draft first, then upload an inline image. The response URL can be inserted in the article TipTap JSON as an `image` node. Article JSON only permits uploaded same-origin article media URLs; the image must have been uploaded to that article before saving the body.
+
+```sh
+curl -i -b cookies.txt -H "Origin: $BASE" -F "file=@figure.png" \
+  "$BASE/api/v1/articles/65f0c2a1b2c3d4e5f6071829/images"
+```
+
+The response is `{ "url": "/api/v1/media/article-images/<object>.png", "alt_text": "figure.png" }`.
+
 ```sh
 curl -i -b cookies.txt -H "Origin: $BASE" \
   -F "file=@avatar.png;type=image/png" "$BASE/api/v1/me/avatar"
