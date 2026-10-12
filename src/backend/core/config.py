@@ -19,6 +19,7 @@ class Settings(BaseModel):
     s3_secret_key: str = Field(default_factory=lambda: environ.get("GARAGE_SECRET_KEY", ""))
     avatar_bucket: str = Field(default_factory=lambda: environ.get("AVATAR_BUCKET", "blog-avatars"))
     avatar_max_bytes: int = Field(default_factory=lambda: int(environ.get("AVATAR_MAX_BYTES", "5242880")))
+    article_thumbnail_max_bytes: int = Field(default_factory=lambda: int(environ.get("ARTICLE_THUMBNAIL_MAX_BYTES", "10485760")))
     demo_password: str = Field(default_factory=lambda: environ.get("DEMO_PASSWORD", "DemoPassword123!"))
 
 

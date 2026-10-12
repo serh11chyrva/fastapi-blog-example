@@ -11,6 +11,7 @@ from backend.core.config import get_settings
 from backend.core.dependencies import CurrentUser, OptionalUser
 from backend.content.schemas import FeedItem
 from backend.content.repository import ContentRepository
+from backend.content.urls import article_thumbnail_url, share_path
 from backend.profiles.models import Follow, User
 from backend.profiles.repository import ProfileRepository
 from backend.profiles.schemas import ProfileResponse, ProfileUpdate, ProfileUserResponse
@@ -64,9 +65,11 @@ async def list_profile_publications(username: str, kind: str = Query(default="al
         FeedItem(
             id=str(item.id),
             kind=item_kind,
+            share_url=share_path(user.username, item.title if item_kind == "article" else item.text, item.share_id),
             title=item.title if item_kind == "article" else None,
             text=item.text if item_kind == "micro_post" else None,
             summary=item.summary if item_kind == "article" else None,
+            thumbnail_url=article_thumbnail_url(item.thumbnail_key) if item_kind == "article" else None,
             author_id=str(user.id),
             author_username=user.username,
             author_display_name=user.display_name,

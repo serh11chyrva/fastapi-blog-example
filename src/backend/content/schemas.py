@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -25,6 +25,7 @@ class MicroPostResponse(BaseModel):
 
     id: str
     kind: Literal["micro_post"] = "micro_post"
+    share_url: str | None = None
     text: str
     author_id: str
     author_username: str
@@ -91,21 +92,39 @@ class ArticleUpdate(BaseModel):
         return value
 
 
+class ArticleScheduleRequest(BaseModel):
+    """UTC timestamp when a draft should become public."""
+
+    publish_at: datetime = Field(examples=["2026-10-13T09:00:00Z"])
+
+    @field_validator("publish_at")
+    @classmethod
+    def require_future_utc_time(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("Publish time must include a timezone")
+        value = value.astimezone(UTC)
+        if value <= datetime.now(UTC):
+            raise ValueError("Publish time must be in the future")
+        return value
+
 class ArticleResponse(BaseModel):
     """Article data. Drafts are only visible to their author."""
 
     id: str
     kind: Literal["article"] = "article"
+    share_url: str | None = None
     title: str
     summary: str
     body: dict[str, Any]
-    status: Literal["draft", "published"]
+    thumbnail_url: str | None = None
+    status: Literal["draft", "scheduled", "published"]
     author_id: str
     author_username: str
     author_display_name: str
     author_avatar_url: str | None
     created_at: datetime
     updated_at: datetime
+    scheduled_at: datetime | None = None
     published_at: datetime | None
 
 
@@ -114,9 +133,11 @@ class FeedItem(BaseModel):
 
     id: str
     kind: Literal["micro_post", "article"]
+    share_url: str | None = None
     title: str | None = None
     text: str | None = None
     summary: str | None = None
+    thumbnail_url: str | None = None
     author_id: str
     author_username: str
     author_display_name: str

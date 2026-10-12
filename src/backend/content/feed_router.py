@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from backend.content.schemas import FeedItem, FeedResponse
 from backend.content.repository import ContentRepository
+from backend.content.urls import article_thumbnail_url, share_path
 from backend.core.dependencies import CurrentUser
 from backend.profiles.models import Follow, User
 from backend.profiles.service import ProfileService
@@ -100,9 +101,11 @@ async def _make_feed(request: Request, authors: list[PydanticObjectId] | None, k
             FeedItem(
                 id=str(item.id),
                 kind=kind,
+                share_url=share_path(author.username, item.title if kind == "article" else item.text, item.share_id),
                 title=item.title if kind == "article" else None,
                 text=item.text if kind == "micro_post" else None,
                 summary=item.summary if kind == "article" else None,
+                thumbnail_url=article_thumbnail_url(item.thumbnail_key) if kind == "article" else None,
                 author_id=str(author.id),
                 author_username=author.username,
                 author_display_name=author.display_name,

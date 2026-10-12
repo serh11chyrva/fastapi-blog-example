@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -10,6 +11,8 @@ from redis.asyncio import Redis
 
 from backend.content.feed_router import router as feed_router
 from backend.content.router import router as content_router
+from backend.content.scheduler import run_publication_scheduler
+from backend.content.migrations import ensure_public_share_ids
 from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
 from backend.profiles.router import router as profile_router
@@ -27,15 +30,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis = redis_client
     app.state.s3_client = s3_client
     app.state.logger = logger
+    scheduler_task = None
     try:
         await mongo_client.admin.command("ping")
         from beanie import init_beanie
 
         await init_beanie(database=mongo_client[settings.mongodb_database], document_models=DOCUMENT_MODELS)
+        await ensure_public_share_ids()
         await redis_client.ping()
         await check_storage(s3_client, settings.avatar_bucket)
+        scheduler_task = asyncio.create_task(run_publication_scheduler(mongo_client, redis_client), name="scheduled-publications")
         yield
     finally:
+        if scheduler_task is not None:
+            scheduler_task.cancel()
+            try:
+                await scheduler_task
+            except asyncio.CancelledError:
+                pass
         await redis_client.aclose()
         s3_client.close()
         await mongo_client.close()
@@ -111,6 +123,12 @@ def create_app() -> FastAPI:
             ("get", "/api/v1/articles/{article_id}"): ("Get an article", "Published articles are public; drafts are returned only to their author."),
             ("patch", "/api/v1/articles/{article_id}"): ("Edit your article", "Partial update of title, summary, or TipTap JSON body; only the author may edit."),
             ("post", "/api/v1/articles/{article_id}/publish"): ("Publish an article", "Makes your draft public and assigns its publication timestamp."),
+            ("post", "/api/v1/articles/{article_id}/draft"): ("Return an article to draft", "Unpublishes or unschedules your article and makes it private to you."),
+            ("post", "/api/v1/articles/{article_id}/schedule"): ("Schedule an article", "Sets a future timezone-aware publication time; the background worker publishes it automatically."),
+            ("delete", "/api/v1/articles/{article_id}"): ("Delete an article", "Soft-deletes your draft, scheduled article, or publication."),
+            ("put", "/api/v1/articles/{article_id}/thumbnail"): ("Upload an article thumbnail", "Multipart file upload. JPEG, PNG, and WebP are accepted, up to 10 MiB by default."),
+            ("get", "/api/v1/media/article-thumbnails/{object_name}"): ("Read an article thumbnail", "Published thumbnails are public; draft thumbnails are visible to their author."),
+            ("get", "/api/v1/publications/{username}/{share_slug}"): ("Read a shared publication", "Resolves the UUID-safe slug in /@username/slug--share-id and returns the public post or article."),
             ("get", "/api/v1/feeds/public"): ("Read the public feed", "Chronological mixed feed of public micro-posts and published articles."),
             ("get", "/api/v1/feeds/following"): ("Read the following feed", "Chronological mixed feed from followed authors; requires a session cookie."),
             ("get", "/"): ("Root status", "Returns a short application identifier."),
@@ -146,6 +164,8 @@ def create_app() -> FastAPI:
             ("post", "/api/v1/posts"), ("patch", "/api/v1/posts/{post_id}"), ("delete", "/api/v1/posts/{post_id}"),
             ("post", "/api/v1/articles"), ("get", "/api/v1/me/articles"), ("patch", "/api/v1/articles/{article_id}"),
             ("post", "/api/v1/articles/{article_id}/publish"), ("get", "/api/v1/feeds/following"),
+            ("post", "/api/v1/articles/{article_id}/draft"), ("post", "/api/v1/articles/{article_id}/schedule"),
+            ("delete", "/api/v1/articles/{article_id}"), ("put", "/api/v1/articles/{article_id}/thumbnail"),
         }
         for path, path_item in schema.get("paths", {}).items():
             for method, operation in path_item.items():
