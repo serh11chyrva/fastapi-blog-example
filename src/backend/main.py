@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from pymongo import AsyncMongoClient
 from redis.asyncio import Redis
+from scalar_fastapi import AgentScalarConfig, Theme, add_scalar_reference
 
 from backend.content.feed_router import router as feed_router
 from backend.content.router import router as content_router
@@ -70,8 +71,8 @@ def create_app() -> FastAPI:
             {"name": "feeds", "description": "Chronological public and followed-author feeds."},
             {"name": "health", "description": "Application and dependency health checks."},
         ],
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        docs_url=None,
+        redoc_url=None,
         openapi_url="/api/openapi.json",
         lifespan=lifespan,
     )
@@ -189,6 +190,15 @@ def create_app() -> FastAPI:
         return schema
 
     app.openapi = custom_openapi
+
+    add_scalar_reference(
+        app,
+        route="/api/docs",
+        title="Commonplace API Reference",
+        theme=Theme.DEFAULT,
+        agent=AgentScalarConfig(disabled=True),
+        telemetry=False,
+    )
 
     @app.middleware("http")
     async def enforce_same_origin(request: Request, call_next):

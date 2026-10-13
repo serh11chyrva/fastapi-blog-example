@@ -73,7 +73,7 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 
 ## API reference
 
-The interactive OpenAPI interface is available at `/api/docs` and the raw schema at `/api/openapi.json`. See [docs/API.md](docs/API.md) for endpoint tables, authentication and cookie handling, request/response examples, pagination, upload rules, and common errors.
+The interactive Scalar API reference is available at `/api/docs` and the raw schema at `/api/openapi.json`. Scalar telemetry and its optional AI agent are disabled. See [docs/API.md](docs/API.md) for endpoint tables, authentication and cookie handling, request/response examples, pagination, upload rules, and common errors.
 
 ## Development checks
 

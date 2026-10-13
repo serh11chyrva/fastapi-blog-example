@@ -1,6 +1,6 @@
 # Commonplace API reference
 
-This guide documents the implemented API in addition to the interactive OpenAPI UI at `http://localhost:8080/api/docs` and its machine-readable schema at `/api/openapi.json`.
+This guide documents the implemented API in addition to the interactive Scalar reference at `http://localhost:8080/api/docs` and its machine-readable schema at `/api/openapi.json`.
 
 ## Conventions
 
