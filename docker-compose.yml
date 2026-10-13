@@ -89,16 +89,14 @@ services:
         --quiet --file /scripts/mongo-init.js
     restart: "no"
 
-  mongo-express:
-    image: mongo-express:1.0.2-20-alpine3.19
+  compass-web:
+    image: haohanyang/compass-web:0.5.1
     environment:
-      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}@mongo:27017/?authSource=admin&replicaSet=rs0
-      ME_CONFIG_BASICAUTH: "true"
-      ME_CONFIG_BASICAUTH_ENABLED: "true"
-      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME:?Set MONGO_EXPRESS_USERNAME in .env}
-      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:?Set MONGO_EXPRESS_PASSWORD in .env}
+      CW_MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}@mongo:27017/?authSource=admin&replicaSet=rs0
+      CW_BASIC_AUTH_USERNAME: ${COMPASS_WEB_USERNAME:-${MONGO_EXPRESS_USERNAME:?Set COMPASS_WEB_USERNAME in .env}}
+      CW_BASIC_AUTH_PASSWORD: ${COMPASS_WEB_PASSWORD:-${MONGO_EXPRESS_PASSWORD:?Set COMPASS_WEB_PASSWORD in .env}}
     ports:
-      - "127.0.0.1:${MONGO_EXPRESS_PORT:-8081}:8081"
+      - "127.0.0.1:${COMPASS_WEB_PORT:-${MONGO_EXPRESS_PORT:-8081}}:8080"
     depends_on:
       mongo-init:
         condition: service_completed_successfully

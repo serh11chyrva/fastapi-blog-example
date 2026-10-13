@@ -43,11 +43,11 @@ Open the app and API documentation:
 
 - App: <http://localhost:8080>
 - API docs: <http://localhost:8080/api/docs>
-- Mongo Express: <http://localhost:8081>
+- MongoDB Compass Web: <http://localhost:8081> (uses `COMPASS_WEB_USERNAME` and `COMPASS_WEB_PASSWORD` from `.env`)
 
 Demo accounts are `alice@example.com`, `ben@example.com`, and `casey@example.com`. Their local-only password is the value of `DEMO_PASSWORD` in `.env` (the sample is `DemoPassword123!`). You can also register a new account in the app.
 
-MongoDB and Redis ports are bound to localhost for development. When connecting to the replica set from a host-side MongoDB client, use a direct connection, for example `mongodb://localhost:27017/?directConnection=true`. Mongo Express connects within the Compose network.
+MongoDB and Redis ports are bound to localhost for development. When connecting to the replica set from a host-side MongoDB client, use a direct connection, for example `mongodb://localhost:27017/?directConnection=true`. Compass Web connects within the Compose network.
 
 ## Features
 
