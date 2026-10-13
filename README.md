@@ -16,6 +16,21 @@ Start the services from the repository root:
 docker compose up --build -d
 ```
 
+For development with automatic code updates, use the development override instead:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d api frontend-dev
+```
+
+Open <http://localhost:5173>. Changes under `src/backend/` restart the API worker automatically, and frontend changes under `src/frontend/` are applied by Vite without rebuilding or restarting containers. The Vite server proxies `/api` requests to the API container. This mode keeps MongoDB, Redis, and Garage in Docker and does not start Nginx unless it was already running.
+
+To return to the regular Nginx setup, run:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml stop frontend-dev
+docker compose -f docker-compose.yml up -d api nginx
+```
+
 The first startup configures MongoDB as a single-node replica set and creates a least-privilege application database user. The setup is idempotent and keeps the existing `./data/mongo` directory. Garage stores avatars under `./data/garage`.
 
 Seed the public demo profiles, posts, articles, follows, and badges:
@@ -53,6 +68,7 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 - `main.py` wires FastAPI, the async PyMongo client used by Beanie, Redis, and Garage. MongoDB is the source of truth; audited writes use replica-set transactions.
 - Passwords use Argon2id. Existing scrypt hashes are checked and upgraded after a successful login.
 - Frontend source lives under `src/frontend/`. Docker uses a Node.js build stage with cached npm dependencies, Vite production minification and separate React/editor chunks, then copies only static output into Nginx.
+- `docker-compose.dev.yml` mounts API and frontend source for reload/HMR during development; the default Compose setup continues to serve the production frontend from Nginx.
 - Tests are grouped by layer: `tests/unit/`, `tests/services/`, and `tests/api/`.
 
 ## API reference
