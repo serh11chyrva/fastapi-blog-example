@@ -5,7 +5,12 @@ from pydantic import BaseModel, Field
 
 
 class Settings(BaseModel):
-    mongodb_url: str = Field(default_factory=lambda: environ.get("MONGODB_URL", "mongodb://localhost:27017/?replicaSet=rs0"))
+    mongodb_url: str = Field(
+        default_factory=lambda: environ.get("MONGODB_URL", ""),
+        min_length=1,
+        validate_default=True,
+        description="Required MongoDB connection string from MONGODB_URL, such as an Atlas SRV URI.",
+    )
     mongodb_database: str = Field(default_factory=lambda: environ.get("MONGODB_DATABASE", "blog"))
     redis_url: str = Field(default_factory=lambda: environ.get("REDIS_URL", "redis://localhost:6379/0"))
     app_origin: str = Field(default_factory=lambda: environ.get("APP_ORIGIN", "http://localhost:8080").rstrip("/"))

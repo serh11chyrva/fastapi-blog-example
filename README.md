@@ -1,14 +1,29 @@
 # Commonplace
 
-A local demonstration microblog built with FastAPI, Beanie, MongoDB, Redis, React, Tailwind CSS, TipTap, Nginx, and Garage S3-compatible object storage.
+A demonstration microblog built with FastAPI, Beanie, MongoDB Atlas, Redis, React, Tailwind CSS, TipTap, Nginx, and Garage S3-compatible object storage.
 
 ## Start the application
 
-Copy the sample local configuration if you do not already have an `.env` file:
+Copy the sample configuration if you do not already have an `.env` file:
 
 ```powershell
 Copy-Item .env.example .env
 ```
+
+Configure MongoDB Atlas before starting the services:
+
+1. Create an Atlas cluster and a database user with the `readWrite` role for the database named by `MONGODB_DATABASE` (default: `blog`).
+2. Add the public outbound IP of the machine running Docker to the Atlas project's IP access list.
+3. Copy the connection string from the cluster's **Connect > Drivers** dialog and set `MONGODB_URL` in `.env`, replacing the username and password. Percent-encode reserved characters in credentials.
+
+```dotenv
+MONGODB_URL='mongodb+srv://<username>:<password>@<cluster-host>/?retryWrites=true&w=majority'
+MONGODB_DATABASE=blog
+```
+
+Use the actual Atlas connection string, preserving its connection options. `MONGODB_DATABASE` selects the application's database independently of the URI's default database. The application requires transaction support for audited writes. Both Compose and the backend require a non-empty `MONGODB_URL`; there is no default local MongoDB connection. For a backend launched outside Docker, export these variables in its process environment; the backend does not load `.env` automatically.
+
+See the official [Atlas connection guide](https://www.mongodb.com/docs/atlas/connect-to-database-deployment/) and [connection string formats](https://www.mongodb.com/docs/manual/reference/connection-string/).
 
 Start the services from the repository root:
 
@@ -22,7 +37,7 @@ For development with automatic code updates, use the development override instea
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d api frontend-dev
 ```
 
-Open <http://localhost:5173>. Changes under `src/backend/` restart the API worker automatically, and frontend changes under `src/frontend/` are applied by Vite without rebuilding or restarting containers. The Vite server proxies `/api` requests to the API container. This mode keeps MongoDB, Redis, and Garage in Docker and does not start Nginx unless it was already running.
+Open <http://localhost:5173>. Changes under `src/backend/` restart the API worker automatically, and frontend changes under `src/frontend/` are applied by Vite without rebuilding or restarting containers. The Vite server proxies `/api` requests to the API container. This mode keeps Redis and Garage in Docker, connects to MongoDB Atlas using the same settings, and does not start Nginx unless it was already running.
 
 To return to the regular Nginx setup, run:
 
@@ -31,7 +46,15 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml stop frontend-dev
 docker compose -f docker-compose.yml up -d api nginx
 ```
 
-The first startup configures MongoDB as a single-node replica set and creates a least-privilege application database user. The setup is idempotent and keeps the existing `./data/mongo` directory. Garage stores avatars under `./data/garage`.
+On startup, Beanie initializes the application's document models and indexes in the configured Atlas database. Database users and cluster access are managed in Atlas. Garage stores avatars under `./data/garage`.
+
+If upgrading from the previous local MongoDB stack, add `MONGODB_URL` to your existing `.env` and remove the obsolete `MONGO_ROOT_*`, `MONGO_APP_*`, `MONGO_REPLICA_KEY`, `MONGO_PORT`, `COMPASS_WEB_*`, and any legacy `MONGO_EXPRESS_*` variables. Remove the previous containers before starting the updated stack:
+
+```sh
+docker compose down --remove-orphans
+```
+
+This preserves the old `./data/mongo` directory and named volumes. Existing local MongoDB data is not migrated to Atlas automatically; export/import it separately if needed. The updated stack does not run MongoDB, replica-set initialization, or Compass Web containers.
 
 Seed the public demo profiles, posts, articles, follows, and badges:
 
@@ -43,11 +66,10 @@ Open the app and API documentation:
 
 - App: <http://localhost:8080>
 - API docs: <http://localhost:8080/api/docs>
-- MongoDB Compass Web: <http://localhost:8081> (uses `COMPASS_WEB_USERNAME` and `COMPASS_WEB_PASSWORD` from `.env`)
 
 Demo accounts are `alice@example.com`, `ben@example.com`, and `casey@example.com`. Their local-only password is the value of `DEMO_PASSWORD` in `.env` (the sample is `DemoPassword123!`). You can also register a new account in the app.
 
-MongoDB and Redis ports are bound to localhost for development. When connecting to the replica set from a host-side MongoDB client, use a direct connection, for example `mongodb://localhost:27017/?directConnection=true`. Compass Web connects within the Compose network.
+The Redis port is bound to localhost for development. MongoDB is accessed remotely through the configured Atlas connection string.
 
 ## Features
 
@@ -100,4 +122,4 @@ Use Node.js 22.12 or newer for local frontend builds, matching the Node.js versi
 docker compose down
 ```
 
-Stopping the services keeps MongoDB and Garage data. The sample credentials and single-node storage configuration are for local development only; replace secrets and use an appropriately secured deployment before exposing the app to a network.
+Stopping the services keeps Atlas data and local Garage data. The sample application and Garage credentials and single-node object storage configuration are for local development only; replace secrets and use an appropriately secured deployment before exposing the app to a network.

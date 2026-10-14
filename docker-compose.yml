@@ -2,7 +2,7 @@ services:
   api:
     build: .
     environment:
-      MONGODB_URL: mongodb://${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}@mongo:27017/?authSource=${MONGODB_DATABASE:-blog}&replicaSet=rs0
+      MONGODB_URL: ${MONGODB_URL:?Set MONGODB_URL to your MongoDB Atlas connection string in .env}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-blog}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
@@ -18,10 +18,6 @@ services:
       ARTICLE_THUMBNAIL_MAX_BYTES: ${ARTICLE_THUMBNAIL_MAX_BYTES:-10485760}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-DemoPassword123!}
     depends_on:
-      mongo:
-        condition: service_healthy
-      mongo-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
       garage:
@@ -32,74 +28,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 25s
-    restart: unless-stopped
-
-  mongo:
-    image: mongo:8.0
-    command: ["mongod", "--quiet", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/run/mongo-keyfile/keyfile"]
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
-    ports:
-      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
-    depends_on:
-      mongo-keyfile-init:
-        condition: service_completed_successfully
-    volumes:
-      - mongo_keyfile:/run/mongo-keyfile:ro
-      - type: bind
-        source: ./data/mongo
-        target: /data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
-    restart: unless-stopped
-
-  mongo-keyfile-init:
-    image: alpine:3.22
-    environment:
-      MONGO_REPLICA_KEY: ${MONGO_REPLICA_KEY:?Set MONGO_REPLICA_KEY in .env}
-    volumes:
-      - mongo_keyfile:/run/mongo-keyfile
-    entrypoint: ["/bin/sh", "-ec"]
-    command:
-      - printf '%s' "$$MONGO_REPLICA_KEY" > /run/mongo-keyfile/keyfile; chown 999:999 /run/mongo-keyfile/keyfile; chmod 400 /run/mongo-keyfile/keyfile
-    restart: "no"
-
-  mongo-init:
-    image: mongo:8.0
-    environment:
-      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
-      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
-      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}
-      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}
-      MONGODB_DATABASE: ${MONGODB_DATABASE:-blog}
-    depends_on:
-      mongo:
-        condition: service_healthy
-    volumes:
-      - ./docker/mongo-init.js:/scripts/mongo-init.js:ro
-    entrypoint: ["/bin/sh", "-ec"]
-    command:
-      - >-
-        mongosh "mongodb://$$MONGO_ROOT_USERNAME:$$MONGO_ROOT_PASSWORD@mongo:27017/admin?authSource=admin"
-        --quiet --file /scripts/mongo-init.js
-    restart: "no"
-
-  compass-web:
-    image: haohanyang/compass-web:0.5.1
-    environment:
-      CW_MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}@mongo:27017/?authSource=admin&replicaSet=rs0
-      CW_BASIC_AUTH_USERNAME: ${COMPASS_WEB_USERNAME:-${MONGO_EXPRESS_USERNAME:?Set COMPASS_WEB_USERNAME in .env}}
-      CW_BASIC_AUTH_PASSWORD: ${COMPASS_WEB_PASSWORD:-${MONGO_EXPRESS_PASSWORD:?Set COMPASS_WEB_PASSWORD in .env}}
-    ports:
-      - "127.0.0.1:${COMPASS_WEB_PORT:-${MONGO_EXPRESS_PORT:-8081}}:8080"
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
     restart: unless-stopped
 
   redis:
@@ -171,5 +99,3 @@ configs:
       admin_token = "${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}"
       metrics_token = "${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}"
 
-volumes:
-  mongo_keyfile:
