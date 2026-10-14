@@ -6,7 +6,7 @@ from typing import Literal
 from beanie import PydanticObjectId
 from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile, status
 
-from backend.content.schemas import ArticleCreate, ArticleResponse, ArticleScheduleRequest, ArticleUpdate, MicroPostCreate, MicroPostResponse
+from backend.content.schemas import ArticleCreate, ArticleImageResponse, ArticleResponse, ArticleScheduleRequest, ArticleUpdate, MicroPostCreate, MicroPostResponse
 from backend.content.repository import ContentRepository
 from backend.content.service import ContentService
 from backend.content.urls import publication_image_url
@@ -292,7 +292,7 @@ async def read_article_thumbnail(object_name: str, request: Request, current_use
     return Response(content=data, media_type=content_type, headers={"Cache-Control": cache_control, "X-Content-Type-Options": "nosniff"})
 
 
-@router.post("/articles/{article_id}/images", status_code=status.HTTP_201_CREATED)
+@router.post("/articles/{article_id}/images", response_model=ArticleImageResponse, status_code=status.HTTP_201_CREATED)
 async def upload_article_image(article_id: str, request: Request, current_user: CurrentUser, file: UploadFile = File(...)) -> dict[str, str]:
     if not PydanticObjectId.is_valid(article_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
