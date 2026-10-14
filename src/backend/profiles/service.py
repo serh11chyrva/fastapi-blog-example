@@ -13,7 +13,7 @@ class ProfileService:
     def avatar_url(user: User) -> str | None:
         if not user.avatar_key:
             return None
-        return f"/api/v1/media/avatars/{user.avatar_key.rsplit('/', 1)[-1]}"
+        return f"/static/images/avatars/{user.avatar_key.rsplit('/', 1)[-1]}"
 
     async def response(self, user: User, viewer_id: PydanticObjectId | None) -> ProfileResponse:
         follower_count, following_count = await self.repository.counts(user.id)

@@ -17,8 +17,8 @@ def share_path(username: str, title: str, share_id: str) -> str:
 def article_thumbnail_url(key: str | None) -> str | None:
     if not key:
         return None
-    return f"/api/v1/media/article-thumbnails/{key.rsplit('/', 1)[-1]}"
+    return f"/static/images/article-covers/{key.rsplit('/', 1)[-1]}"
 
 
 def publication_image_url(key: str, collection: str) -> str:
-    return f"/api/v1/media/{collection}/{key.rsplit('/', 1)[-1]}"
+    return f"/static/images/{collection}/{key.rsplit('/', 1)[-1]}"

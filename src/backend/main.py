@@ -19,6 +19,9 @@ from backend.core.database import DOCUMENT_MODELS
 from backend.core.schemas import ApplicationStatusResponse, HealthResponse
 from backend.profiles.router import router as profile_router
 from backend.storage.s3 import check_storage, create_s3_client
+from backend.storage.router import router as upload_router
+from backend.storage.image_router import router as image_router
+from backend.storage.cleanup import run_storage_cleanup
 from backend.auth.router import router as auth_router
 
 
@@ -28,11 +31,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     mongo_client = AsyncMongoClient(settings.mongodb_url, serverSelectionTimeoutMS=8_000, tz_aware=True)
     redis_client = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=3)
     s3_client = create_s3_client(settings)
+    s3_public_client = create_s3_client(settings, public=True)
     app.state.mongo_client = mongo_client
     app.state.redis = redis_client
     app.state.s3_client = s3_client
+    app.state.s3_public_client = s3_public_client
     app.state.logger = logger
     scheduler_task = None
+    cleanup_task = None
     try:
         await mongo_client.admin.command("ping")
         from beanie import init_beanie
@@ -40,10 +46,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await init_beanie(database=mongo_client[settings.mongodb_database], document_models=DOCUMENT_MODELS)
         await ensure_public_share_ids()
         await redis_client.ping()
-        await check_storage(s3_client, settings.avatar_bucket)
+        await check_storage(s3_client, settings)
+        await redis_client.incr("feed:public:version")
+        cleanup_task = asyncio.create_task(run_storage_cleanup(s3_client), name="image-storage-cleanup")
         scheduler_task = asyncio.create_task(run_publication_scheduler(mongo_client, redis_client), name="scheduled-publications")
         yield
     finally:
+        if cleanup_task is not None:
+            cleanup_task.cancel()
+            try:
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
         if scheduler_task is not None:
             scheduler_task.cancel()
             try:
@@ -52,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 pass
         await redis_client.aclose()
         s3_client.close()
+        s3_public_client.close()
         await mongo_client.close()
 
 
@@ -71,6 +86,8 @@ def create_app() -> FastAPI:
     app.include_router(profile_router, prefix="/api/v1")
     app.include_router(content_router, prefix="/api/v1")
     app.include_router(feed_router, prefix="/api/v1")
+    app.include_router(upload_router, prefix="/api/v1")
+    app.include_router(image_router)
 
     configure_openapi(app)
 
@@ -101,7 +118,7 @@ def create_app() -> FastAPI:
         try:
             await request.app.state.mongo_client.admin.command("ping")
             await request.app.state.redis.ping()
-            await check_storage(request.app.state.s3_client, get_settings().avatar_bucket)
+            await check_storage(request.app.state.s3_client, get_settings())
         except Exception as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="A required service is unavailable") from exc
         return {"status": "ok", "database": "ok", "redis": "ok", "object_storage": "ok"}

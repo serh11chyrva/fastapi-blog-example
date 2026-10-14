@@ -19,10 +19,14 @@ class Settings(BaseModel):
     session_idle_days: int = Field(default_factory=lambda: int(environ.get("SESSION_IDLE_DAYS", "7")))
     session_absolute_days: int = Field(default_factory=lambda: int(environ.get("SESSION_ABSOLUTE_DAYS", "30")))
     s3_endpoint_url: str = Field(default_factory=lambda: environ.get("S3_ENDPOINT_URL", "http://garage:3900"))
+    s3_public_endpoint_url: str = Field(default_factory=lambda: environ.get("S3_PUBLIC_ENDPOINT_URL", "http://localhost:3900").rstrip("/"))
     s3_region: str = Field(default_factory=lambda: environ.get("S3_REGION", "garage"))
     s3_access_key: str = Field(default_factory=lambda: environ.get("GARAGE_ACCESS_KEY", ""))
     s3_secret_key: str = Field(default_factory=lambda: environ.get("GARAGE_SECRET_KEY", ""))
     avatar_bucket: str = "blog-avatars"
+    publication_bucket: str = "blog-publications"
+    upload_expiry_seconds: int = 600
+    storage_cors_origins: list[str] = Field(default_factory=lambda: [item.strip().rstrip("/") for item in environ.get("STORAGE_CORS_ORIGINS", "http://localhost:8080,http://localhost:5173").split(",") if item.strip()])
     avatar_max_bytes: int = 5 * 1024 * 1024
     article_thumbnail_max_bytes: int = 10 * 1024 * 1024
     publication_image_max_bytes: int = 5 * 1024 * 1024

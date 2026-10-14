@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": "http://api:8000",
+      "/static/images": "http://api:8000",
     },
   },
   build: {

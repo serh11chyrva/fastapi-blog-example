@@ -25,7 +25,18 @@ Use the actual Atlas connection string, preserving its connection options. `MONG
 
 See the official [Atlas connection guide](https://www.mongodb.com/docs/atlas/connect-to-database-deployment/) and [connection string formats](https://www.mongodb.com/docs/manual/reference/connection-string/).
 
-Start the services from the repository root:
+Provision the two private Garage image buckets before starting the API. Run from the repository root (Docker Desktop must be running):
+
+```powershell
+docker compose build api
+.\scripts\setup-storage.ps1
+```
+
+The idempotent script starts Garage, ensures `blog-avatars` and `blog-publications` exist, grants the configured key access, and configures upload CORS. It reads `GARAGE_ACCESS_KEY` from the process environment or `.env`; `-AccessKey` can override it. Repeat provisioning after removing Garage data. The API requires both buckets on startup and in `/health`.
+
+The upload CORS rule allows the lower-case header name `content-type`, matching browser preflight requests. Garage compares allowed header names literally; using `Content-Type` here causes browser uploads to be rejected before PUT. The provisioning script runs the current workspace CORS setup code inside the API image, so repeating setup also applies CORS fixes without an image rebuild.
+
+Start the remaining services:
 
 ```sh
 docker compose up --build -d
@@ -37,7 +48,7 @@ For development with automatic code updates, use the development override instea
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d api frontend-dev
 ```
 
-Open <http://localhost:5173>. Changes under `src/backend/` restart the API worker automatically, and frontend changes under `src/frontend/` are applied by Vite without rebuilding or restarting containers. The Vite server proxies `/api` requests to the API container. This mode keeps Redis and Garage in Docker, connects to MongoDB Atlas using the same settings, and does not start Nginx unless it was already running.
+Open <http://localhost:5173>. Changes under `src/backend/` restart the API worker automatically, and frontend changes under `src/frontend/` are applied by Vite without rebuilding or restarting containers. The Vite server proxies `/api` and `/static/images` requests to the API container. The development override sets `APP_ORIGIN` to `FRONTEND_DEV_ORIGIN` (default: `http://localhost:5173`). This mode keeps Redis and Garage in Docker, connects to MongoDB Atlas using the same settings, and does not start Nginx unless it was already running.
 
 To return to the regular Nginx setup, run:
 
@@ -46,7 +57,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml stop frontend-dev
 docker compose -f docker-compose.yml up -d api nginx
 ```
 
-On startup, Beanie initializes the application's document models and indexes in the configured Atlas database. Database users and cluster access are managed in Atlas. Garage stores avatars under `./data/garage`.
+On startup, Beanie initializes the application's document models and indexes in the configured Atlas database. Database users and cluster access are managed in Atlas. Garage stores all image objects and its metadata under `./data/garage`.
 
 If upgrading from the previous local MongoDB stack, add `MONGODB_URL` to your existing `.env` and remove the obsolete `MONGO_ROOT_*`, `MONGO_APP_*`, `MONGO_REPLICA_KEY`, `MONGO_PORT`, `COMPASS_WEB_*`, and any legacy `MONGO_EXPRESS_*` variables. Remove the previous containers before starting the updated stack:
 
@@ -71,7 +82,28 @@ Demo accounts are `alice@example.com`, `ben@example.com`, and `casey@example.com
 
 The Redis port is bound to localhost for development. MongoDB is accessed remotely through the configured Atlas connection string.
 
-The shared media bucket (`blog-avatars`) and upload size limits are defined in `src/backend/core/config.py`, rather than environment variables. Avatars, post images, and inline article images allow 5 MiB per file; article thumbnails allow 10 MiB. Garage creates the same bucket through `GARAGE_DEFAULT_BUCKET` in `docker-compose.yml`; keep that value aligned with `Settings.avatar_bucket` if renaming the bucket. `.env` holds credentials and settings that vary by deployment, such as connection URLs, ports, and application origin. Changing configuration defaults requires restarting the development backend or rebuilding the production API image.
+Image bucket names and size limits are defined in `src/backend/core/config.py`: `blog-avatars` contains avatars; `blog-publications` contains post images, article covers, and inline images. Avatars, post images, and inline article images allow 5 MiB per file; covers allow 10 MiB. Temporary uploads live under `temporary/` in the corresponding private bucket. Neither bucket is exposed as a public website.
+
+Browsers request ten-minute presigned PUT URLs, upload directly to Garage, then confirm through the API. Confirmation validates a separate final copy and attaches it transactionally; upload replay cannot change an accepted image. API responses use `/static/images/...` URLs. FastAPI checks publication visibility before serving images, including private drafts. Nginx and Vite forward these paths to FastAPI. See [docs/API.md](docs/API.md) for the complete protocol.
+
+`S3_ENDPOINT_URL` is the internal address (`http://garage:3900` in Docker); `S3_PUBLIC_ENDPOINT_URL` is the browser-reachable address used when signing URLs (`http://localhost:3900` locally). Garage's S3 port is bound to localhost via `S3_PORT`. If you change that port, update the public URL as well. `STORAGE_CORS_ORIGINS` is a comma-separated list of allowed frontend origins, defaulting to ports 8080 and 5173. Keep it aligned with `APP_ORIGIN`, `API_PORT`, and the development frontend origin when customizing ports. For a remote deployment, configure a browser-reachable HTTPS S3 endpoint and its network exposure; the local port binding alone does not provide remote access. Signed URLs must reach Garage with their original host and path.
+
+A worker runs every minute to remove replaced images and retry failed deletions. Temporary files and abandoned final copies become eligible after an hour (temporary files after URL expiry plus one hour). Upload-session records expire seven days after their upload deadline; cleanup jobs remain until handled. Dependency changes use `uv`; configuration defaults require restarting the development backend or rebuilding the production API image.
+
+### Reset existing application data
+
+Legacy media routes and multipart uploads are removed. There is no migration of existing files or embedded article URLs. Clearing local `data/` removes Garage objects and old local MongoDB files; it does **not** clear the configured MongoDB Atlas database.
+
+For a complete fresh start, stop the API and frontend services, provision storage, then explicitly erase only the configured application database and its two image buckets. This deletes accounts, publications, and sessions in that database:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml stop api nginx frontend-dev
+docker compose run --rm --no-deps api python -m backend.storage.reset --confirm-database blog
+docker compose up -d
+docker compose run --rm api python -m backend.seed
+```
+
+Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically at startup. Provisioning and reset are separate operations; reset keeps the Garage bucket configuration.
 
 ## Features
 
@@ -90,6 +122,7 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 
 - Backend code lives under `src/backend/`. Authentication, profiles, content, and audit each keep their Beanie documents in their domain package; repositories own common persistence queries and services hold reusable domain behavior.
 - `main.py` wires FastAPI, the async PyMongo client used by Beanie, Redis, and Garage. MongoDB is the source of truth; audited writes use replica-set transactions.
+- The public feed cache version advances on API startup so deployments and explicit data resets do not reuse cached responses with obsolete image URLs.
 - Passwords use Argon2id. Existing scrypt hashes are checked and upgraded after a successful login.
 - Frontend source lives under `src/frontend/`. Docker uses a Node.js build stage with cached npm dependencies, Vite production minification and separate React/editor chunks, then copies only static output into Nginx.
 - `docker-compose.dev.yml` mounts API and frontend source for reload/HMR during development; the default Compose setup continues to serve the production frontend from Nginx.

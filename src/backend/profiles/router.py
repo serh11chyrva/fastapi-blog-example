@@ -1,13 +1,10 @@
 from datetime import UTC, datetime
-import re
-from uuid import uuid4
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.audit import record_audit
-from backend.core.config import get_settings
 from backend.core.dependencies import CurrentUser, OptionalUser
 from backend.content.schemas import FeedItem
 from backend.content.repository import ContentRepository
@@ -16,7 +13,6 @@ from backend.profiles.models import Follow, User
 from backend.profiles.repository import ProfileRepository
 from backend.profiles.schemas import ProfileResponse, ProfileUpdate, ProfileUserResponse
 from backend.profiles.service import ProfileService
-from backend.storage.s3 import delete_avatar, get_avatar, put_avatar
 
 
 router = APIRouter(tags=["profiles"])
@@ -34,16 +30,6 @@ async def _profile_response(user: User, viewer_id: PydanticObjectId | None) -> P
 
 def _user_card(user: User) -> ProfileUserResponse:
     return profile_service.user_card(user)
-
-
-def _avatar_type(data: bytes) -> tuple[str, str] | None:
-    if data.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg", "jpg"
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png", "png"
-    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp", "webp"
-    return None
 
 
 @router.get("/users/{username}", response_model=ProfileResponse)
@@ -86,13 +72,16 @@ async def update_profile(payload: ProfileUpdate, request: Request, current_user:
     changes = payload.model_dump(exclude_unset=True)
     if "links" in changes and changes["links"] is not None:
         changes["links"] = [item.model_dump() for item in payload.links or []]
-    for field, value in changes.items():
-        if value is not None:
-            setattr(current_user, field, value)
-    current_user.updated_at = datetime.now(UTC)
     client = request.app.state.mongo_client
     async with client.start_session() as db_session:
         async with await db_session.start_transaction():
+            current_user = await User.get(current_user.id, session=db_session)
+            if current_user is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+            for field, value in changes.items():
+                if value is not None:
+                    setattr(current_user, field, value)
+            current_user.updated_at = datetime.now(UTC)
             await current_user.save(session=db_session)
             await record_audit(
                 request,
@@ -104,62 +93,6 @@ async def update_profile(payload: ProfileUpdate, request: Request, current_user:
                 session=db_session,
             )
     return await _profile_response(current_user, current_user.id)
-
-
-@router.put("/me/avatar", response_model=ProfileResponse)
-async def upload_avatar(request: Request, current_user: CurrentUser, file: UploadFile = File(...)) -> ProfileResponse:
-    settings = get_settings()
-    data = await file.read(settings.avatar_max_bytes + 1)
-    if len(data) > settings.avatar_max_bytes:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Avatar is too large")
-    detected = _avatar_type(data)
-    if detected is None:
-        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Use a JPEG, PNG, or WebP image")
-    content_type, extension = detected
-    new_key = f"avatars/{uuid4().hex}.{extension}"
-    client = request.app.state.s3_client
-    try:
-        await put_avatar(client, settings.avatar_bucket, new_key, data, content_type)
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Avatar storage is unavailable") from exc
-
-    old_key = current_user.avatar_key
-    current_user.avatar_key = new_key
-    current_user.avatar_content_type = content_type
-    current_user.updated_at = datetime.now(UTC)
-    mongo_client = request.app.state.mongo_client
-    try:
-        async with mongo_client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                await current_user.save(session=db_session)
-                await record_audit(request, "AVATAR_CHANGED", actor_id=current_user.id, target_type="user", target_id=str(current_user.id), session=db_session)
-    except Exception:
-        await delete_avatar(client, settings.avatar_bucket, new_key)
-        raise
-    if old_key:
-        try:
-            await delete_avatar(client, settings.avatar_bucket, old_key)
-        except Exception:
-            request.app.state.logger.exception("Failed to remove replaced avatar object")
-    return await _profile_response(current_user, current_user.id)
-
-
-@router.get("/media/avatars/{object_name}")
-async def read_avatar(object_name: str, request: Request) -> Response:
-    if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", object_name):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
-    key = f"avatars/{object_name}"
-    user = await User.find_one(User.avatar_key == key)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
-    try:
-        result = await get_avatar(request.app.state.s3_client, get_settings().avatar_bucket, key)
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Avatar storage is unavailable") from exc
-    if result is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
-    data, content_type = result
-    return Response(content=data, media_type=content_type, headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/users/{username}/followers", response_model=list[ProfileUserResponse])

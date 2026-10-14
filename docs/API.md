@@ -6,10 +6,10 @@ This guide documents the implemented API in addition to the interactive Scalar r
 
 - Upload size limits are defined in `src/backend/core/config.py`: 5 MiB per avatar, post image, or inline article image, and 10 MiB per article thumbnail. These limits are not configured through environment variables.
 - Base path: `/api/v1`.
-- JSON is used unless an endpoint accepts a multipart upload.
+- Application API requests use JSON. Presigned Garage PUT requests send raw file bytes without application cookies.
 - Timestamps are ISO 8601 UTC strings. IDs are MongoDB ObjectId strings.
 - Authentication is a server-side session delivered in the `blog_session` HttpOnly cookie. The raw token is never part of a JSON response. The cookie defaults to `SameSite=Lax`; `Secure` is configurable.
-- Keep the cookie between requests. For browser requests use same-origin `fetch` with `credentials: "same-origin"`. All POST, PUT, PATCH, and DELETE requests must include the configured `APP_ORIGIN` in the `Origin` header. This is enforced as a CSRF defense.
+- Keep the cookie between application API requests. Use same-origin `fetch` with `credentials: "same-origin"`. All POST, PUT, PATCH, and DELETE requests under `/api/v1` must include the configured `APP_ORIGIN` in the `Origin` header as a CSRF defense. Presigned Garage PUT requests use `credentials: "omit"` and the returned headers; browser access is controlled by storage CORS.
 - Successful deletes, logout, follow, and unfollow return `204 No Content` with an empty body.
 - Validation errors return `422` with FastAPI's `{ "detail": [...] }` shape. Unauthenticated protected calls return `401`; missing or inaccessible objects generally return `404`.
 - Rate limits: registration is limited to 5 attempts per email per hour; login is limited to 8 attempts per identifier per 10 minutes. Limits are enforced per client IP and per normalized identity. A limit response is `429`.
@@ -101,8 +101,8 @@ The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other user
 | GET | `/users/{username}` | Public | Read profile |
 | GET | `/users/{username}/publications?kind=all` | Public | List up to 50 public publications |
 | PATCH | `/me/profile` | Session | Update own profile |
-| PUT | `/me/avatar` | Session | Upload JPEG, PNG, or WebP avatar |
-| GET | `/media/avatars/{object_name}` | Public | Read avatar image bytes |
+| POST | `/me/avatar/uploads` | Session | Prepare an avatar upload |
+| POST | `/me/avatar/uploads/{upload_id}/complete` | Session | Confirm and replace avatar |
 | GET | `/users/{username}/followers` | Public | List followers |
 | GET | `/users/{username}/following` | Public | List followed accounts |
 | PUT | `/users/{username}/follow` | Session | Follow account (idempotent) |
@@ -130,7 +130,7 @@ Profile response example:
   "display_name": "Avery R.",
   "bio": "Writing about books and software.",
   "links": [{"label":"Website","url":"https://example.com"}],
-  "avatar_url": "/api/v1/media/avatars/0123456789abcdef0123456789abcdef.png",
+  "avatar_url": "/static/images/avatars/0123456789abcdef0123456789abcdef.png",
   "badges": [{"code":"early-reader","label":"Early Reader","description":"Joined the demo community early.","assigned_at":"2026-10-12T09:30:00Z"}],
   "follower_count": 3,
   "following_count": 5,
@@ -138,42 +138,74 @@ Profile response example:
 }
 ```
 
-Avatar uploads use `multipart/form-data` with the field name `file`. The default maximum is 5 MiB. Unsupported formats return `415`; oversized files return `413`.
+## Image uploads and downloads
 
-## Publication images
+Image uploads have three steps: prepare with JSON metadata, PUT raw bytes to the returned Garage URLs, then confirm. All preparation and confirmation routes require the resource owner's session and the application Origin header. Create the post or article draft before preparing its images. Preparation never changes attachments.
 
-| Method | Path | Access | Purpose |
-| --- | --- | --- | --- |
-| PUT | `/posts/{post_id}/images` | Session, post owner | Replace a post's image gallery (one to five files) |
-| POST | `/articles/{article_id}/images` | Session, article owner | Upload an image for insertion in the TipTap body |
-| PUT | `/articles/{article_id}/thumbnail` | Session, article owner | Replace the article cover image |
-| GET | `/media/post-images/{object_name}` | Public | Read an image attached to a public post |
-| GET | `/media/article-images/{object_name}` | Public or draft owner | Read an inline article image |
-| GET | `/media/article-thumbnails/{object_name}` | Public or draft owner | Read an article cover image |
+| Method | Path (under `/api/v1`) | Purpose |
+| --- | --- | --- |
+| POST | `/me/avatar/uploads` | Prepare one avatar |
+| POST | `/me/avatar/uploads/{upload_id}/complete` | Confirm avatar; returns profile |
+| POST | `/posts/{post_id}/images/uploads` | Prepare one to five gallery images, in display order |
+| POST | `/posts/{post_id}/images/uploads/{upload_id}/complete` | Replace the whole gallery; returns post |
+| POST | `/articles/{article_id}/cover/uploads` | Prepare one cover |
+| POST | `/articles/{article_id}/cover/uploads/{upload_id}/complete` | Replace cover; returns article with `thumbnail_url` |
+| POST | `/articles/{article_id}/images/uploads` | Prepare one inline image |
+| POST | `/articles/{article_id}/images/uploads/{upload_id}/complete` | Append inline image; returns `url` and `alt_text` |
 
-Uploads use `multipart/form-data`: use the `files` field for post galleries and `file` for article images and thumbnails. Gallery uploads replace the complete gallery. Post and inline article images are limited to 5 MiB each and JPEG, PNG, or WebP; posts accept up to five files and articles up to 30 inline images. The thumbnail limit is 10 MiB. Media endpoints only serve objects still attached to an accessible publication.
+JPEG, PNG, and WebP are accepted. Avatars, post images, and inline images allow 5 MiB; covers allow 10 MiB. Articles allow up to 30 inline images, checked again at confirmation. Files must be nonempty and their actual lengths must match the declared sizes. Signature checks reject unsupported bytes or bytes that disagree with the requested MIME type. Presigned PUT alone does not enforce the size limit: confirmation rejects oversized objects before attachment.
 
-Example post with three images:
-
-```sh
-curl -i -b cookies.txt -H "Origin: $BASE" \
-  -F "files=@cover.jpg" -F "files=@detail.png" -F "files=@sketch.webp" \
-  "$BASE/api/v1/posts/65f0c2a1b2c3d4e5f6071829/images"
-```
-
-Create an article draft first, then upload an inline image. The response URL can be inserted in the article TipTap JSON as an `image` node. Article JSON only permits uploaded same-origin article media URLs; the image must have been uploaded to that article before saving the body.
+Preparation request:
 
 ```sh
-curl -i -b cookies.txt -H "Origin: $BASE" -F "file=@figure.png" \
-  "$BASE/api/v1/articles/65f0c2a1b2c3d4e5f6071829/images"
+curl -b cookies.txt -H "Origin: $BASE" -H "Content-Type: application/json" \
+  -d '{"files":[{"filename":"figure.png","content_type":"image/png","size_bytes":1024}]}' \
+  "$BASE/api/v1/articles/65f0c2a1b2c3d4e5f6071829/images/uploads"
 ```
 
-The response is `{ "url": "/api/v1/media/article-images/<object>.png", "alt_text": "figure.png" }`.
+Use the actual byte length of your local file. Example response (the URL's signature is illustrative):
+
+```json
+{
+  "upload_id": "65f0c2a1b2c3d4e5f6071899",
+  "expires_at": "2026-10-14T12:10:00Z",
+  "files": [{
+    "upload_url": "http://localhost:3900/blog-publications/temporary/0123456789abcdef0123456789abcdef?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=example",
+    "method": "PUT",
+    "headers": {"Content-Type": "image/png"},
+    "max_size_bytes": 5242880
+  }]
+}
+```
+
+Upload each file to its corresponding returned URL with the returned headers. Do not send the application cookie, prepend `/api/v1`, or replace the signed host or path:
 
 ```sh
-curl -i -b cookies.txt -H "Origin: $BASE" \
-  -F "file=@avatar.png;type=image/png" "$BASE/api/v1/me/avatar"
+curl --fail -X PUT -H "Content-Type: image/png" --data-binary @figure.png "$UPLOAD_URL"
+curl -b cookies.txt -H "Origin: $BASE" -X POST \
+  "$BASE/api/v1/articles/65f0c2a1b2c3d4e5f6071829/images/uploads/$UPLOAD_ID/complete"
 ```
+
+Confirmation has no request body. Its returned inline image can be inserted into this article's TipTap JSON:
+
+```json
+{"url":"/static/images/article-images/0123456789abcdef0123456789abcdef.png","alt_text":"figure.png"}
+```
+
+The server validates a separate final copy and attaches it in a transaction with the audit event. Replaying the temporary PUT cannot overwrite that final image. Repeating a completed confirmation returns the original saved result, without attaching again. A failed gallery confirmation leaves existing attachments intact. Concurrent edits can return `409`; retry confirmation while the upload is valid. If it expires, prepare a new upload.
+
+Preparation and PUT URLs last ten minutes. Completion must start before the deadline and has a five-minute processing lease. Missing files, expired sessions, and concurrent confirmations return `409`; missing or inaccessible upload sessions return `404`. Oversized images return `413`, unsupported bytes return `415`, and size mismatch or count limits return `422`. Storage/database failures return `503`. Temporary files and abandoned final copies are queued for cleanup after an hour; replaced and deleted attachments are queued immediately. The worker runs every minute and retries failed deletions. Upload-session results are retained for seven days after expiry.
+
+Downloads are at the application root, outside `/api/v1`:
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | `/static/images/avatars/{object_name}` | Public, attached avatar |
+| GET | `/static/images/post-images/{object_name}` | Public, non-deleted post |
+| GET | `/static/images/article-covers/{object_name}` | Published article or its author |
+| GET | `/static/images/article-images/{object_name}` | Published article or its author |
+
+Only attached images are served. Missing, deleted, or inaccessible images return `404`; unavailable storage returns `503`. Article images use `Cache-Control: private, no-store`, including published articles, so returning an article to draft does not leave a publicly cached copy. Avatars and post images use a one-hour public cache. TipTap image sources must use the new relative article-image paths and belong to the article being saved. Legacy multipart upload routes and `/api/v1/media/` download routes are removed, without migration or redirects.
 
 Following yourself returns `400`. Repeated follow/unfollow requests are safe and return `204`.
 
@@ -262,11 +294,10 @@ Text must contain 1–280 non-whitespace characters. `PATCH` accepts the same co
 | POST | `/articles/{article_id}/schedule` | Author | Schedule a future publication |
 | POST | `/articles/{article_id}/draft` | Author | Return an article to draft |
 | DELETE | `/articles/{article_id}` | Author | Soft-delete article |
-| PUT | `/articles/{article_id}/thumbnail` | Author | Upload JPEG, PNG, or WebP thumbnail |
 
 Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, `scheduled`, or `published`. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 encoded bytes.
 
-Upload an optional thumbnail using multipart field `file` at `PUT /articles/{article_id}/thumbnail` (JPEG, PNG, or WebP; 10 MiB maximum by default). A published thumbnail is public; while an article is a draft or scheduled, only its author can retrieve the image. Set a future ISO 8601 timestamp with timezone to schedule publication:
+Upload an optional cover through `/articles/{article_id}/cover/uploads` and its matching confirmation endpoint (JPEG, PNG, or WebP; 10 MiB maximum). A published thumbnail is public; while an article is a draft or scheduled, only its author can retrieve the image. Set a future ISO 8601 timestamp with timezone to schedule publication:
 
 ```json
 {"publish_at":"2026-10-13T09:00:00Z"}

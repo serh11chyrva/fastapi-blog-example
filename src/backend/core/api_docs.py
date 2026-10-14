@@ -23,7 +23,9 @@ header matching the configured application origin (`http://localhost:8080` by de
 Micro-posts are public immediately. Articles start as private drafts and can be
 published immediately, scheduled for a future time, or returned to draft.
 Article bodies use TipTap JSON. Upload inline images to the article before referencing
-their returned URLs in its body. Uploads use multipart form data; image downloads return bytes.
+their returned URLs in its body. Request upload URLs with JSON metadata, PUT raw bytes
+to Garage without application cookies, then confirm the upload. URLs last ten minutes.
+Image downloads use `/static/images/` and retain article access checks.
 
 ### Pagination and conventions
 Feeds return newest-first pages. Pass `next_cursor` unchanged as the next request's
@@ -45,7 +47,7 @@ OPENAPI_TAGS = [
     {"name": "Articles", "description": "Write TipTap articles as private drafts, add a cover and inline images, then publish or schedule them. Drafts and scheduled articles, including their media, are accessible only to their author."},
     {"name": "Publications", "description": "Resolve a public publication from its author handle and readable share slug with a stable UUID. Responses can contain either a micro-post or a published article."},
     {"name": "Feeds", "description": "Read public publications or publications from writers you follow, newest first. Filter by type and paginate with an opaque cursor; the following feed requires a session."},
-    {"name": "Media", "description": "Download avatars and publication images as JPEG, PNG, or WebP bytes. Avatars and post images are public; unpublished article media requires the author's session."},
+    {"name": "Media", "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and post images are public; unpublished article media requires the author's session."},
     {"name": "System", "description": "Identify the application and inspect dependency availability. The health endpoint checks MongoDB, Redis, and object storage and returns 503 when a required service is unavailable."},
 ]
 
@@ -61,8 +63,6 @@ OPERATION_DOCS = {
     ("get", "/api/v1/users/{username}"): ("Get a public profile", "Username is case-insensitive; follow state is relative to the optional current session."),
     ("get", "/api/v1/users/{username}/publications"): ("List profile publications", "Returns up to 50 public micro-posts and published articles, newest first."),
     ("patch", "/api/v1/me/profile"): ("Update your profile", "Partial update. Omitted fields stay unchanged; links accept at most eight HTTP(S) URLs."),
-    ("put", "/api/v1/me/avatar"): ("Upload your avatar", "Multipart file upload. JPEG, PNG, and WebP are accepted, up to the configured size limit (5 MiB by default)."),
-    ("get", "/api/v1/media/avatars/{object_name}"): ("Read an avatar", "Returns the image bytes with a detected image content type."),
     ("get", "/api/v1/users/{username}/followers"): ("List followers", "Returns compact public profile cards."),
     ("get", "/api/v1/users/{username}/following"): ("List followed profiles", "Returns compact public profile cards."),
     ("put", "/api/v1/users/{username}/follow"): ("Follow a profile", "Idempotently creates a follow relationship; following yourself returns 400."),
@@ -79,34 +79,28 @@ OPERATION_DOCS = {
     ("post", "/api/v1/articles/{article_id}/draft"): ("Return an article to draft", "Unpublishes or unschedules your article and makes it private to you."),
     ("post", "/api/v1/articles/{article_id}/schedule"): ("Schedule an article", "Sets a future timezone-aware publication time; the background worker publishes it automatically."),
     ("delete", "/api/v1/articles/{article_id}"): ("Delete an article", "Soft-deletes your draft, scheduled article, or publication."),
-    ("put", "/api/v1/articles/{article_id}/thumbnail"): ("Upload an article thumbnail", "Multipart file upload. JPEG, PNG, and WebP are accepted, up to 10 MiB by default."),
-    ("get", "/api/v1/media/article-thumbnails/{object_name}"): ("Download an article cover", "Returns JPEG, PNG, or WebP image bytes. Published covers are public; draft and scheduled covers require their author's session. Missing or inaccessible images return 404."),
     ("get", "/api/v1/publications/{username}/{share_slug}"): ("Read a shared publication", "Resolves the UUID-safe slug in /@username/slug--share-id and returns the public post or article."),
     ("get", "/api/v1/feeds/public"): ("Read the public feed", "Chronological mixed feed of public micro-posts and published articles."),
     ("get", "/api/v1/feeds/following"): ("Read the following feed", "Chronological mixed feed from followed authors; requires a session cookie."),
     ("get", "/"): ("Identify the application", "Returns a short application identifier without checking dependency connectivity. Use /health to inspect service availability."),
     ("get", "/health"): ("Check dependency health", "Pings MongoDB and Redis and checks object storage; returns 503 if a dependency is unavailable."),
-    ("put", "/api/v1/posts/{post_id}/images"): ("Replace micro-post images", "Upload one to five files using repeated multipart files fields. Replaces all existing attachments in upload order. Accepts JPEG, PNG, or WebP; each file is limited to 5 MiB by default. Requires the author's session."),
-    ("post", "/api/v1/articles/{article_id}/images"): ("Upload an inline article image", "Upload a JPEG, PNG, or WebP file (up to 5 MiB by default). An article can store up to 30 inline images. Returns a URL to insert into a TipTap image node's attrs.src and a suggested alt_text based on the filename. Requires the author's session."),
-    ("get", "/api/v1/media/article-images/{object_name}"): ("Download an inline article image", "Returns JPEG, PNG, or WebP image bytes. Published images are public; draft and scheduled images require their author's session. Missing or inaccessible images return 404."),
-    ("get", "/api/v1/media/post-images/{object_name}"): ("Download a micro-post image", "Returns public JPEG, PNG, or WebP image bytes with a one-hour cache lifetime. The image must belong to a non-deleted post."),
 }
 
 PROTECTED_OPERATIONS = {
     ("get", "/api/v1/auth/me"), ("post", "/api/v1/auth/logout"), ("get", "/api/v1/auth/sessions"),
     ("delete", "/api/v1/auth/sessions/{session_id}"), ("post", "/api/v1/auth/sessions/logout-others"),
-    ("patch", "/api/v1/me/profile"), ("put", "/api/v1/me/avatar"),
+    ("patch", "/api/v1/me/profile"),
     ("put", "/api/v1/users/{username}/follow"), ("delete", "/api/v1/users/{username}/follow"),
     ("post", "/api/v1/posts"), ("patch", "/api/v1/posts/{post_id}"), ("delete", "/api/v1/posts/{post_id}"),
     ("post", "/api/v1/articles"), ("get", "/api/v1/me/articles"), ("patch", "/api/v1/articles/{article_id}"),
     ("post", "/api/v1/articles/{article_id}/publish"), ("get", "/api/v1/feeds/following"),
     ("post", "/api/v1/articles/{article_id}/draft"), ("post", "/api/v1/articles/{article_id}/schedule"),
-    ("delete", "/api/v1/articles/{article_id}"), ("put", "/api/v1/articles/{article_id}/thumbnail"),
-    ("put", "/api/v1/posts/{post_id}/images"),
-    ("post", "/api/v1/articles/{article_id}/images"),
+    ("delete", "/api/v1/articles/{article_id}"),
 }
 
 PARAMETER_DOCS = {
+    "upload_id": ("Upload session ObjectId from the matching preparation endpoint; only its owner can confirm it.", "65f0c2a1b2c3d4e5f6071899"),
+    "collection": ("Image category: avatars, post-images, article-covers, or article-images.", "post-images"),
     "username": ("Public handle of the profile or publication author; matching is case-insensitive.", examples.ACCOUNT["username"]),
     "session_id": ("Session ObjectId from the active session list. You can revoke only your own sessions.", examples.SESSION["id"]),
     "post_id": ("Micro-post ObjectId returned when the post was created.", examples.POST["id"]),
@@ -122,14 +116,11 @@ RESPONSE_EXAMPLES = {
     ("get", "/"): [({"message": "FastAPI Microblog Demo"}, "Application identifier")],
     ("get", "/health"): [({"status": "ok", "database": "ok", "redis": "ok", "object_storage": "ok"}, "All dependencies available")],
     ("post", "/api/v1/posts"): [(examples.POST, "New public note")],
-    ("put", "/api/v1/posts/{post_id}/images"): [(examples.POST_WITH_IMAGES, "Note with replaced attachments")],
     ("post", "/api/v1/articles"): [(examples.ARTICLE, "New private draft")],
     ("post", "/api/v1/articles/{article_id}/publish"): [(examples.ARTICLE_PUBLISHED | {"thumbnail_url": None}, "Article published immediately")],
     ("post", "/api/v1/articles/{article_id}/draft"): [(examples.ARTICLE, "Private draft with no schedule")],
     ("post", "/api/v1/articles/{article_id}/schedule"): [(examples.ARTICLE_SCHEDULED, "Article awaiting scheduled publication")],
     ("patch", "/api/v1/articles/{article_id}"): [(examples.ARTICLE_UPDATED, "Updated private article")],
-    ("put", "/api/v1/articles/{article_id}/thumbnail"): [(examples.ARTICLE | {"thumbnail_url": examples.THUMBNAIL_URL, "updated_at": "2026-10-12T13:19:52Z"}, "Draft with an uploaded cover")],
-    ("post", "/api/v1/articles/{article_id}/images"): [(examples.ARTICLE_IMAGE, "Uploaded inline image")],
     ("get", "/api/v1/publications/{username}/{share_slug}"): [
         (examples.POST_WITH_IMAGES, "Public micro-post"),
         (examples.ARTICLE_PUBLISHED, "Published article"),
@@ -138,7 +129,7 @@ RESPONSE_EXAMPLES = {
 
 
 def _operation_tag(path: str) -> str:
-    if path.startswith("/api/v1/media/"):
+    if path.startswith("/static/images/") or "/uploads" in path:
         return "Media"
     if path.startswith("/api/v1/auth/sessions"):
         return "Sessions"
@@ -191,27 +182,30 @@ def _error_response(description: str, detail: str) -> dict:
     }
 
 
-def _document_upload(operation: dict, path: str, schemas: dict) -> None:
-    content = operation.get("requestBody", {}).get("content", {}).get("multipart/form-data")
-    if not content:
+def _document_upload(operation: dict, path: str) -> None:
+    if "/uploads" not in path:
         return
-    body = content["schema"]
-    if "$ref" in body:
-        body = schemas[body["$ref"].rsplit("/", 1)[-1]]
-    is_post = path.startswith("/api/v1/posts/")
-    limit = "10 MiB" if path.endswith("/thumbnail") else "5 MiB"
-    body["description"] = "Multipart image upload. Submit actual file bytes, not a JSON filename or URL."
-    for field in body.get("properties", {}).values():
-        field["title"] = "Post images" if is_post else "Image file"
-        field["description"] = (
-            f"{'One to five JPEG, PNG, or WebP files; repeat the files field for each image' if is_post else 'A JPEG, PNG, or WebP file'}; "
-            f"{limit} per file by default. Choose a local file such as {'riverside-ride.jpg' if is_post else 'reading-desk.webp'}."
-        )
+    completing = path.endswith("/complete")
+    operation["description"] = (
+        "Confirm all uploaded files, validate their actual size and image signatures, and attach immutable final objects. "
+        "Requires the resource owner's session. Repeating a completed confirmation returns its saved result. "
+        "A post confirmation replaces the complete gallery in request order; an article image confirmation appends one inline image."
+        if completing else
+        "Send JSON file metadata to receive ten-minute presigned PUT URLs. Upload each file's raw bytes using the returned headers, "
+        "without application cookies, then call the matching completion endpoint. One file is required, except post galleries accept "
+        "one to five files. JPEG, PNG, and WebP are accepted: 5 MiB per file, or 10 MiB for article covers. "
+        "Creating an upload does not change the resource. Articles accept up to 30 inline images."
+    )
     operation["responses"].update({
-        "413": _error_response("The uploaded image exceeds the configured size limit.", "Avatar is too large" if path.endswith("/avatar") else "Each image must be at most 5 MB" if is_post or path.endswith("/images") else "Thumbnail is too large"),
-        "415": _error_response("The file bytes are not a supported image format.", "Use JPEG, PNG, or WebP images" if is_post else "Use a JPEG, PNG, or WebP image"),
-        "503": _error_response("Image storage is unavailable.", "Avatar storage is unavailable" if path.endswith("/avatar") else "Image storage is unavailable"),
+        "413": _error_response("An image exceeds the configured size limit.", "Image exceeds the configured size limit"),
+        "503": _error_response("Image storage or database is unavailable; retry the request.", "Image storage or database is unavailable"),
     })
+    if completing:
+        operation["responses"].update({
+            "409": _error_response("The upload expired, files are missing, or confirmation conflicts with another operation.", "Upload all files before confirming"),
+            "415": _error_response("Image bytes do not match a supported requested format.", "Use JPEG, PNG, or WebP bytes matching the requested content type"),
+            "422": _error_response("The actual size differs from metadata or the article image limit was reached.", "Uploaded size does not match the requested size"),
+        })
 
 
 def configure_openapi(app: FastAPI) -> None:
@@ -259,13 +253,16 @@ def configure_openapi(app: FastAPI) -> None:
                     if parameter["name"] == "object_name":
                         collection = path.split("/")[-2]
                         url = {"avatars": examples.AVATAR_URL, "post-images": examples.POST_IMAGE_URL,
-                               "article-thumbnails": examples.THUMBNAIL_URL, "article-images": examples.ARTICLE_IMAGE["url"]}[collection]
+                               "article-covers": examples.THUMBNAIL_URL, "article-images": examples.ARTICLE_IMAGE["url"]}.get(collection, examples.POST_IMAGE_URL)
                         details = ("Stored image filename, including its extension; take it from the returned media URL.", url.rsplit("/", 1)[-1])
                     if details:
                         parameter["description"], parameter["example"] = details
-                if key in PROTECTED_OPERATIONS:
+                if "/uploads" in path or key in PROTECTED_OPERATIONS:
                     operation["security"] = [{"SessionCookie": []}]
                     operation["responses"]["401"] = _error_response("A valid session cookie is required.", "Authentication required")
+                if path.startswith("/static/images/"):
+                    operation["security"] = [{}, {"SessionCookie": []}]
+                    operation["responses"]["503"] = _error_response("Image storage is unavailable.", "Image storage is unavailable")
                 if "{" in path:
                     resource = (
                         "Session" if "{session_id}" in path else
@@ -274,7 +271,7 @@ def configure_openapi(app: FastAPI) -> None:
                         "Profile" if path.startswith("/api/v1/users/") else
                         "Publication" if path.startswith("/api/v1/publications/") else
                         "Avatar" if "/avatars/" in path else
-                        "Thumbnail" if "/article-thumbnails/" in path else "Image"
+                        "Thumbnail" if "/article-covers/" in path else "Image"
                     )
                     operation["responses"]["404"] = _error_response("The resource does not exist, was deleted, or is not accessible to this viewer.", f"{resource} not found")
                 if key == ("put", "/api/v1/users/{username}/follow"):
@@ -291,7 +288,7 @@ def configure_openapi(app: FastAPI) -> None:
                     values = _schema_examples(request_content.get("schema", {}), schemas)
                     if values:
                         request_content["examples"] = _named_examples([(value, "Example request") for value in values])
-                _document_upload(operation, path, schemas)
+                _document_upload(operation, path)
                 validation_content = operation.get("responses", {}).get("422", {}).get("content", {}).get("application/json")
                 if validation_content:
                     body_content = operation.get("requestBody", {}).get("content", {})
@@ -312,7 +309,7 @@ def configure_openapi(app: FastAPI) -> None:
                         response["description"] = "Completed successfully; no response body."
                     if not code.startswith("2") or code == "204":
                         continue
-                    if path.startswith("/api/v1/media/"):
+                    if path.startswith("/static/images/"):
                         response["description"] = "Image bytes in the detected format."
                         response["content"] = {
                             media_type: {"schema": {"type": "string", "format": "binary", "description": "Raw image bytes; save or display as an image."}}

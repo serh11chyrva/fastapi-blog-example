@@ -14,7 +14,7 @@ def article_image_keys(document: dict[str, Any]) -> set[str]:
         if node.get("type") == "image":
             attrs = node.get("attrs")
             src = attrs.get("src", "") if isinstance(attrs, dict) else ""
-            match = re.fullmatch(r"/api/v1/media/article-images/([0-9a-f]{32}\.(?:jpg|png|webp))", src)
+            match = re.fullmatch(r"/static/images/article-images/([0-9a-f]{32}\.(?:jpg|png|webp))", src)
             if match:
                 found.add(f"article-images/{match.group(1)}")
         for child in node.get("content", []):
@@ -45,7 +45,7 @@ def validate_tiptap_document(document: dict[str, Any]) -> None:
         if node["type"] == "image":
             attrs = node.get("attrs")
             src = attrs.get("src", "") if isinstance(attrs, dict) else ""
-            if not isinstance(src, str) or not re.fullmatch(r"/api/v1/media/article-images/[0-9a-f]{32}\.(jpg|png|webp)", src):
+            if not isinstance(src, str) or not re.fullmatch(r"/static/images/article-images/[0-9a-f]{32}\.(jpg|png|webp)", src):
                 raise ValueError("Article images must use uploaded article media")
         for mark in node.get("marks", []):
             if not isinstance(mark, dict) or mark.get("type") not in ALLOWED_MARKS:

@@ -10,6 +10,8 @@ services:
       SESSION_IDLE_DAYS: ${SESSION_IDLE_DAYS:-7}
       SESSION_ABSOLUTE_DAYS: ${SESSION_ABSOLUTE_DAYS:-30}
       S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://garage:3900}
+      S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:3900}
+      STORAGE_CORS_ORIGINS: ${STORAGE_CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
       S3_REGION: ${S3_REGION:-garage}
       GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:?Set GARAGE_ACCESS_KEY in .env}
       GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:?Set GARAGE_SECRET_KEY in .env}
@@ -42,6 +44,8 @@ services:
 
   garage:
     image: dxflrs/garage:v2.4.1
+    ports:
+      - "127.0.0.1:${S3_PORT:-3900}:3900"
     environment:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?Set GARAGE_RPC_SECRET in .env}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}

@@ -35,7 +35,7 @@ BADGE = {
     "description": "Joined Commonplace during its first community release.",
     "assigned_at": "2026-10-12T08:42:19Z",
 }
-AVATAR_URL = "/api/v1/media/avatars/9a47dc2e381f4b60a75d2c8b613e09af.webp"
+AVATAR_URL = "/static/images/avatars/9a47dc2e381f4b60a75d2c8b613e09af.webp"
 PROFILE = {
     "id": ACCOUNT["id"],
     "username": ACCOUNT["username"],
@@ -50,7 +50,7 @@ PROFILE_USER = {
     "id": "68eb7491d37a2f06b8ce9540",
     "username": "elliot_gray",
     "display_name": "Elliot Gray",
-    "avatar_url": "/api/v1/media/avatars/d10c7629ab3e4f85a79160b2f8c4e035.jpg",
+    "avatar_url": "/static/images/avatars/d10c7629ab3e4f85a79160b2f8c4e035.jpg",
 }
 AUTHOR = {
     "author_id": ACCOUNT["id"],
@@ -70,7 +70,7 @@ POST = {
     "created_at": "2026-10-12T10:03:27Z",
     "updated_at": "2026-10-12T10:03:27Z",
 }
-POST_IMAGE_URL = "/api/v1/media/post-images/74b936dfe1a24c708951c3e628a0fd5b.jpg"
+POST_IMAGE_URL = "/static/images/post-images/74b936dfe1a24c708951c3e628a0fd5b.jpg"
 POST_WITH_IMAGES = POST | {"images": [POST_IMAGE_URL], "updated_at": "2026-10-12T10:06:14Z"}
 ARTICLE_BODY = {
     "type": "doc",
@@ -103,7 +103,7 @@ ARTICLE = {
     "scheduled_at": None,
     "published_at": None,
 }
-THUMBNAIL_URL = "/api/v1/media/article-thumbnails/65c924eb1f8d4a36b2907d83ef6a015c.jpg"
+THUMBNAIL_URL = "/static/images/article-covers/65c924eb1f8d4a36b2907d83ef6a015c.jpg"
 ARTICLE_PUBLISHED = ARTICLE | {
     "status": "published",
     "thumbnail_url": THUMBNAIL_URL,
@@ -118,7 +118,7 @@ PUBLISH_AT = (datetime.now(UTC) + timedelta(days=7)).replace(hour=9, minute=30, 
 ARTICLE_SCHEDULE = {"publish_at": PUBLISH_AT}
 ARTICLE_SCHEDULED = ARTICLE | {"status": "scheduled", "scheduled_at": PUBLISH_AT, "updated_at": "2026-10-14T07:18:46Z"}
 ARTICLE_IMAGE = {
-    "url": "/api/v1/media/article-images/e815d392a60b4f78b129c3470dea6952.webp",
+    "url": "/static/images/article-images/e815d392a60b4f78b129c3470dea6952.webp",
     "alt_text": "Paperback and coffee on a wooden desk.webp",
 }
 FEED_ARTICLE = {key: ARTICLE_PUBLISHED[key] for key in (
