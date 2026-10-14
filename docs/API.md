@@ -98,21 +98,29 @@ The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other user
 
 | Method | Path | Access | Purpose |
 | --- | --- | --- | --- |
-| GET | `/users/{username}` | Public | Read profile |
-| GET | `/users/{username}/links/{link_id}/redirect` | Public | Temporarily redirect to a saved profile link |
+| GET | `/users/{username}` | Public | Read public profile with visible badges only |
+| GET | `/me/profile` | Session | Read own profile, revision, and all badge assignments |
+| PATCH | `/me/profile` | Session | Update own profile using its expected revision |
+| PATCH | `/me/badges/{code}` | Session | Change own badge visibility using the expected revision |
+| GET | `/links/{link_id}/redirect` | Public | Temporarily redirect to a saved link |
+| GET | `/users/{username}/links/{link_id}/redirect` | Public | Deprecated compatibility redirect |
 | GET | `/users/{username}/publications?kind=all` | Public | List up to 50 public publications |
-| PATCH | `/me/profile` | Session | Update own profile |
 | POST | `/me/avatar/uploads` | Session | Prepare an avatar upload |
-| POST | `/me/avatar/uploads/{upload_id}/complete` | Session | Confirm and replace avatar |
+| POST | `/me/avatar/uploads/{upload_id}/complete` | Session | Confirm and replace avatar; return current own profile |
 | GET | `/users/{username}/followers` | Public | List followers |
 | GET | `/users/{username}/following` | Public | List followed accounts |
 | PUT | `/users/{username}/follow` | Session | Follow account (idempotent) |
 | DELETE | `/users/{username}/follow` | Session | Unfollow account (idempotent) |
 
-Profile update is a partial JSON object. Omitted fields are unchanged. `display_name` is limited to 64 characters, `bio` to 280, and `links` to eight HTTP(S) entries. Link labels allow 1–32 characters and URLs 8–500 characters. URLs require a hostname and cannot contain credentials, whitespace, control characters, or backslashes. Send an empty array to clear links; `null` does not clear a field.
+### Profile edits and concurrency
+
+Read `GET /me/profile` before editing and send its `revision` with every profile or badge visibility PATCH. Revision is an optimistic concurrency counter, independent of data format `version`. Every successful PATCH increments it, including no-op updates; avatar attachment increments it once as well. Stale revisions or concurrent transactional writes return `409` with `{"detail":"Profile changed; reload your profile before saving"}`. Reload and explicitly reconcile edits before retrying; do not automatically resubmit an old form with a new revision. Missing revision returns `422`, including for older clients.
+
+Editable fields are partial: omitted or null values stay unchanged. `display_name` is trimmed, nonblank, and limited to 64 characters, `bio` to 280, and `links` to eight entries. Labels are trimmed and allow 1–32 characters; URLs allow 8–500 characters and require absolute HTTP(S) URLs with a hostname, without credentials, whitespace, control characters, or backslashes. The same link validation applies to persistence models. Use `[]` to clear links. Unknown top-level profile fields return `422`.
 
 ```json
 {
+  "revision": 0,
   "display_name": "Avery R.",
   "bio": "Writing about books and software.",
   "links": [
@@ -122,7 +130,9 @@ Profile update is a partial JSON object. Omitted fields are unchanged. `display_
 }
 ```
 
-Profile response example:
+PATCH returns the own-profile schema and new revision. Own-profile GET, profile PATCH, badge PATCH, and avatar confirmation use `Cache-Control: private, no-store`. Private data is available only for the requesting account through `/me`; signing in does not expose another owner's settings.
+
+Public profile example:
 
 ```json
 {
@@ -130,28 +140,66 @@ Profile response example:
   "username": "reader_one",
   "display_name": "Avery R.",
   "bio": "Writing about books and software.",
-  "links": [{"version":1,"id":"da3861fe-4336-411f-8e34-e32d37c2ebad","label":"Website","url":"https://example.com","platform":"website","redirect_url":"/api/v1/users/reader_one/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect"}],
+  "links": [{"version":1,"id":"da3861fe-4336-411f-8e34-e32d37c2ebad","label":"Website","url":"https://example.com","platform":"website","redirect_url":"/api/v1/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect"}],
   "avatar_url": "/static/images/avatars/0123456789abcdef0123456789abcdef.png",
-  "badges": [{"version":1,"code":"early-reader","label":"Early Reader","description":"Joined the demo community early.","assigned_at":"2026-10-12T09:30:00Z","enabled":true,"can_disable":true,"payload":{"background_color":"#f3f4f6","text_color":"#374151","icon_url":"/static/images/badges/star.svg"}}],
+  "badges": [{"version":2,"code":"early-reader","payload":{"label":"Early Reader","description":"Joined the demo community early.","background_color":"#f3f4f6","text_color":"#374151","icon_url":"/static/images/badges/star.svg","icon_color":"#374151"}}],
   "follower_count": 3,
   "following_count": 5,
   "is_following": false
 }
 ```
 
-### Versioned links and badges
+`GET /me/profile` returns the same profile fields plus `revision`; its `badges` includes hidden assignments and adds private fields to each entry:
 
-Each link and badge uses `version: 1`, describing its data format rather than edit history. Link input defaults to version 1 when omitted; other versions return `422`. Existing unversioned records receive version 1 on read. Legacy links receive deterministic UUIDs based on the profile handle, original list position, and destination; normal profile writes persist the upgraded embedded data. Existing badges default to enabled, allow future disabling, and use the neutral colors and star icon above.
+```json
+{
+  "version": 2,
+  "code": "early-reader",
+  "payload": {
+    "label": "Early Reader",
+    "description": "Joined the demo community early.",
+    "background_color": "#f3f4f6",
+    "text_color": "#374151",
+    "icon_url": "/static/images/badges/star.svg",
+    "icon_color": "#374151"
+  },
+  "assigned_at": "2026-10-12T09:30:00Z",
+  "preferences": {"enabled": true},
+  "permissions": {"can_disable": true}
+}
+```
 
-When replacing the link list, retain each existing link's `id` to preserve its redirect URL, including when changing the label, destination, or order. Omit `id` (or send `null`) for a new link; the server creates a UUID. Duplicate IDs and IDs absent from your current saved links return `422` with a `detail` string. Removing a link makes its redirect return `404`; adding it again without its ID creates a new link. Old clients can still submit only `label` and `url`, but doing so creates new IDs for the replacement list. `platform` and `redirect_url` are computed by the server and are not editable fields.
+### Stable links and redirects
+
+Links retain format `version: 1`; input defaults to 1 when omitted, and unsupported versions return `422`. Format version describes the wire shape, not edit history. Retain an existing `id` when changing destination or reordering. Without an ID (or with null), the server reuses an unclaimed existing link with the exact same URL, even when its label changes. Multiple possible matches return `422` and require an explicit ID. An unmatched URL creates a UUID. Explicit IDs are reserved before URL matching; duplicate or foreign IDs return `422`. Removing a link makes its redirect return `404`. An edited URL without its original ID represents a new link.
 
 `platform` is an icon-ready identifier: `github`, `gitlab`, `x`, `facebook`, `instagram`, `threads`, `linkedin`, `youtube`, `tiktok`, `telegram`, `discord`, `reddit`, `twitch`, `medium`, `substack`, `pinterest`, `soundcloud`, `bandcamp`, `spotify`, `apple_music`, `behance`, `itch_io`, `kick`, `artstation`, `dribbble`, `deviantart`, `vimeo`, `patreon`, or `ko_fi`. Unrecognized domains use `website`. Matching is case-insensitive and uses the hostname and its subdomains, including aliases such as `twitter.com`, `youtu.be`, `t.me`, and `spotify.link`; paths and query strings do not affect detection. Creator subdomains such as `artist.bandcamp.com` and `studio.itch.io` are recognized. Apple Music matches `music.apple.com`, rather than all Apple websites. Lookalikes such as `github.com.example.org` are not GitHub. Self-hosted or custom-domain services use `website` unless their host is explicitly registered. VK, Stack Overflow, and Bluesky URLs remain valid links but use `website`.
 
-Navigate to the returned `redirect_url` in a browser, rather than fetching it as JSON. It returns `302 Found` with the saved destination in `Location` and `Cache-Control: no-store`. It requires no session and accepts only an existing saved link. Missing profiles, removed IDs, and unsafe legacy destinations return `404`; malformed UUIDs return `422`. Destination query parameters and fragments are retained; query parameters supplied to the redirect endpoint are ignored. No UTM tagging or click counting is implemented yet; destination resolution is centralized in `ProfileService.redirect_destination` for future analytics.
+Open `redirect_url` as a browser navigation rather than fetching JSON. `GET /links/{link_id}/redirect` returns `302 Found`, the saved destination in `Location`, and `Cache-Control: no-store`. It requires no session. Unknown or removed IDs return `404`; malformed UUIDs return `422`. The destination's query and fragment are retained, and endpoint query parameters are ignored. No UTM tagging or click counting is implemented; resolution is centralized in `backend.links.service.LinkService`. Future analytics failures should not prevent navigation.
 
-Badge `enabled` controls display; `can_disable` indicates whether the owner may disable it when preferences are implemented. Both default to `true` and are independent. Disabled assignments remain in profile responses, and the frontend filters them out. Badge assignment, display payload, and preferences cannot be edited through `PATCH /me/profile` yet.
+New redirect addresses do not contain a profile handle. The previous `/users/{username}/links/{link_id}/redirect` path remains a deprecated compatibility alias, requiring that the named profile owns the ID. Links remain embedded in users with an index on `links.id`; a separate collection is not needed yet. `platform` and `redirect_url` are server-derived output fields.
 
-The badge `payload` contains `background_color` and `text_color` as six-digit hex colors and `icon_url` as a nullable same-origin `/static/images/badges/<filename>` URL. A null icon displays text only. Bundled icons are served publicly by `GET /static/images/badges/{icon_name}`, with a one-hour cache, without Garage access. `star.svg` is supplied; unknown filenames return `404`. Add future SVG, PNG, or WebP assets under `src/backend/profiles/icons/` before assigning their URLs. Nginx and Vite already proxy this path to the backend.
+### Badge definitions and visibility
+
+Badge format `version: 2` moves every display field into `payload`. This is a breaking change from badge version 1: clients must use `payload.label` and `payload.description`. Public profiles filter hidden assignments on the server and never return their codes, assignment timestamps, visibility preferences, or permissions. The owner receives all assignments through `/me/profile`, including `preferences.enabled`, `permissions.can_disable`, and `assigned_at`.
+
+Set visibility through `PATCH /me/badges/early-reader`:
+
+```json
+{"revision": 0, "enabled": false}
+```
+
+The response is the updated own profile with its new revision. The server enforces permission: disabling a mandatory badge returns `403`; re-enabling it is allowed. Unknown or unassigned codes return `404`. Unknown body fields and invalid/missing revision return `422`. A code occurs at most once per profile. Badge definitions, colors, and permissions are not editable through these owner endpoints.
+
+Shared display payload and disable policy live in the `badge_definitions` collection, keyed by unique code. User assignments store only code, assignment time, and enabled state. Updating a definition updates every profile's display without copying changes into all users. Missing definitions return `503` instead of silently dropping assignments.
+
+Payload colors are six-digit hex values. A null `icon_url` displays text only. A non-null `icon_color` renders the image as a monochrome CSS mask in that color; null preserves the image's original colors. Bundled SVG, PNG, and WebP assets are served publicly at `/static/images/badges/{icon_name}` with a one-hour cache, without Garage access. `star.svg` is supplied; unknown names return `404`. Add future assets under `src/backend/profiles/icons/` before assigning their URLs.
+
+### Existing data
+
+Startup runs an idempotent Beanie migration before serving requests. Existing link IDs are retained; older links without an ID receive the same deterministic UUID previously calculated from handle, original position, and URL, which is then persisted. Normal model validation no longer computes identities from mutable profile data. Users receive persisted revision 0 when absent and storage schema marker 2.
+
+Legacy badge display fields and policy are promoted to definitions, and assignments retain code, timestamp, and enabled state. An existing definition wins; otherwise the first legacy assignment in user ObjectId order supplies the shared definition for that code. If historical copies differ, reconcile the resulting catalog before relying on those differences. Defaults preserve neutral colors and the star icon. Unsupported link versions or invalid legacy links fail migration rather than being silently discarded. New-format assignment writes are strictly validated.
 
 ## Image uploads and downloads
 
@@ -160,7 +208,7 @@ Image uploads have three steps: prepare with JSON metadata, PUT raw bytes to the
 | Method | Path (under `/api/v1`) | Purpose |
 | --- | --- | --- |
 | POST | `/me/avatar/uploads` | Prepare one avatar |
-| POST | `/me/avatar/uploads/{upload_id}/complete` | Confirm avatar; returns profile |
+| POST | `/me/avatar/uploads/{upload_id}/complete` | Confirm avatar; returns current own profile and revision |
 | POST | `/posts/{post_id}/images/uploads` | Prepare one to five gallery images, in display order |
 | POST | `/posts/{post_id}/images/uploads/{upload_id}/complete` | Replace the whole gallery; returns post |
 | POST | `/articles/{article_id}/cover/uploads` | Prepare one cover |
@@ -207,7 +255,7 @@ Confirmation has no request body. Its returned inline image can be inserted into
 {"url":"/static/images/article-images/0123456789abcdef0123456789abcdef.png","alt_text":"figure.png"}
 ```
 
-The server validates a separate final copy and attaches it in a transaction with the audit event. Replaying the temporary PUT cannot overwrite that final image. Repeating a completed confirmation returns the original saved result, without attaching again. A failed gallery confirmation leaves existing attachments intact. Concurrent edits can return `409`; retry confirmation while the upload is valid. If it expires, prepare a new upload.
+The server validates a separate final copy and attaches it in a transaction with the audit event. Replaying the temporary PUT cannot overwrite that final image. Repeating a completed confirmation does not attach again. Publication confirmations return the original saved result; avatar confirmation returns the current own profile and revision, including when replaying a completed upload from an older API format. A failed gallery confirmation leaves existing attachments intact. Concurrent edits can return `409`; retry confirmation while the upload is valid. If it expires, prepare a new upload.
 
 Preparation and PUT URLs last ten minutes. Completion must start before the deadline and has a five-minute processing lease. Missing files, expired sessions, and concurrent confirmations return `409`; missing or inaccessible upload sessions return `404`. Oversized images return `413`, unsupported bytes return `415`, and size mismatch or count limits return `422`. Storage/database failures return `503`. Temporary files and abandoned final copies are queued for cleanup after an hour; replaced and deleted attachments are queued immediately. The worker runs every minute and retries failed deletions. Upload-session results are retained for seven days after expiry.
 

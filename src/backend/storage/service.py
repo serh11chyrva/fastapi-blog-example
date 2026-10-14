@@ -179,6 +179,7 @@ class ImageStorageService:
                     old_keys = [target.avatar_key] if target.avatar_key else []
                     target.avatar_key = keys[0]
                     target.avatar_content_type = upload.files[0].content_type
+                    target.revision += 1
                     action, target_type = "AVATAR_CHANGED", "user"
                 elif upload.purpose == "post-images":
                     old_keys = target.image_keys

@@ -1,9 +1,7 @@
 from datetime import UTC, datetime
-from uuid import UUID
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
-from fastapi.responses import RedirectResponse
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.audit import record_audit
@@ -11,9 +9,9 @@ from backend.core.dependencies import CurrentUser, OptionalUser
 from backend.content.schemas import FeedItem
 from backend.content.repository import ContentRepository
 from backend.content.urls import article_thumbnail_url, publication_image_url, share_path
-from backend.profiles.models import Follow, ProfileLink, User
+from backend.profiles.models import Follow, User
 from backend.profiles.repository import ProfileRepository
-from backend.profiles.schemas import ProfileResponse, ProfileUpdate, ProfileUserResponse
+from backend.profiles.schemas import BadgePreferenceUpdate, OwnProfileResponse, ProfileResponse, ProfileUpdate, ProfileUserResponse
 from backend.profiles.service import ProfileService
 
 
@@ -40,27 +38,6 @@ async def get_profile(username: str, current_user: OptionalUser) -> ProfileRespo
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
     return await _profile_response(user, current_user.id if current_user else None)
-
-
-@router.get(
-    "/users/{username}/links/{link_id}/redirect",
-    response_class=RedirectResponse,
-    status_code=status.HTTP_302_FOUND,
-    responses={302: {"description": "Temporary redirect to the saved profile link.", "headers": {
-        "Location": {"description": "Saved absolute HTTP(S) destination.", "schema": {"type": "string"}},
-        "Cache-Control": {"description": "Redirects are never cached.", "schema": {"type": "string", "example": "no-store"}},
-    }}},
-)
-async def redirect_profile_link(username: str, link_id: UUID) -> RedirectResponse:
-    user = await ProfileRepository.find_by_username(username)
-    link = next((item for item in user.links if item.id == str(link_id)), None) if user else None
-    if link is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile link not found")
-    try:
-        destination = profile_service.redirect_destination(link)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile link not found") from exc
-    return RedirectResponse(destination, status_code=status.HTTP_302_FOUND, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/users/{username}/publications", response_model=list[FeedItem])
@@ -90,36 +67,22 @@ async def list_profile_publications(username: str, kind: str = Query(default="al
     ]
 
 
-@router.patch("/me/profile", response_model=ProfileResponse)
-async def update_profile(payload: ProfileUpdate, request: Request, current_user: CurrentUser) -> ProfileResponse:
-    changes = payload.model_dump(exclude_unset=True)
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            current_user = await User.get(current_user.id, session=db_session)
-            if current_user is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-            if payload.links is not None:
-                existing_ids = {item.id for item in current_user.links}
-                supplied_ids = [str(item.id) for item in payload.links if item.id is not None]
-                if len(supplied_ids) != len(set(supplied_ids)) or any(item not in existing_ids for item in supplied_ids):
-                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Link IDs must be unique and belong to your current profile")
-                changes["links"] = [ProfileLink(**item.model_dump(mode="json", exclude_none=True)) for item in payload.links]
-            for field, value in changes.items():
-                if value is not None:
-                    setattr(current_user, field, value)
-            current_user.updated_at = datetime.now(UTC)
-            await current_user.save(session=db_session)
-            await record_audit(
-                request,
-                "PROFILE_UPDATED",
-                actor_id=current_user.id,
-                target_type="user",
-                target_id=str(current_user.id),
-                metadata={"fields": sorted(changes.keys())},
-                session=db_session,
-            )
-    return await _profile_response(current_user, current_user.id)
+@router.get("/me/profile", response_model=OwnProfileResponse)
+async def get_own_profile(current_user: CurrentUser, response: Response) -> OwnProfileResponse:
+    response.headers["Cache-Control"] = "private, no-store"
+    return await profile_service.own_response(current_user)
+
+
+@router.patch("/me/profile", response_model=OwnProfileResponse)
+async def update_profile(payload: ProfileUpdate, request: Request, response: Response, current_user: CurrentUser) -> OwnProfileResponse:
+    response.headers["Cache-Control"] = "private, no-store"
+    return await profile_service.update(request, current_user.id, payload)
+
+
+@router.patch("/me/badges/{code}", response_model=OwnProfileResponse)
+async def update_badge_preferences(code: str, payload: BadgePreferenceUpdate, request: Request, response: Response, current_user: CurrentUser) -> OwnProfileResponse:
+    response.headers["Cache-Control"] = "private, no-store"
+    return await profile_service.update(request, current_user.id, payload, badge_code=code)
 
 
 @router.get("/users/{username}/followers", response_model=list[ProfileUserResponse])

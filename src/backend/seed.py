@@ -9,7 +9,8 @@ from backend.core.security import hash_password
 from backend.auth.models import AuthIdentity
 from backend.content.models import Article, MicroPost
 from backend.core.database import DOCUMENT_MODELS
-from backend.profiles.models import BadgeAssignment, Follow, User
+from backend.profiles.models import BadgeAssignment, BadgeDefinition, BadgePayload, Follow, User
+from backend.profiles.migrations import ensure_profile_schema
 
 
 DEMO_USERS = [
@@ -40,13 +41,16 @@ async def seed_demo_data() -> None:
     try:
         await client.admin.command("ping")
         await init_beanie(database=client[settings.mongodb_database], document_models=DOCUMENT_MODELS)
+        await ensure_profile_schema()
+        if await BadgeDefinition.find_one(BadgeDefinition.code == "early-reader") is None:
+            await BadgeDefinition(code="early-reader", payload=BadgePayload(label="Early Reader", description="Joined the demo community early.")).insert()
         users: dict[str, User] = {}
         now = datetime.now(UTC)
         for email, username, display_name, bio in DEMO_USERS:
             user = await User.find_one(User.username == username)
             if user is None:
                 user = User(email=email, username=username, display_name=display_name, bio=bio, created_at=now, updated_at=now)
-                user.badges = [BadgeAssignment(code="early-reader", label="Early Reader", description="Joined the demo community early.", assigned_at=now)]
+                user.badges = [BadgeAssignment(code="early-reader", assigned_at=now)]
                 await user.insert()
             users[username] = user
             identity = await AuthIdentity.find_one(AuthIdentity.user_id == user.id, AuthIdentity.provider == "password")

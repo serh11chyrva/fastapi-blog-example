@@ -110,7 +110,8 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 - Email or `@username` registration and login with opaque, server-side sessions.
 - A session settings page with IP, User-Agent, last activity, individual revocation, and logout from other sessions.
 - Append-only audit events for security, profile, follow, and publication actions.
-- Public profiles with bios, versioned links with domain detection and a dedicated redirect endpoint, versioned demo badges with display payloads and future visibility preferences, and uploaded JPEG, PNG, or WebP avatars.
+- Public profiles with bios, versioned links with domain detection and independent redirects, shared badge definitions with versioned display payloads, and uploaded JPEG, PNG, or WebP avatars.
+- Own-profile API and settings with private badge preferences, server-enforced visibility, and revision checks that reject stale profile edits.
 - Follow relationships and chronological public and following feeds.
 - 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
 - Editorial black-and-white UI with separate Posts and Articles profile tabs; article editing and reading use a full-screen writing and reading layout.
@@ -121,6 +122,7 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 ## Architecture
 
 - Backend code lives under `src/backend/`. Authentication, profiles, content, and audit each keep their Beanie documents in their domain package; repositories own common persistence queries and services hold reusable domain behavior.
+- `links/` resolves saved redirects independently of profile handles. Profiles keep embedded link identities and badge assignments; the shared `badge_definitions` catalog owns badge display and policy. Startup migrates older profile records once, preserving link IDs. Links use format version 1, badges version 2; profile PATCH requests require the revision from `GET /api/v1/me/profile`. See the API guide for compatibility and migration details.
 - `main.py` wires FastAPI, the async PyMongo client used by Beanie, Redis, and Garage. MongoDB is the source of truth; audited writes use replica-set transactions.
 - The public feed cache version advances on API startup so deployments and explicit data resets do not reuse cached responses with obsolete image URLs.
 - Passwords use Argon2id. Existing scrypt hashes are checked and upgraded after a successful login.

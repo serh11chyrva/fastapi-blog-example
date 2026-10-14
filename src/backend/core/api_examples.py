@@ -29,32 +29,37 @@ LINK_RESPONSE = {
     "version": 1,
     "id": "da3861fe-4336-411f-8e34-e32d37c2ebad",
     "platform": "website",
-    "redirect_url": "/api/v1/users/maya_bennett/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect",
+    "redirect_url": "/api/v1/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect",
 }
 PROFILE_UPDATE = {
+    "revision": 0,
     "display_name": ACCOUNT["display_name"],
     "bio": "Software engineer, weekend cyclist, and collector of good reading recommendations.",
     "links": [LINK],
 }
 BADGE = {
-    "version": 1,
+    "version": 2,
     "code": "early-adopter",
-    "label": "Early adopter",
-    "description": "Joined Commonplace during its first community release.",
-    "assigned_at": "2026-10-12T08:42:19Z",
-    "enabled": True,
-    "can_disable": True,
     "payload": {
+        "label": "Early adopter",
+        "description": "Joined Commonplace during its first community release.",
         "background_color": "#f3f4f6",
         "text_color": "#374151",
         "icon_url": "/static/images/badges/star.svg",
+        "icon_color": "#374151",
     },
+}
+OWNER_BADGE = {
+    **BADGE,
+    "assigned_at": "2026-10-12T08:42:19Z",
+    "preferences": {"enabled": True},
+    "permissions": {"can_disable": True},
 }
 AVATAR_URL = "/static/images/avatars/9a47dc2e381f4b60a75d2c8b613e09af.webp"
 PROFILE = {
     "id": ACCOUNT["id"],
     "username": ACCOUNT["username"],
-    **PROFILE_UPDATE,
+    **{key: value for key, value in PROFILE_UPDATE.items() if key != "revision"},
     "links": [LINK_RESPONSE],
     "avatar_url": AVATAR_URL,
     "badges": [BADGE],
@@ -62,6 +67,7 @@ PROFILE = {
     "following_count": 43,
     "is_following": False,
 }
+OWN_PROFILE = {**PROFILE, "revision": 0, "badges": [OWNER_BADGE]}
 PROFILE_USER = {
     "id": "68eb7491d37a2f06b8ce9540",
     "username": "elliot_gray",

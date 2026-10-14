@@ -30,11 +30,12 @@ Image downloads use `/static/images/` and retain article access checks.
 ### Pagination and conventions
 Feeds return newest-first pages. Pass `next_cursor` unchanged as the next request's
 `cursor` and keep the same `kind` filter. A null cursor marks the end of the feed.
-Identifiers are MongoDB ObjectIds unless a field explicitly describes a share UUID.
+Document identifiers are MongoDB ObjectIds; profile links and publication shares use UUIDs.
 Timestamps include a timezone and are returned in UTC. Media and share URLs are relative to this origin.
 Partial updates leave omitted or null fields unchanged. Empty strings or lists clear fields where allowed.
-Profile links and badges use format version 1. Open a link's redirect_url for a temporary
-redirect; platform identifies its site. Render only enabled badges using their display payload.
+Profile links use format version 1 and badges version 2. Open a link's redirect_url for a
+temporary redirect; platform identifies its site. Public profiles include only visible badges.
+GET /me/profile returns private badge settings and the revision required for profile writes.
 Successful 204 responses have no body. Errors use `detail`; validation errors use a list of field issues.
 
 Examples use fictional accounts and illustrative IDs. Create your own resources before
@@ -42,6 +43,7 @@ using their IDs in live requests, and choose a future time when scheduling an ar
 """
 
 OPENAPI_TAGS = [
+    {"name": "Links", "description": "Open saved HTTP(S) links through temporary redirects independent of profile handles. Query parameters are not forwarded; analytics is not implemented yet."},
     {"name": "Authentication", "description": "Create an account, sign in with an email or username, read your account, and sign out. Registration and login set the HttpOnly session cookie; logout revokes it."},
     {"name": "Sessions", "description": "Inspect your active browser sessions and their last activity. Revoke a selected session or sign out every other device while retaining the current session."},
     {"name": "Profiles", "description": "Browse public profiles and their publications, followers, and followed writers. Update your own biography, links, and avatar, or manage follow relationships."},
@@ -63,9 +65,12 @@ OPERATION_DOCS = {
     ("delete", "/api/v1/auth/sessions/{session_id}"): ("Revoke a session", "Revokes one of your sessions. Unknown and other users' sessions both return 404."),
     ("post", "/api/v1/auth/sessions/logout-others"): ("Log out other sessions", "Revokes every active session except the cookie used for this request."),
     ("get", "/api/v1/users/{username}"): ("Get a public profile", "Username is case-insensitive; follow state is relative to the optional current session."),
-    ("get", "/api/v1/users/{username}/links/{link_id}/redirect"): ("Open a profile link", "Public, temporary 302 redirect to the saved HTTP(S) URL with Cache-Control: no-store. Only saved links can be opened; missing profiles, removed links, or unsafe legacy targets return 404. No click analytics or UTM parameters are added yet; request query parameters are not forwarded."),
+    ("get", "/api/v1/links/{link_id}/redirect"): ("Open a saved link", "Public 302 redirect to the saved HTTP(S) destination, independent of profile username, with Cache-Control: no-store. Removed or unknown IDs return 404; malformed UUIDs return 422. Destination queries and fragments are retained; endpoint query parameters are ignored. No UTM tagging or click counting is implemented yet."),
+    ("get", "/api/v1/users/{username}/links/{link_id}/redirect"): ("Open a legacy profile link", "Deprecated compatibility alias. New links use /api/v1/links/{link_id}/redirect. Requires the ID to belong to the named profile; returns 302 with no-store, or 404."),
+    ("get", "/api/v1/me/profile"): ("Get your own profile", "Returns your profile revision and all your badge assignments, including hidden ones, with assignment timestamps, preferences, and permissions. Requires your session; response uses private, no-store. Public profile responses never include these fields."),
+    ("patch", "/api/v1/me/badges/{code}"): ("Change your badge visibility", "Send enabled and your expected profile revision. Requires your own assignment; unknown codes return 404, disabling a mandatory badge returns 403, and stale revisions or concurrent writes return 409. Returns your updated own profile and revision with private, no-store."),
     ("get", "/api/v1/users/{username}/publications"): ("List profile publications", "Returns up to 50 public micro-posts and published articles, newest first."),
-    ("patch", "/api/v1/me/profile"): ("Update your profile", "Partial update. Omitted or null fields stay unchanged; links accept at most eight HTTP(S) URLs without credentials or whitespace. Each link uses version 1 by default. Retain an existing link id to preserve its redirect URL; omit id for a new link. Duplicate or foreign IDs return 422. platform and redirect_url are derived by the server. Badge preferences cannot be changed through this endpoint yet."),
+    ("patch", "/api/v1/me/profile"): ("Update your profile", "Send the required revision from GET /me/profile; stale revisions and concurrent writes return 409. Omitted or null editable fields stay unchanged. Links replace the list (at most eight). Explicit IDs retain identity; entries without an ID reuse an unambiguous existing exact-URL match, otherwise get a new UUID. Duplicate, foreign, or ambiguous IDs return 422. Returns your updated own profile and revision with private, no-store. Badge visibility uses /me/badges/{code}."),
     ("get", "/api/v1/users/{username}/followers"): ("List followers", "Returns compact public profile cards."),
     ("get", "/api/v1/users/{username}/following"): ("List followed profiles", "Returns compact public profile cards."),
     ("put", "/api/v1/users/{username}/follow"): ("Follow a profile", "Idempotently creates a follow relationship; following yourself returns 400."),
@@ -92,7 +97,7 @@ OPERATION_DOCS = {
 PROTECTED_OPERATIONS = {
     ("get", "/api/v1/auth/me"), ("post", "/api/v1/auth/logout"), ("get", "/api/v1/auth/sessions"),
     ("delete", "/api/v1/auth/sessions/{session_id}"), ("post", "/api/v1/auth/sessions/logout-others"),
-    ("patch", "/api/v1/me/profile"),
+    ("get", "/api/v1/me/profile"), ("patch", "/api/v1/me/profile"), ("patch", "/api/v1/me/badges/{code}"),
     ("put", "/api/v1/users/{username}/follow"), ("delete", "/api/v1/users/{username}/follow"),
     ("post", "/api/v1/posts"), ("patch", "/api/v1/posts/{post_id}"), ("delete", "/api/v1/posts/{post_id}"),
     ("post", "/api/v1/articles"), ("get", "/api/v1/me/articles"), ("patch", "/api/v1/articles/{article_id}"),
@@ -102,6 +107,7 @@ PROTECTED_OPERATIONS = {
 }
 
 PARAMETER_DOCS = {
+    "code": ("Code of a badge assigned to your own profile; each code occurs at most once per profile.", examples.BADGE["code"]),
     "link_id": ("Stable link UUID returned in the profile's links array.", examples.LINK_RESPONSE["id"]),
     "icon_name": ("Bundled badge icon filename including its extension.", "star.svg"),
     "upload_id": ("Upload session ObjectId from the matching preparation endpoint; only its owner can confirm it.", "65f0c2a1b2c3d4e5f6071899"),
@@ -134,6 +140,8 @@ RESPONSE_EXAMPLES = {
 
 
 def _operation_tag(path: str) -> str:
+    if path.startswith("/api/v1/links/") or "{link_id}" in path:
+        return "Links"
     if path.startswith("/static/images/") or "/uploads" in path:
         return "Media"
     if path.startswith("/api/v1/auth/sessions"):
@@ -201,6 +209,15 @@ def _document_upload(operation: dict, path: str) -> None:
         "one to five files. JPEG, PNG, and WebP are accepted: 5 MiB per file, or 10 MiB for article covers. "
         "Creating an upload does not change the resource. Articles accept up to 30 inline images."
     )
+    if completing and "/me/avatar/" in path:
+        operation["description"] += (
+            " Avatar attachment increments the profile revision once. Every confirmation response, including replay, "
+            "returns the current own-profile schema with private badge settings and revision, using private, no-store."
+        )
+        operation["description"] = operation["description"].replace(
+            "Repeating a completed confirmation returns its saved result.",
+            "Repeating a completed confirmation does not attach the avatar again.",
+        )
     operation["responses"].update({
         "413": _error_response("An image exceeds the configured size limit.", "Image exceeds the configured size limit"),
         "503": _error_response("Image storage or database is unavailable; retry the request.", "Image storage or database is unavailable"),
@@ -273,7 +290,8 @@ def configure_openapi(app: FastAPI) -> None:
                         "Session" if "{session_id}" in path else
                         "Post" if "{post_id}" in path else
                         "Article" if "{article_id}" in path else
-                        "Profile link" if "{link_id}" in path else
+                        "Link" if "{link_id}" in path else
+                        "Badge assignment" if path.startswith("/api/v1/me/badges/") else
                         "Profile" if path.startswith("/api/v1/users/") else
                         "Badge icon" if "{icon_name}" in path else
                         "Publication" if path.startswith("/api/v1/publications/") else
@@ -283,6 +301,11 @@ def configure_openapi(app: FastAPI) -> None:
                     operation["responses"]["404"] = _error_response("The resource does not exist, was deleted, or is not accessible to this viewer.", f"{resource} not found")
                 if key == ("put", "/api/v1/users/{username}/follow"):
                     operation["responses"]["400"] = _error_response("An account cannot follow itself.", "You cannot follow yourself")
+                if key in {("patch", "/api/v1/me/profile"), ("patch", "/api/v1/me/badges/{code}")}:
+                    operation["responses"]["409"] = _error_response("The profile revision is stale or a concurrent write occurred.", "Profile changed; reload your profile before saving")
+                if key in {("get", "/api/v1/users/{username}"), ("get", "/api/v1/me/profile"),
+                           ("patch", "/api/v1/me/profile"), ("patch", "/api/v1/me/badges/{code}")}:
+                    operation["responses"]["503"] = _error_response("A referenced badge definition is missing.", "Badge definition is unavailable")
                 if method in {"post", "put", "patch", "delete"} and path.startswith("/api/v1/"):
                     operation.setdefault("parameters", []).append({
                         "name": "Origin", "in": "header", "required": True,
@@ -290,6 +313,8 @@ def configure_openapi(app: FastAPI) -> None:
                         "schema": {"type": "string"}, "example": get_settings().app_origin,
                     })
                     operation["responses"]["403"] = _error_response("The Origin header is missing or does not match the application origin.", "Cross-origin request rejected")
+                    if key == ("patch", "/api/v1/me/badges/{code}"):
+                        operation["responses"]["403"] = _error_response("The Origin is invalid or this badge cannot be disabled.", "This badge cannot be disabled")
                 request_content = operation.get("requestBody", {}).get("content", {}).get("application/json")
                 if request_content:
                     values = _schema_examples(request_content.get("schema", {}), schemas)

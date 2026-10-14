@@ -1,10 +1,12 @@
 from typing import Any
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from backend.content.schemas import ArticleImageResponse, ArticleResponse, MicroPostResponse
 from backend.core.dependencies import CurrentUser
-from backend.profiles.schemas import ProfileResponse
+from backend.profiles.schemas import OwnProfileResponse
+from backend.profiles.models import User
+from backend.profiles.service import ProfileService
 from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse
 from backend.storage.service import ImageStorageService
 
@@ -18,9 +20,14 @@ async def prepare_avatar(payload: ImageUploadRequest, request: Request, current_
     return await service.create(request, current_user, "avatars", str(current_user.id), payload)
 
 
-@router.post("/me/avatar/uploads/{upload_id}/complete", response_model=ProfileResponse, summary="Confirm an avatar upload")
-async def complete_avatar(upload_id: str, request: Request, current_user: CurrentUser) -> dict[str, Any]:
-    return await service.complete(request, current_user, "avatars", str(current_user.id), upload_id)
+@router.post("/me/avatar/uploads/{upload_id}/complete", response_model=OwnProfileResponse, summary="Confirm an avatar upload")
+async def complete_avatar(upload_id: str, request: Request, response: Response, current_user: CurrentUser) -> OwnProfileResponse:
+    await service.complete(request, current_user, "avatars", str(current_user.id), upload_id)
+    user = await User.get(current_user.id)
+    if user is None:
+        raise HTTPException(404, "Profile not found")
+    response.headers["Cache-Control"] = "private, no-store"
+    return await ProfileService().own_response(user)
 
 
 @router.post("/posts/{post_id}/images/uploads", response_model=ImageUploadResponse, status_code=status.HTTP_201_CREATED, summary="Prepare a post gallery upload")
