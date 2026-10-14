@@ -13,9 +13,6 @@ services:
       S3_REGION: ${S3_REGION:-garage}
       GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:?Set GARAGE_ACCESS_KEY in .env}
       GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:?Set GARAGE_SECRET_KEY in .env}
-      AVATAR_BUCKET: ${AVATAR_BUCKET:-blog-avatars}
-      AVATAR_MAX_BYTES: ${AVATAR_MAX_BYTES:-5242880}
-      ARTICLE_THUMBNAIL_MAX_BYTES: ${ARTICLE_THUMBNAIL_MAX_BYTES:-10485760}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-DemoPassword123!}
     depends_on:
       redis:
@@ -51,7 +48,7 @@ services:
       GARAGE_METRICS_TOKEN: ${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}
       GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_ACCESS_KEY:?Set GARAGE_ACCESS_KEY in .env}
       GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_SECRET_KEY:?Set GARAGE_SECRET_KEY in .env}
-      GARAGE_DEFAULT_BUCKET: ${AVATAR_BUCKET:-blog-avatars}
+      GARAGE_DEFAULT_BUCKET: blog-avatars
     command: ["/garage", "server", "--single-node", "--default-bucket"]
     configs:
       - source: garage_config

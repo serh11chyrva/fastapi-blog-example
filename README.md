@@ -71,6 +71,8 @@ Demo accounts are `alice@example.com`, `ben@example.com`, and `casey@example.com
 
 The Redis port is bound to localhost for development. MongoDB is accessed remotely through the configured Atlas connection string.
 
+The shared media bucket (`blog-avatars`) and upload size limits are defined in `src/backend/core/config.py`, rather than environment variables. Avatars, post images, and inline article images allow 5 MiB per file; article thumbnails allow 10 MiB. Garage creates the same bucket through `GARAGE_DEFAULT_BUCKET` in `docker-compose.yml`; keep that value aligned with `Settings.avatar_bucket` if renaming the bucket. `.env` holds credentials and settings that vary by deployment, such as connection URLs, ports, and application origin. Changing configuration defaults requires restarting the development backend or rebuilding the production API image.
+
 ## Features
 
 - Email or `@username` registration and login with opaque, server-side sessions.

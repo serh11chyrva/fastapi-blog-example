@@ -4,6 +4,7 @@ This guide documents the implemented API in addition to the interactive Scalar r
 
 ## Conventions
 
+- Upload size limits are defined in `src/backend/core/config.py`: 5 MiB per avatar, post image, or inline article image, and 10 MiB per article thumbnail. These limits are not configured through environment variables.
 - Base path: `/api/v1`.
 - JSON is used unless an endpoint accepts a multipart upload.
 - Timestamps are ISO 8601 UTC strings. IDs are MongoDB ObjectId strings.
