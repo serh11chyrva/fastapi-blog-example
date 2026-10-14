@@ -24,22 +24,38 @@ SESSION = {
     "current": True,
 }
 LINK = {"label": "Reading journal", "url": "https://maya.example.com/journal"}
+LINK_RESPONSE = {
+    **LINK,
+    "version": 1,
+    "id": "da3861fe-4336-411f-8e34-e32d37c2ebad",
+    "platform": "website",
+    "redirect_url": "/api/v1/users/maya_bennett/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect",
+}
 PROFILE_UPDATE = {
     "display_name": ACCOUNT["display_name"],
     "bio": "Software engineer, weekend cyclist, and collector of good reading recommendations.",
     "links": [LINK],
 }
 BADGE = {
+    "version": 1,
     "code": "early-adopter",
     "label": "Early adopter",
     "description": "Joined Commonplace during its first community release.",
     "assigned_at": "2026-10-12T08:42:19Z",
+    "enabled": True,
+    "can_disable": True,
+    "payload": {
+        "background_color": "#f3f4f6",
+        "text_color": "#374151",
+        "icon_url": "/static/images/badges/star.svg",
+    },
 }
 AVATAR_URL = "/static/images/avatars/9a47dc2e381f4b60a75d2c8b613e09af.webp"
 PROFILE = {
     "id": ACCOUNT["id"],
     "username": ACCOUNT["username"],
     **PROFILE_UPDATE,
+    "links": [LINK_RESPONSE],
     "avatar_url": AVATAR_URL,
     "badges": [BADGE],
     "follower_count": 127,

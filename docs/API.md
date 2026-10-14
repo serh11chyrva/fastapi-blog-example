@@ -7,7 +7,7 @@ This guide documents the implemented API in addition to the interactive Scalar r
 - Upload size limits are defined in `src/backend/core/config.py`: 5 MiB per avatar, post image, or inline article image, and 10 MiB per article thumbnail. These limits are not configured through environment variables.
 - Base path: `/api/v1`.
 - Application API requests use JSON. Presigned Garage PUT requests send raw file bytes without application cookies.
-- Timestamps are ISO 8601 UTC strings. IDs are MongoDB ObjectId strings.
+- Timestamps are ISO 8601 UTC strings. Account and document IDs are MongoDB ObjectId strings; profile link IDs are UUID strings.
 - Authentication is a server-side session delivered in the `blog_session` HttpOnly cookie. The raw token is never part of a JSON response. The cookie defaults to `SameSite=Lax`; `Secure` is configurable.
 - Keep the cookie between application API requests. Use same-origin `fetch` with `credentials: "same-origin"`. All POST, PUT, PATCH, and DELETE requests under `/api/v1` must include the configured `APP_ORIGIN` in the `Origin` header as a CSRF defense. Presigned Garage PUT requests use `credentials: "omit"` and the returned headers; browser access is controlled by storage CORS.
 - Successful deletes, logout, follow, and unfollow return `204 No Content` with an empty body.
@@ -99,6 +99,7 @@ The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other user
 | Method | Path | Access | Purpose |
 | --- | --- | --- | --- |
 | GET | `/users/{username}` | Public | Read profile |
+| GET | `/users/{username}/links/{link_id}/redirect` | Public | Temporarily redirect to a saved profile link |
 | GET | `/users/{username}/publications?kind=all` | Public | List up to 50 public publications |
 | PATCH | `/me/profile` | Session | Update own profile |
 | POST | `/me/avatar/uploads` | Session | Prepare an avatar upload |
@@ -108,7 +109,7 @@ The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other user
 | PUT | `/users/{username}/follow` | Session | Follow account (idempotent) |
 | DELETE | `/users/{username}/follow` | Session | Unfollow account (idempotent) |
 
-Profile update is a partial JSON object. Omitted fields are unchanged. `display_name` is limited to 64 characters, `bio` to 280, and `links` to eight HTTP(S) entries. Send an empty array to clear links; `null` does not clear a field.
+Profile update is a partial JSON object. Omitted fields are unchanged. `display_name` is limited to 64 characters, `bio` to 280, and `links` to eight HTTP(S) entries. Link labels allow 1–32 characters and URLs 8–500 characters. URLs require a hostname and cannot contain credentials, whitespace, control characters, or backslashes. Send an empty array to clear links; `null` does not clear a field.
 
 ```json
 {
@@ -129,14 +130,28 @@ Profile response example:
   "username": "reader_one",
   "display_name": "Avery R.",
   "bio": "Writing about books and software.",
-  "links": [{"label":"Website","url":"https://example.com"}],
+  "links": [{"version":1,"id":"da3861fe-4336-411f-8e34-e32d37c2ebad","label":"Website","url":"https://example.com","platform":"website","redirect_url":"/api/v1/users/reader_one/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect"}],
   "avatar_url": "/static/images/avatars/0123456789abcdef0123456789abcdef.png",
-  "badges": [{"code":"early-reader","label":"Early Reader","description":"Joined the demo community early.","assigned_at":"2026-10-12T09:30:00Z"}],
+  "badges": [{"version":1,"code":"early-reader","label":"Early Reader","description":"Joined the demo community early.","assigned_at":"2026-10-12T09:30:00Z","enabled":true,"can_disable":true,"payload":{"background_color":"#f3f4f6","text_color":"#374151","icon_url":"/static/images/badges/star.svg"}}],
   "follower_count": 3,
   "following_count": 5,
   "is_following": false
 }
 ```
+
+### Versioned links and badges
+
+Each link and badge uses `version: 1`, describing its data format rather than edit history. Link input defaults to version 1 when omitted; other versions return `422`. Existing unversioned records receive version 1 on read. Legacy links receive deterministic UUIDs based on the profile handle, original list position, and destination; normal profile writes persist the upgraded embedded data. Existing badges default to enabled, allow future disabling, and use the neutral colors and star icon above.
+
+When replacing the link list, retain each existing link's `id` to preserve its redirect URL, including when changing the label, destination, or order. Omit `id` (or send `null`) for a new link; the server creates a UUID. Duplicate IDs and IDs absent from your current saved links return `422` with a `detail` string. Removing a link makes its redirect return `404`; adding it again without its ID creates a new link. Old clients can still submit only `label` and `url`, but doing so creates new IDs for the replacement list. `platform` and `redirect_url` are computed by the server and are not editable fields.
+
+`platform` is an icon-ready identifier: `github`, `gitlab`, `x`, `facebook`, `instagram`, `threads`, `linkedin`, `youtube`, `tiktok`, `telegram`, `discord`, `reddit`, `twitch`, `medium`, `substack`, `pinterest`, `soundcloud`, `bandcamp`, `spotify`, `apple_music`, `behance`, `itch_io`, `kick`, `artstation`, `dribbble`, `deviantart`, `vimeo`, `patreon`, or `ko_fi`. Unrecognized domains use `website`. Matching is case-insensitive and uses the hostname and its subdomains, including aliases such as `twitter.com`, `youtu.be`, `t.me`, and `spotify.link`; paths and query strings do not affect detection. Creator subdomains such as `artist.bandcamp.com` and `studio.itch.io` are recognized. Apple Music matches `music.apple.com`, rather than all Apple websites. Lookalikes such as `github.com.example.org` are not GitHub. Self-hosted or custom-domain services use `website` unless their host is explicitly registered. VK, Stack Overflow, and Bluesky URLs remain valid links but use `website`.
+
+Navigate to the returned `redirect_url` in a browser, rather than fetching it as JSON. It returns `302 Found` with the saved destination in `Location` and `Cache-Control: no-store`. It requires no session and accepts only an existing saved link. Missing profiles, removed IDs, and unsafe legacy destinations return `404`; malformed UUIDs return `422`. Destination query parameters and fragments are retained; query parameters supplied to the redirect endpoint are ignored. No UTM tagging or click counting is implemented yet; destination resolution is centralized in `ProfileService.redirect_destination` for future analytics.
+
+Badge `enabled` controls display; `can_disable` indicates whether the owner may disable it when preferences are implemented. Both default to `true` and are independent. Disabled assignments remain in profile responses, and the frontend filters them out. Badge assignment, display payload, and preferences cannot be edited through `PATCH /me/profile` yet.
+
+The badge `payload` contains `background_color` and `text_color` as six-digit hex colors and `icon_url` as a nullable same-origin `/static/images/badges/<filename>` URL. A null icon displays text only. Bundled icons are served publicly by `GET /static/images/badges/{icon_name}`, with a one-hour cache, without Garage access. `star.svg` is supplied; unknown filenames return `404`. Add future SVG, PNG, or WebP assets under `src/backend/profiles/icons/` before assigning their URLs. Nginx and Vite already proxy this path to the backend.
 
 ## Image uploads and downloads
 

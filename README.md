@@ -110,7 +110,7 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 - Email or `@username` registration and login with opaque, server-side sessions.
 - A session settings page with IP, User-Agent, last activity, individual revocation, and logout from other sessions.
 - Append-only audit events for security, profile, follow, and publication actions.
-- Public profiles with bios, links, assigned demo badges, and uploaded JPEG, PNG, or WebP avatars.
+- Public profiles with bios, versioned links with domain detection and a dedicated redirect endpoint, versioned demo badges with display payloads and future visibility preferences, and uploaded JPEG, PNG, or WebP avatars.
 - Follow relationships and chronological public and following feeds.
 - 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
 - Editorial black-and-white UI with separate Posts and Articles profile tabs; article editing and reading use a full-screen writing and reading layout.

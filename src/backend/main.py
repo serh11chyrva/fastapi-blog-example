@@ -18,6 +18,7 @@ from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
 from backend.core.schemas import ApplicationStatusResponse, HealthResponse
 from backend.profiles.router import router as profile_router
+from backend.profiles.badge_router import router as badge_router
 from backend.storage.s3 import check_storage, create_s3_client
 from backend.storage.router import router as upload_router
 from backend.storage.image_router import router as image_router
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(content_router, prefix="/api/v1")
     app.include_router(feed_router, prefix="/api/v1")
     app.include_router(upload_router, prefix="/api/v1")
+    app.include_router(badge_router)
     app.include_router(image_router)
 
     configure_openapi(app)

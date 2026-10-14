@@ -33,6 +33,8 @@ Feeds return newest-first pages. Pass `next_cursor` unchanged as the next reques
 Identifiers are MongoDB ObjectIds unless a field explicitly describes a share UUID.
 Timestamps include a timezone and are returned in UTC. Media and share URLs are relative to this origin.
 Partial updates leave omitted or null fields unchanged. Empty strings or lists clear fields where allowed.
+Profile links and badges use format version 1. Open a link's redirect_url for a temporary
+redirect; platform identifies its site. Render only enabled badges using their display payload.
 Successful 204 responses have no body. Errors use `detail`; validation errors use a list of field issues.
 
 Examples use fictional accounts and illustrative IDs. Create your own resources before
@@ -61,8 +63,9 @@ OPERATION_DOCS = {
     ("delete", "/api/v1/auth/sessions/{session_id}"): ("Revoke a session", "Revokes one of your sessions. Unknown and other users' sessions both return 404."),
     ("post", "/api/v1/auth/sessions/logout-others"): ("Log out other sessions", "Revokes every active session except the cookie used for this request."),
     ("get", "/api/v1/users/{username}"): ("Get a public profile", "Username is case-insensitive; follow state is relative to the optional current session."),
+    ("get", "/api/v1/users/{username}/links/{link_id}/redirect"): ("Open a profile link", "Public, temporary 302 redirect to the saved HTTP(S) URL with Cache-Control: no-store. Only saved links can be opened; missing profiles, removed links, or unsafe legacy targets return 404. No click analytics or UTM parameters are added yet; request query parameters are not forwarded."),
     ("get", "/api/v1/users/{username}/publications"): ("List profile publications", "Returns up to 50 public micro-posts and published articles, newest first."),
-    ("patch", "/api/v1/me/profile"): ("Update your profile", "Partial update. Omitted fields stay unchanged; links accept at most eight HTTP(S) URLs."),
+    ("patch", "/api/v1/me/profile"): ("Update your profile", "Partial update. Omitted or null fields stay unchanged; links accept at most eight HTTP(S) URLs without credentials or whitespace. Each link uses version 1 by default. Retain an existing link id to preserve its redirect URL; omit id for a new link. Duplicate or foreign IDs return 422. platform and redirect_url are derived by the server. Badge preferences cannot be changed through this endpoint yet."),
     ("get", "/api/v1/users/{username}/followers"): ("List followers", "Returns compact public profile cards."),
     ("get", "/api/v1/users/{username}/following"): ("List followed profiles", "Returns compact public profile cards."),
     ("put", "/api/v1/users/{username}/follow"): ("Follow a profile", "Idempotently creates a follow relationship; following yourself returns 400."),
@@ -99,6 +102,8 @@ PROTECTED_OPERATIONS = {
 }
 
 PARAMETER_DOCS = {
+    "link_id": ("Stable link UUID returned in the profile's links array.", examples.LINK_RESPONSE["id"]),
+    "icon_name": ("Bundled badge icon filename including its extension.", "star.svg"),
     "upload_id": ("Upload session ObjectId from the matching preparation endpoint; only its owner can confirm it.", "65f0c2a1b2c3d4e5f6071899"),
     "collection": ("Image category: avatars, post-images, article-covers, or article-images.", "post-images"),
     "username": ("Public handle of the profile or publication author; matching is case-insensitive.", examples.ACCOUNT["username"]),
@@ -260,7 +265,7 @@ def configure_openapi(app: FastAPI) -> None:
                 if "/uploads" in path or key in PROTECTED_OPERATIONS:
                     operation["security"] = [{"SessionCookie": []}]
                     operation["responses"]["401"] = _error_response("A valid session cookie is required.", "Authentication required")
-                if path.startswith("/static/images/"):
+                if path.startswith("/static/images/") and not path.startswith("/static/images/badges/"):
                     operation["security"] = [{}, {"SessionCookie": []}]
                     operation["responses"]["503"] = _error_response("Image storage is unavailable.", "Image storage is unavailable")
                 if "{" in path:
@@ -268,7 +273,9 @@ def configure_openapi(app: FastAPI) -> None:
                         "Session" if "{session_id}" in path else
                         "Post" if "{post_id}" in path else
                         "Article" if "{article_id}" in path else
+                        "Profile link" if "{link_id}" in path else
                         "Profile" if path.startswith("/api/v1/users/") else
+                        "Badge icon" if "{icon_name}" in path else
                         "Publication" if path.startswith("/api/v1/publications/") else
                         "Avatar" if "/avatars/" in path else
                         "Thumbnail" if "/article-covers/" in path else "Image"
@@ -313,7 +320,7 @@ def configure_openapi(app: FastAPI) -> None:
                         response["description"] = "Image bytes in the detected format."
                         response["content"] = {
                             media_type: {"schema": {"type": "string", "format": "binary", "description": "Raw image bytes; save or display as an image."}}
-                            for media_type in ("image/jpeg", "image/png", "image/webp")
+                            for media_type in (("image/svg+xml", "image/png", "image/webp") if path.startswith("/static/images/badges/") else ("image/jpeg", "image/png", "image/webp"))
                         }
                         continue
                     content = response.get("content", {}).get("application/json")
