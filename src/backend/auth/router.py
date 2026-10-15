@@ -5,12 +5,12 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from pymongo.errors import DuplicateKeyError
 
 from backend.auth.schemas import AuthResponse, LoginRequest, RegisterRequest, SessionResponse
-from backend.auth.service import AuthService
+from backend.auth.service import AuthService, PasswordRejected
 from backend.core.audit import record_audit, request_details
 from backend.core.config import get_settings
 from backend.core.dependencies import CurrentUser
 from backend.core.rate_limit import enforce_rate_limit
-from backend.core.security import hash_password, hash_session_token, new_session_token
+from backend.core.security import hash_password_async, hash_session_token, new_session_token
 from backend.auth.models import AuthIdentity, AuthSession
 from backend.profiles.models import User
 
@@ -90,7 +90,7 @@ async def register(payload: RegisterRequest, request: Request, response: Respons
         user_id=user.id,
         provider="password",
         subject=str(user.id),
-        password_hash=hash_password(payload.password),
+        password_hash=await hash_password_async(payload.password),
         created_at=now,
     )
     token = new_session_token()
@@ -130,8 +130,8 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
     normalized = payload.identifier.strip().lower().removeprefix("@")
     await enforce_rate_limit(request, "login", normalized, limit=8, window_seconds=600)
     authentication = await AuthService().authenticate_password(payload.identifier, payload.password)
-    user, identity = authentication.user, authentication.identity
-    if not authentication.authenticated or user is None or identity is None:
+    if isinstance(authentication, PasswordRejected):
+        user = authentication.user
         await record_audit(
             request,
             "LOGIN_FAILED",
@@ -142,6 +142,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username/email or password")
 
+    user, identity = authentication.user, authentication.identity
     token, _ = await _create_session(
         request,
         user,

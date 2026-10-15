@@ -1,8 +1,10 @@
 import base64
+import asyncio
 import hashlib
 import hmac
 import secrets
 from typing import Final
+from concurrent.futures import ThreadPoolExecutor
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
@@ -12,6 +14,17 @@ SCRYPT_N: Final[int] = 1 << 14
 SCRYPT_R: Final[int] = 8
 SCRYPT_P: Final[int] = 1
 PASSWORD_HASHER: Final[PasswordHasher] = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1, hash_len=32, salt_len=16)
+PASSWORD_EXECUTOR: Final[ThreadPoolExecutor] = ThreadPoolExecutor(max_workers=4, thread_name_prefix="password")
+
+
+async def hash_password_async(password: str) -> str:
+    """Hash in a dedicated pool with at most four concurrent password operations."""
+    return await asyncio.get_running_loop().run_in_executor(PASSWORD_EXECUTOR, hash_password, password)
+
+
+async def verify_password_async(password: str, encoded: str) -> bool:
+    """Keep expensive verification off the event loop, including legacy scrypt."""
+    return await asyncio.get_running_loop().run_in_executor(PASSWORD_EXECUTOR, verify_password, password, encoded)
 
 
 def hash_password(password: str) -> str:
