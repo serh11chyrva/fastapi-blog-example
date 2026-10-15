@@ -1,12 +1,17 @@
 """Read operations assembling profile data before pure response construction."""
 
+from typing import Literal
+
 from beanie import PydanticObjectId
 
+from backend.content.presenters import feed_item
+from backend.content.repository import ContentRepository, FeedKind
+from backend.content.schemas import FeedItem
 from backend.core.errors import NotFound, Unavailable
 from backend.profiles.models import BadgeDefinition, User
+from backend.profiles.presenters import own_profile, public_profile, user_card
 from backend.profiles.repository import ProfileRepository
-from backend.profiles.presenters import own_profile, public_profile
-from backend.profiles.schemas import OwnProfileResponse, ProfileResponse
+from backend.profiles.schemas import OwnProfileResponse, ProfileResponse, ProfileUserResponse
 
 
 class ProfileQueries:
@@ -42,3 +47,19 @@ class ProfileQueries:
         if user is None:
             raise NotFound("Profile not found")
         return await self.own_response(user)
+
+
+    async def publications(self, username: str, kind: FeedKind, offset: int, limit: int) -> list[FeedItem]:
+        user = await self.by_username(username)
+        entries = await ContentRepository.list_publications(user.id, kind, offset=offset, limit=limit)
+        return [feed_item(entry.publication, user) for entry in entries]
+
+    async def network(
+        self,
+        username: str,
+        kind: Literal["followers", "following"],
+        offset: int,
+        limit: int,
+    ) -> list[ProfileUserResponse]:
+        user = await self.by_username(username)
+        return [user_card(item) for item in await self.repository.connections(user.id, kind, offset, limit)]

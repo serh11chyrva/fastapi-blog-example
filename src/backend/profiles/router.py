@@ -1,20 +1,16 @@
 """HTTP adapters for public profiles and owner settings."""
 
-from backend.core.api_metadata import documented_responses, Origin, Username
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
 
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
-from backend.content.presenters import feed_item
-from backend.content.repository import ContentRepository, FeedKind
+from backend.content.repository import FeedKind
 from backend.content.schemas import FeedItem
+from backend.core.api_metadata import documented_responses, Origin, Username
 from backend.core.resources import Resources
-from backend.profiles.presenters import user_card
 from backend.profiles.queries import ProfileQueries
-from backend.profiles.repository import ProfileRepository
 from backend.profiles.schemas import BadgePreferenceUpdate, OwnProfileResponse, ProfileResponse, ProfileUpdate, ProfileUserResponse
 from backend.profiles.service import ProfileService
 
@@ -57,10 +53,13 @@ async def get_profile(username: Username, current_user: OptionalUser) -> Profile
     tags=['Profiles'],
     responses=documented_responses(404, 503),
 )
-async def list_profile_publications(username: Username, kind: FeedKind = "all", offset: int = Query(default=0, ge=0, description="Number of records to skip; refresh from zero after concurrent list changes."), limit: int = Query(default=50, ge=1, le=50, description="Page size from 1 to 50; defaults to 50.")) -> list[FeedItem]:
-    user = await queries.by_username(username)
-    entries = await ContentRepository.list_publications(user.id, kind, offset=offset, limit=limit)
-    return [feed_item(entry.publication, user) for entry in entries]
+async def list_profile_publications(
+    username: Username,
+    kind: FeedKind = "all",
+    offset: int = Query(default=0, ge=0, description="Number of records to skip; refresh from zero after concurrent list changes."),
+    limit: int = Query(default=50, ge=1, le=50, description="Page size from 1 to 50; defaults to 50."),
+) -> list[FeedItem]:
+    return await queries.publications(username, kind, offset, limit)
 
 
 @router.get(
@@ -96,7 +95,13 @@ async def get_own_profile(current_user: CurrentUser, response: Response) -> OwnP
     tags=['Profiles'],
     responses=documented_responses(401, 403, 409, 503),
 )
-async def update_profile(_origin: Origin, payload: ProfileUpdate, profiles: Profiles, response: Response, current_user: CurrentUser) -> OwnProfileResponse:
+async def update_profile(
+    _origin: Origin,
+    payload: ProfileUpdate,
+    profiles: Profiles,
+    response: Response,
+    current_user: CurrentUser,
+) -> OwnProfileResponse:
     response.headers["Cache-Control"] = "private, no-store"
     return await queries.own_response(await profiles.update(current_user.id, payload))
 
@@ -114,7 +119,14 @@ async def update_profile(_origin: Origin, payload: ProfileUpdate, profiles: Prof
     tags=['Profiles'],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
-async def update_badge_preferences(_origin: Origin, code: str, payload: BadgePreferenceUpdate, profiles: Profiles, response: Response, current_user: CurrentUser) -> OwnProfileResponse:
+async def update_badge_preferences(
+    _origin: Origin,
+    code: str,
+    payload: BadgePreferenceUpdate,
+    profiles: Profiles,
+    response: Response,
+    current_user: CurrentUser,
+) -> OwnProfileResponse:
     response.headers["Cache-Control"] = "private, no-store"
     return await queries.own_response(await profiles.update(current_user.id, payload, badge_code=code))
 
@@ -130,9 +142,12 @@ async def update_badge_preferences(_origin: Origin, code: str, payload: BadgePre
     tags=['Profiles'],
     responses=documented_responses(404, 503),
 )
-async def list_followers(username: Username, offset: int = Query(default=0, ge=0, description="Number of records to skip; refresh from zero after concurrent list changes."), limit: int = Query(default=20, ge=1, le=100, description="Page size from 1 to 100; defaults to 20.")) -> list[ProfileUserResponse]:
-    user = await queries.by_username(username)
-    return [user_card(item) for item in await ProfileRepository.connections(user.id, "followers", offset, limit)]
+async def list_followers(
+    username: Username,
+    offset: int = Query(default=0, ge=0, description="Number of records to skip; refresh from zero after concurrent list changes."),
+    limit: int = Query(default=20, ge=1, le=100, description="Page size from 1 to 100; defaults to 20."),
+) -> list[ProfileUserResponse]:
+    return await queries.network(username, "followers", offset, limit)
 
 
 @router.get(
@@ -146,9 +161,12 @@ async def list_followers(username: Username, offset: int = Query(default=0, ge=0
     tags=['Profiles'],
     responses=documented_responses(404, 503),
 )
-async def list_following(username: Username, offset: int = Query(default=0, ge=0, description="Number of records to skip; refresh from zero after concurrent list changes."), limit: int = Query(default=20, ge=1, le=100, description="Page size from 1 to 100; defaults to 20.")) -> list[ProfileUserResponse]:
-    user = await queries.by_username(username)
-    return [user_card(item) for item in await ProfileRepository.connections(user.id, "following", offset, limit)]
+async def list_following(
+    username: Username,
+    offset: int = Query(default=0, ge=0, description="Number of records to skip; refresh from zero after concurrent list changes."),
+    limit: int = Query(default=20, ge=1, le=100, description="Page size from 1 to 100; defaults to 20."),
+) -> list[ProfileUserResponse]:
+    return await queries.network(username, "following", offset, limit)
 
 
 @router.put(
@@ -159,7 +177,12 @@ async def list_following(username: Username, offset: int = Query(default=0, ge=0
     tags=['Profiles'],
     responses=documented_responses(400, 401, 403, 404, 409, 503),
 )
-async def follow_user(_origin: Origin, username: Username, current_user: CurrentUser, profiles: Profiles) -> Response:
+async def follow_user(
+    _origin: Origin,
+    username: Username,
+    current_user: CurrentUser,
+    profiles: Profiles,
+) -> Response:
     await profiles.follow(current_user, username)
     return Response(status_code=204)
 
@@ -172,6 +195,11 @@ async def follow_user(_origin: Origin, username: Username, current_user: Current
     tags=['Profiles'],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
-async def unfollow_user(_origin: Origin, username: Username, current_user: CurrentUser, profiles: Profiles) -> Response:
+async def unfollow_user(
+    _origin: Origin,
+    username: Username,
+    current_user: CurrentUser,
+    profiles: Profiles,
+) -> Response:
     await profiles.unfollow(current_user, username)
     return Response(status_code=204)

@@ -2,20 +2,27 @@
 
 from typing import Any
 
+from beanie import PydanticObjectId
 from loguru import logger
 from pydantic import ValidationError
 from redis.exceptions import RedisError
-from beanie import PydanticObjectId
 
 from backend.content.cursors import FeedCursor
 from backend.content.presenters import feed_item
 from backend.content.repository import ContentRepository, FeedEntry, FeedKind, PublicationKind
 from backend.content.schemas import FeedResponse
 from backend.core.resources import AppResources
-from backend.profiles.models import User
+from backend.profiles.models import Follow, User
 
 
-async def make_feed(resources: AppResources, authors: list[PydanticObjectId] | None, kind: FeedKind, cursor_text: str | None, limit: int, cache_key: str | None = None) -> FeedResponse:
+async def make_feed(
+    resources: AppResources,
+    authors: list[PydanticObjectId] | None,
+    kind: FeedKind,
+    cursor_text: str | None,
+    limit: int,
+    cache_key: str | None = None,
+) -> FeedResponse:
     cursor = FeedCursor.decode(cursor_text)
     if cache_key:
         try:
@@ -55,3 +62,28 @@ async def make_feed(resources: AppResources, authors: list[PydanticObjectId] | N
         except RedisError:
             logger.warning("Redis unavailable while caching the public feed")
     return result
+
+
+async def load_public_feed(
+    resources: AppResources,
+    kind: FeedKind,
+    cursor: str | None,
+    limit: int,
+) -> FeedResponse:
+    try:
+        version = await resources.redis.get("feed:public:version") or "0"
+    except RedisError:
+        version = "0"
+    key = f"feed:public:{version}:{kind}:{limit}:{cursor or 'first'}"
+    return await make_feed(resources, None, kind, cursor, limit, key)
+
+
+async def load_following_feed(
+    resources: AppResources,
+    user: User,
+    kind: FeedKind,
+    cursor: str | None,
+    limit: int,
+) -> FeedResponse:
+    follows = await Follow.find(Follow.follower_id == user.id).to_list()
+    return await make_feed(resources, [follow.followee_id for follow in follows], kind, cursor, limit)

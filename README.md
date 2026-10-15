@@ -121,6 +121,8 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 
 ## Architecture
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module responsibilities, transaction and upload guarantees, pagination, and frontend boundaries.
+
 - Backend code lives under `src/backend/`. Authentication, profiles, content, and audit each keep their Beanie documents in their domain package; repositories own persistence queries, services own audited publication operations, and presenters map documents to API responses using an already loaded author. Feed loading and opaque cursors live outside HTTP routers.
 - Upload preparation, leasing, copying, and completion live in `storage/service.py`; target ownership and domain attachment changes live in `storage/attachments.py`. Saved results are parsed into the response model selected by the immutable upload purpose.
 - Profile mutations, read assembly, and response presenters are separate modules. Follower/following and own-article lists use bounded offset pagination. Image attachment lookups have explicit indexes in the Beanie document models.
