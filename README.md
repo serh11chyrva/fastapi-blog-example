@@ -127,6 +127,7 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 - The public feed cache version advances on API startup so deployments and explicit data resets do not reuse cached responses with obsolete image URLs.
 - Passwords use Argon2id. Existing scrypt hashes are checked and upgraded after a successful login.
 - Session activity uses conditional field updates and a monotonic last-seen timestamp. Concurrent activity cannot clear revocation or extend the absolute session deadline.
+- Protected frontend routes wait for session restoration before redirecting. Public profile contracts exclude account email and private badge settings; publication pages cancel stale requests when their address changes.
 - Frontend source lives under `src/frontend/`. Docker uses a Node.js build stage with cached npm dependencies, Vite production minification and separate React/editor chunks, then copies only static output into Nginx.
 - `docker-compose.dev.yml` mounts API and frontend source for reload/HMR during development; the default Compose setup continues to serve the production frontend from Nginx.
 - Tests are grouped by layer: `tests/unit/`, `tests/services/`, and `tests/api/`.

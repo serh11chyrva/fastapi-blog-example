@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -14,7 +14,7 @@ type ProfileLink = ProfileLinkInput & { version: 1; id: string; platform: string
 type ProfileBadge = { version: 2; code: string; payload: { label: string; description: string | null; background_color: string; text_color: string; icon_url: string | null; icon_color: string | null } };
 type OwnerBadge = ProfileBadge & { assigned_at: string; preferences: { enabled: boolean }; permissions: { can_disable: boolean } };
 type OwnProfile = Omit<Profile, "badges"> & { revision: number; badges: OwnerBadge[] };
-type Profile = User & { bio: string; links: ProfileLink[]; avatar_url: string | null; badges: ProfileBadge[]; follower_count: number; following_count: number; is_following: boolean };
+type Profile = Pick<User, "id" | "username" | "display_name"> & { bio: string; links: ProfileLink[]; avatar_url: string | null; badges: ProfileBadge[]; follower_count: number; following_count: number; is_following: boolean };
 type ProfileCard = { id: string; username: string; display_name: string; avatar_url: string | null };
 type FeedItem = { id: string; kind: "micro_post" | "article"; share_url: string | null; thumbnail_url?: string | null; images?: string[]; title?: string | null; text?: string | null; summary?: string | null; author_id: string; author_username: string; author_display_name: string; author_avatar_url: string | null; published_at: string };
 type Feed = { items: FeedItem[]; next_cursor: string | null };
@@ -28,9 +28,16 @@ const ArticleImage = Node.create({ name: "image", group: "block", atom: true, dr
   renderHTML({ HTMLAttributes }) { return ["img", { ...HTMLAttributes, loading: "lazy" }]; },
 });
 
-type AppContextValue = { user: User | null; setUser: (user: User | null) => void };
-const AppContext = createContext<AppContextValue>({ user: null, setUser: () => undefined });
+type AppContextValue = { user: User | null; status: "loading" | "authenticated" | "anonymous"; setUser: (user: User | null) => void };
+const AppContext = createContext<AppContextValue>({ user: null, status: "loading", setUser: () => undefined });
 const useApp = () => useContext(AppContext);
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { status } = useApp();
+  if (status === "loading") return <p role="status">Restoring your session…</p>;
+  if (status === "anonymous") return <Navigate to="/login" replace />;
+  return children;
+}
 
 function BadgeIcon({ badge }: { badge: ProfileBadge }) {
   const { icon_url, icon_color } = badge.payload;
@@ -49,24 +56,24 @@ function App() {
   useEffect(() => {
     api<User>("/auth/me").then(setUser).catch(() => setUser(null)).finally(() => setAuthReady(true));
   }, []);
-  const context = useMemo(() => ({ user, setUser }), [user]);
+  const context = useMemo<AppContextValue>(() => ({ user, setUser, status: !authReady ? "loading" : user ? "authenticated" : "anonymous" }), [user, authReady]);
   const location = useLocation();
   const fullscreen = /^\/write$/.test(location.pathname) || /^\/articles\/[^/]+(?:\/edit)?$/.test(location.pathname) || /^\/@[^/]+\/[^/]+$/.test(location.pathname);
   return <AppContext.Provider value={context}><div className="min-h-screen bg-white"><Header authReady={authReady} fullscreen={fullscreen} />{fullscreen ? <main className="mx-auto min-h-[calc(100vh-4rem)] w-full max-w-[1440px] px-5 py-10 sm:px-8"><Routes>
     <Route path="/articles/:articleId" element={<ArticlePage />} />
-    <Route path="/@:handle/:shareSlug" element={<SharedPublicationPage />} />
-    <Route path="/write" element={<ArticleEditorPage />} />
-    <Route path="/articles/:articleId/edit" element={<ArticleEditorPage />} />
+    <Route path="/:handle/:shareSlug" element={<SharedPublicationPage />} />
+    <Route path="/write" element={<ProtectedRoute><ArticleEditorPage /></ProtectedRoute>} />
+    <Route path="/articles/:articleId/edit" element={<ProtectedRoute><ArticleEditorPage key={location.pathname} /></ProtectedRoute>} />
   </Routes></main> : <><MobileNav /><main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-7 px-4 py-8 lg:grid-cols-[210px_minmax(0,1fr)_240px]"><Sidebar /><section className="min-w-0"><Routes>
     <Route path="/" element={<FeedPage />} />
-    <Route path="/following" element={<FeedPage following />} />
+    <Route path="/following" element={<ProtectedRoute><FeedPage following /></ProtectedRoute>} />
     <Route path="/login" element={<AuthPage />} />
     <Route path="/register" element={<AuthPage />} />
     <Route path="/:handle" element={<ProfilePage />} />
     <Route path="/:handle/:shareSlug" element={<SharedPublicationPage />} />
-    <Route path="/my-articles" element={<MyArticlesPage />} />
-    <Route path="/settings/profile" element={<ProfileSettingsPage />} />
-    <Route path="/settings/sessions" element={<SessionsPage />} />
+    <Route path="/my-articles" element={<ProtectedRoute><MyArticlesPage /></ProtectedRoute>} />
+    <Route path="/settings/profile" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
+    <Route path="/settings/sessions" element={<ProtectedRoute><SessionsPage /></ProtectedRoute>} />
     <Route path="*" element={<EmptyState title="Page not found" body="The page you are looking for does not exist." />} />
   </Routes></section><RightRail authReady={authReady} /></main></>}</div></AppContext.Provider>;
 }
@@ -190,11 +197,18 @@ function AuthPage() {
 }
 
 function ProfilePage() {
-  const { handle = "" } = useParams(); const username = handle.replace(/^@/, ""); const { user } = useApp(); const [profile, setProfile] = useState<OwnProfile | null>(null); const [error, setError] = useState("");
+  const { handle = "" } = useParams(); const username = handle.replace(/^@/, ""); const { user } = useApp(); const [profile, setProfile] = useState<Profile | null>(null); const [error, setError] = useState("");
   const [tab, setTab] = useState<"micro_post" | "article">("micro_post"); const [refreshKey, setRefreshKey] = useState(0);
   const [network, setNetwork] = useState<ProfileCard[] | null>(null);
   const [networkKind, setNetworkKind] = useState<"followers" | "following">("followers");
-  useEffect(() => { api<Profile>(`/users/${encodeURIComponent(username)}`).then(setProfile).catch((reason) => setError((reason as Error).message)); }, [username]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setProfile(null); setError("");
+    api<Profile>(`/users/${encodeURIComponent(username)}`, { signal: controller.signal })
+      .then((value) => { if (!controller.signal.aborted) setProfile(value); })
+      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load this page."); });
+    return () => controller.abort();
+  }, [username]);
   async function toggleFollow() {
     if (!profile) return;
     try { await api(`/users/${profile.username}/follow`, { method: profile.is_following ? "DELETE" : "PUT" }); setProfile(await api<Profile>(`/users/${profile.username}`)); }
@@ -212,9 +226,18 @@ function ProfilePage() {
 }
 
 function ProfilePublications({ username, kind, onChanged }: { username: string; kind: "micro_post" | "article"; onChanged: () => void }) {
-  const [items, setItems] = useState<FeedItem[]>([]); const [loading, setLoading] = useState(true);
-  useEffect(() => { api<FeedItem[]>(`/users/${encodeURIComponent(username)}/publications?kind=${kind}`).then(setItems).finally(() => setLoading(false)); }, [username, kind]);
+  const [items, setItems] = useState<FeedItem[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setError(""); setItems([]);
+    api<FeedItem[]>(`/users/${encodeURIComponent(username)}/publications?kind=${kind}`, { signal: controller.signal })
+      .then((value) => { if (!controller.signal.aborted) setItems(value); })
+      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load publications."); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [username, kind]);
   if (loading) return <div className="surface p-6 text-sm text-slate-500">Loading publications…</div>;
+  if (error) return <EmptyState title="Publications unavailable" body={error} />;
   return <div className={kind === "article" ? "grid gap-4 sm:grid-cols-2" : "space-y-4"}>{items.length ? items.map((item) => kind === "article" ? <Link className="article-card" key={item.id} to={item.share_url || `/articles/${item.id}`}><div className={`article-card-image ${item.thumbnail_url ? "has-image" : ""}`}>{item.thumbnail_url && <img src={item.thumbnail_url} alt="" loading="lazy" />}</div><div className="p-4"><p className="eyebrow">Article</p><h2 className="editorial-title mt-1 text-xl font-semibold leading-7 text-black">{item.title}</h2>{item.summary && <p className="mt-2 line-clamp-3 text-sm leading-6 text-neutral-600">{item.summary}</p>}<time className="mt-4 block text-xs text-neutral-400">{new Date(item.published_at).toLocaleDateString()}</time></div></Link> : <FeedCard key={item.id} item={item} onChanged={onChanged} />) : <EmptyState title={kind === "article" ? "No articles yet" : "No posts yet"} body="When this writer publishes something, it will appear here." />}</div>;
 }
 
@@ -227,7 +250,14 @@ function MyArticlesPage() {
 
 function ArticlePage() {
   const { articleId = "" } = useParams(); const { user } = useApp(); const [article, setArticle] = useState<Article | null>(null); const [error, setError] = useState("");
-  useEffect(() => { api<Article>(`/articles/${articleId}`).then(setArticle).catch((reason) => setError((reason as Error).message)); }, [articleId]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setArticle(null); setError("");
+    api<Article>(`/articles/${articleId}`, { signal: controller.signal })
+      .then((value) => { if (!controller.signal.aborted) setArticle(value); })
+      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load this page."); });
+    return () => controller.abort();
+  }, [articleId]);
   if (error) return <EmptyState title="Article unavailable" body={error} />;
   if (!article) return <div className="surface p-8 text-center text-sm text-slate-500">Loading article…</div>;
   return <ArticlePresentation article={article} owner={user?.id === article.author_id} />;
@@ -239,7 +269,14 @@ function SharedPublicationPage() {
   const [publication, setPublication] = useState<Article | MicroPost | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  useEffect(() => { api<Article | MicroPost>(`/publications/${encodeURIComponent(username)}/${encodeURIComponent(shareSlug)}`).then(setPublication).catch((reason) => setError((reason as Error).message)); }, [username, shareSlug]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setPublication(null); setError("");
+    api<Article | MicroPost>(`/publications/${encodeURIComponent(username)}/${encodeURIComponent(shareSlug)}`, { signal: controller.signal })
+      .then((value) => { if (!controller.signal.aborted) setPublication(value); })
+      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load this page."); });
+    return () => controller.abort();
+  }, [username, shareSlug]);
   if (error) return <EmptyState title="Publication unavailable" body={error} />;
   if (!publication) return <div className="surface p-8 text-center text-sm text-slate-500">Loading publication…</div>;
   if (publication.kind === "article") return <ArticlePresentation article={publication} owner={false} />;
