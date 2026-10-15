@@ -1,15 +1,14 @@
-from backend.core.api_metadata import documented_responses, Origin, SessionId
-from backend.core.resources import get_resources
-
 from fastapi import APIRouter, Request, Response, status
 
-from backend.auth.accounts import AccountService
-from backend.auth.sessions import SessionService
-from backend.auth.schemas import AuthResponse, LoginRequest, RegisterRequest, SessionResponse
 from backend.audit.dependencies import audit_context
-from backend.core.config import get_settings
+from backend.auth.accounts import AccountService
 from backend.auth.dependencies import CurrentUser, get_session
 from backend.auth.rate_limit import enforce_rate_limit
+from backend.auth.schemas import AuthResponse, LoginRequest, RegisterRequest, SessionResponse
+from backend.auth.sessions import SessionService
+from backend.core.api_metadata import documented_responses, Origin, SessionId
+from backend.core.config import get_settings
+from backend.core.resources import get_resources
 from backend.profiles.models import User
 
 
@@ -65,7 +64,12 @@ def _clear_session_cookie(response: Response) -> None:
     tags=['Authentication'],
     responses=documented_responses(403, 409, 429, 503),
 )
-async def register(_origin: Origin, payload: RegisterRequest, request: Request, response: Response) -> AuthResponse:
+async def register(
+    _origin: Origin,
+    payload: RegisterRequest,
+    request: Request,
+    response: Response,
+) -> AuthResponse:
     await enforce_rate_limit(request, "register", payload.email, limit=5, window_seconds=3600)
     user, token = await AccountService(get_resources(request), audit_context(request)).register(payload)
     _set_session_cookie(response, token)
@@ -137,9 +141,15 @@ async def list_sessions(request: Request, current_user: CurrentUser) -> list[Ses
     tags=['Sessions'],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
-async def revoke_session(_origin: Origin, session_id: SessionId, request: Request, response: Response, current_user: CurrentUser) -> Response:
+async def revoke_session(
+    _origin: Origin,
+    session_id: SessionId,
+    request: Request,
+    response: Response,
+    current_user: CurrentUser,
+) -> Response:
     await SessionService(get_resources(request), audit_context(request)).revoke(current_user, session_id)
-    if str(get_session(request).id) == session_id:
+    if str(get_session(request).id) == session_id.lower():
         _clear_session_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response

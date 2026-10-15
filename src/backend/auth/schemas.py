@@ -12,7 +12,7 @@ class RegisterRequest(BaseModel):
     model_config = ConfigDict(title="Account registration", json_schema_extra={"examples": [examples.REGISTER]})
 
     email: EmailStr = Field(description="Unique email address, stored in lowercase.", examples=[examples.ACCOUNT["email"]])
-    username: str = Field(min_length=3, max_length=24, description="Unique public handle: 3-24 ASCII letters, digits, or underscores. A leading @ is removed and letters are lowercased.", examples=[examples.ACCOUNT["username"]])
+    username: str = Field(min_length=3, max_length=25, pattern=r"^@?[a-zA-Z0-9_]{3,24}$", description="Unique public handle: 3-24 ASCII letters, digits, or underscores. A leading @ is removed and letters are lowercased.", examples=[examples.ACCOUNT["username"]])
     display_name: str = Field(min_length=1, max_length=64, description="Public name shown beside publications. Surrounding whitespace is trimmed; blank names are rejected.", examples=[examples.ACCOUNT["display_name"]])
     password: str = Field(min_length=12, max_length=256, description="Account password, between 12 and 256 characters. Never returned in responses.", examples=[examples.PASSWORD], json_schema_extra={"format": "password", "writeOnly": True})
 
@@ -21,7 +21,7 @@ class RegisterRequest(BaseModel):
     def validate_username(cls, value: object) -> str:
         if not isinstance(value, str):
             raise ValueError("Username must be a string")
-        normalized = value.strip().removeprefix("@").lower()
+        normalized = value.removeprefix("@").lower()
         if not re.fullmatch(r"[a-z0-9_]{3,24}", normalized):
             raise ValueError("Username must use 3-24 letters, numbers, or underscores")
         return normalized
