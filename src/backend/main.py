@@ -1,3 +1,4 @@
+from backend.core.api_metadata import documented_responses
 from backend.core.resources import AppResources, get_resources
 import asyncio
 from contextlib import asynccontextmanager
@@ -5,6 +6,8 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.responses import Response
 from loguru import logger
 from pymongo import AsyncMongoClient
 from redis.asyncio import Redis
@@ -39,8 +42,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     s3_client = create_s3_client(settings)
     s3_public_client = create_s3_client(settings, public=True)
     app.state.resources = AppResources(mongo_client, redis_client, s3_client, s3_public_client)
-    scheduler_task = None
-    cleanup_task = None
+    scheduler_task: asyncio.Task[None] | None = None
+    cleanup_task: asyncio.Task[None] | None = None
     try:
         await mongo_client.admin.command("ping")
         from beanie import init_beanie
@@ -116,26 +119,46 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=503, content={"detail": "Database is unavailable; reload before retrying"})
 
     @app.middleware("http")
-    async def enforce_same_origin(request: Request, call_next):
+    async def enforce_same_origin(request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.url.path.startswith("/api/v1/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             origin = request.headers.get("origin", "").rstrip("/")
             if origin != get_settings().app_origin:
                 return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Cross-origin request rejected"})
         return await call_next(request)
 
-    @app.get("/", tags=["health"], response_model=ApplicationStatusResponse)
-    async def root() -> dict[str, str]:
-        return {"message": "FastAPI Microblog Demo"}
+    @app.get(
+        "/",
+        tags=["System"],
+        response_model=ApplicationStatusResponse,
+        summary='Identify the application',
+        description=(
+            'Returns a short application identifier without checking dependency connectivity. Use '
+            '/health to inspect service availability.'
+        ),
+        responses=documented_responses(503, examples=[({'message': 'FastAPI Microblog Demo'}, 'Application identifier')]),
+    )
+    async def root() -> ApplicationStatusResponse:
+        return ApplicationStatusResponse(message="FastAPI Microblog Demo")
 
-    @app.get("/health", tags=["health"], response_model=HealthResponse)
-    async def health(request: Request) -> dict[str, str]:
+    @app.get(
+        "/health",
+        tags=["System"],
+        response_model=HealthResponse,
+        summary='Check dependency health',
+        description=(
+            'Pings MongoDB and Redis and checks object storage; returns 503 if a dependency is '
+            'unavailable.'
+        ),
+        responses=documented_responses(503, examples=[({'status': 'ok', 'database': 'ok', 'redis': 'ok', 'object_storage': 'ok'}, 'All dependencies available')]),
+    )
+    async def health(request: Request) -> HealthResponse:
         try:
             await get_resources(request).mongo.admin.command("ping")
             await get_resources(request).redis.ping()
             await check_storage(get_resources(request).s3, get_settings())
         except Exception as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="A required service is unavailable") from exc
-        return {"status": "ok", "database": "ok", "redis": "ok", "object_storage": "ok"}
+        return HealthResponse(status="ok", database="ok", redis="ok", object_storage="ok")
 
     return app
 

@@ -85,7 +85,7 @@ POST_CREATE = {"text": POST_TEXT}
 POST = {
     "id": "68eb856f7a02c1349de6b580",
     "kind": "micro_post",
-    "share_url": "/@maya_bennett/finished-a-24-km-ride-along-the-river-before-breakfast-the-best--a98f7c13-26e4-4b6a-8c5d-39e27104bf60",
+    "share_url": "/@maya_bennett/finished-a-24-km-ride-along-the-river-before-breakfast-the-best--a98f7c1326e44b6a8c5d39e27104bf60",
     "text": POST_TEXT,
     "images": [],
     **AUTHOR,
@@ -114,7 +114,7 @@ ARTICLE_UPDATE = ARTICLE_CREATE | {"title": "Ten pages before the first meeting"
 ARTICLE = {
     "id": "68ebb250c39a6184f027de93",
     "kind": "article",
-    "share_url": "/@maya_bennett/a-reading-habit-that-fits-into-a-busy-week--c7412d80-9e36-4a5b-b187-62f90d3ea458",
+    "share_url": "/@maya_bennett/a-reading-habit-that-fits-into-a-busy-week--c7412d809e364a5bb18762f90d3ea458",
     **ARTICLE_CREATE,
     "thumbnail_url": None,
     "inline_image_urls": [],
@@ -133,7 +133,7 @@ ARTICLE_PUBLISHED = ARTICLE | {
     "published_at": "2026-10-13T09:26:41Z",
 }
 ARTICLE_UPDATED = ARTICLE | ARTICLE_UPDATE | {
-    "share_url": "/@maya_bennett/ten-pages-before-the-first-meeting--c7412d80-9e36-4a5b-b187-62f90d3ea458",
+    "share_url": "/@maya_bennett/ten-pages-before-the-first-meeting--c7412d809e364a5bb18762f90d3ea458",
     "updated_at": "2026-10-12T14:08:33Z",
 }
 PUBLISH_AT = (datetime.now(UTC) + timedelta(days=7)).replace(hour=9, minute=30, second=0, microsecond=0).isoformat().replace("+00:00", "Z")

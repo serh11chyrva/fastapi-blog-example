@@ -62,7 +62,7 @@ class SessionResponse(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    """Safe public account fields returned after registration or login."""
+    """Account-owner fields returned after registration, login, or session lookup."""
 
     model_config = ConfigDict(title="Authenticated account", json_schema_extra={"examples": [examples.ACCOUNT]})
 

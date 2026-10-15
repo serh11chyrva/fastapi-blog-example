@@ -1,22 +1,26 @@
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, cast
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi.security import APIKeyCookie
 from beanie.odm.queries.update import UpdateResponse
 
-from backend.core.config import get_settings
+from backend.core.config import get_settings, session_cookie_name
 from backend.auth.security import hash_session_token
 from backend.auth.models import AuthSession
 from backend.profiles.models import User
 
 
-async def get_current_user(request: Request) -> User:
+session_cookie = APIKeyCookie(name=session_cookie_name(), scheme_name="SessionCookie", auto_error=False, description="HttpOnly session cookie issued by registration or login.")
+SessionToken = Annotated[str | None, Security(session_cookie)]
+
+
+async def get_current_user(request: Request, token: SessionToken) -> User:
     """Resolve a session and atomically record activity without undoing revocation.
 
     Absolute and idle deadlines must both remain valid at the activity update.
     The refreshed session and account are available on request.state afterwards.
     """
-    token = request.cookies.get(get_settings().session_cookie_name)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
@@ -65,14 +69,18 @@ async def get_current_user(request: Request) -> User:
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-async def get_optional_user(request: Request) -> User | None:
-    token = request.cookies.get(get_settings().session_cookie_name)
+async def get_optional_user(request: Request, token: SessionToken) -> User | None:
     if not token:
         return None
     try:
-        return await get_current_user(request)
+        return await get_current_user(request, token)
     except HTTPException:
         return None
 
 
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
+
+
+def get_session(request: Request) -> AuthSession:
+    """Read the typed session populated by the cached CurrentUser dependency."""
+    return cast(AuthSession, request.state.auth_session)
