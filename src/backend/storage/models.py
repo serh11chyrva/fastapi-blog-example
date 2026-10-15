@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from beanie import Document, PydanticObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 from pymongo import ASCENDING, IndexModel
 
 
@@ -27,7 +27,7 @@ class ImageUpload(Document):
     status: Literal["pending", "processing", "completed"] = "pending"
     lease_token: str | None = None
     lease_until: datetime | None = None
-    result: dict[str, Any] | None = None
+    result: dict[str, JsonValue] | None = None
 
     class Settings:
         name = "image_uploads"

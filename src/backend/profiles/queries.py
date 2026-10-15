@@ -35,3 +35,10 @@ class ProfileQueries:
         followers, following = await self.repository.counts(user.id)
         public = public_profile(user, definitions, followers, following, await self.repository.is_following(user.id, user.id))
         return own_profile(user, public, definitions)
+
+
+    async def own_by_id(self, user_id: PydanticObjectId) -> OwnProfileResponse:
+        user = await self.repository.get_by_id(user_id)
+        if user is None:
+            raise NotFound("Profile not found")
+        return await self.own_response(user)
