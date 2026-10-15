@@ -82,13 +82,13 @@ function ProfileContent() {
           <button onClick={() => void showNetwork("following")}>
             <strong className="text-slate-900">
               {profile.following_count}
-            </strong>
+            </strong>{" "}
             <span className="text-slate-500">Following</span>
           </button>
           <button onClick={() => void showNetwork("followers")}>
             <strong className="text-slate-900">
               {profile.follower_count}
-            </strong>
+            </strong>{" "}
             <span className="text-slate-500">Followers</span>
           </button>
         </div>

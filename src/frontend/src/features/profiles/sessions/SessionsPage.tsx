@@ -1,26 +1,35 @@
-import { useApp } from "../../app/AuthProvider";
+import { useApp } from "../../../app/AuthProvider";
 import { Navigate, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import type { Session } from "../../shared/api/types";
-import { api, errorMessage } from "../../shared/api/client";
-import { EmptyState } from "../../shared/ui/EmptyState";
+import { useEffect, useRef, useState } from "react";
+import type { Session } from "../../../shared/api/types";
+import { api, errorMessage } from "../../../shared/api/client";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 export function SessionsPage() {
   const { user, setUser } = useApp();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const active = useRef<AbortController | null>(null);
+  const [loading, setLoading] = useState(true);
   async function load() {
+    active.current?.abort();
+    const controller = new AbortController();
+    active.current = controller;
+    setLoading(true); setError("");
     try {
-      setSessions(await api<Session[]>("/auth/sessions"));
-    }
-    catch (reason) {
-      setError(errorMessage(reason));
+      const value = await api<Session[]>("/auth/sessions", { signal: controller.signal });
+      if (!controller.signal.aborted) setSessions(value);
+    } catch (reason) {
+      if (!controller.signal.aborted) setError(errorMessage(reason));
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
   useEffect(() => {
     if (user)
       void load();
+    return () => active.current?.abort();
   }, [user]);
   if (!user)
     return <Navigate to="/login" replace />;
@@ -79,7 +88,8 @@ export function SessionsPage() {
         </div>
         <button className="button-quiet text-slate-700 hover:bg-slate-50" onClick={() => revoke(session.id)}>Revoke</button>
       </div>)}
-      {!sessions.length && !error && <EmptyState title="No active sessions" body="Sign in again to create a session for this device." />}
+      {loading && <p role="status">Loading sessions…</p>}
+    {!loading && !sessions.length && !error && <EmptyState title="No active sessions" body="Sign in again to create a session for this device." />}
     </div>
   </div>;
 }

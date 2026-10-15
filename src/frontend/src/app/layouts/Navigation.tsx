@@ -11,6 +11,7 @@ export function Header({ authReady, fullscreen = false }: {
   const navigate = useNavigate();
   const [logoutError, setLogoutError] = useState("");
   async function logout() {
+    setLogoutError("");
     try {
       await api("/auth/logout", { method: "POST" });
       setUser(null);

@@ -10,7 +10,7 @@ import { MyArticlesPage } from "../features/articles/MyArticlesPage";
 import { ArticlePage } from "../features/articles/ArticlePage";
 import { SharedPublicationPage } from "../features/articles/SharedPublicationPage";
 import { ArticleEditorPage } from "../features/articles/ArticleEditorPage";
-import { SessionsPage } from "../features/sessions/SessionsPage";
+import { SessionsPage } from "../features/profiles/sessions/SessionsPage";
 import { EmptyState } from "../shared/ui/EmptyState";
 export function AppRoutes() {
   return <Routes>
