@@ -40,7 +40,7 @@ Registration request:
 }
 ```
 
-The username accepts 3–24 ASCII letters, digits, or underscores; an optional leading `@` is removed and the value is normalized to lowercase. Email is normalized to lowercase. Passwords must contain 12–256 characters. A successful response is `201 Created` and sets the session cookie:
+The username accepts 3–24 ASCII letters, digits, or underscores; surrounding whitespace and an optional leading `@` are removed before validating the normalized 3–24-character handle, and the value is normalized to lowercase. Email is normalized to lowercase. Passwords must contain 12–256 characters. A successful response is `201 Created` and sets the session cookie:
 
 ```json
 {

@@ -43,6 +43,7 @@ async def get_current_user(request: Request, token: SessionToken) -> User:
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is unavailable")
 
+    now = datetime.now(UTC)
     ip_address = request.headers.get("x-real-ip") or (request.client.host if request.client else None)
     auth_session = await AuthSession.find_one({
         "_id": auth_session.id,
@@ -74,8 +75,10 @@ async def get_optional_user(request: Request, token: SessionToken) -> User | Non
         return None
     try:
         return await get_current_user(request, token)
-    except HTTPException:
-        return None
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
 
 
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]

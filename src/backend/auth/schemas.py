@@ -16,10 +16,12 @@ class RegisterRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=64, description="Public name shown beside publications. Surrounding whitespace is trimmed; blank names are rejected.", examples=[examples.ACCOUNT["display_name"]])
     password: str = Field(min_length=12, max_length=256, description="Account password, between 12 and 256 characters. Never returned in responses.", examples=[examples.PASSWORD], json_schema_extra={"format": "password", "writeOnly": True})
 
-    @field_validator("username")
+    @field_validator("username", mode="before")
     @classmethod
-    def validate_username(cls, value: str) -> str:
-        normalized = value.removeprefix("@").lower()
+    def validate_username(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Username must be a string")
+        normalized = value.strip().removeprefix("@").lower()
         if not re.fullmatch(r"[a-z0-9_]{3,24}", normalized):
             raise ValueError("Username must use 3-24 letters, numbers, or underscores")
         return normalized
