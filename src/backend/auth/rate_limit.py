@@ -1,10 +1,10 @@
-from backend.core.resources import get_resources
 import hashlib
 
 from fastapi import HTTPException, Request, status
 from redis.exceptions import RedisError
 
 from backend.audit.dependencies import request_details
+from backend.core.resources import get_resources
 
 
 RATE_LIMIT_SCRIPT = """
@@ -22,7 +22,14 @@ return exceeded
 """
 
 
-async def enforce_rate_limit(request: Request, namespace: str, identity: str, *, limit: int, window_seconds: int) -> None:
+async def enforce_rate_limit(
+    request: Request,
+    namespace: str,
+    identity: str,
+    *,
+    limit: int,
+    window_seconds: int,
+) -> None:
     """Count both dimensions atomically and repair counters missing an expiry."""
     ip_address, _ = request_details(request)
     ip_fingerprint = hashlib.sha256((ip_address or "unknown").encode()).hexdigest()

@@ -1,8 +1,8 @@
-from pymongo.asynchronous.client_session import AsyncClientSession
-import asyncio
 from datetime import UTC, datetime, timedelta
+import asyncio
 
 from loguru import logger
+from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.content.models import Article, MicroPost
 from backend.profiles.models import User
@@ -10,7 +10,13 @@ from backend.storage.models import ObjectCleanup
 from backend.storage.s3 import S3Client, delete_object
 
 
-async def queue_deletion(bucket: str, key: str, *, not_before: datetime | None = None, session: AsyncClientSession | None = None) -> None:
+async def queue_deletion(
+    bucket: str,
+    key: str,
+    *,
+    not_before: datetime | None = None,
+    session: AsyncClientSession | None = None,
+) -> None:
     """Persist a deletion job, optionally atomically with attachment replacement.
 
     not_before defers temporary or uncommitted objects; the worker checks whether

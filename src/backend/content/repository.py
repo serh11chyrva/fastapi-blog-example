@@ -35,11 +35,20 @@ class ContentRepository:
         return await MicroPost.get(post_id, session=session)
 
     @staticmethod
-    async def get_article(article_id: PydanticObjectId, session: AsyncClientSession | None = None) -> Article | None:
+    async def get_article(
+        article_id: PydanticObjectId,
+        session: AsyncClientSession | None = None,
+    ) -> Article | None:
         return await Article.get(article_id, session=session)
 
     @staticmethod
-    async def list_articles(author_id: PydanticObjectId, status: ArticleStatus | None = None, *, offset: int = 0, limit: int = 20) -> list[Article]:
+    async def list_articles(
+        author_id: PydanticObjectId,
+        status: ArticleStatus | None = None,
+        *,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> list[Article]:
         conditions: dict[str, Any] = {"author_id": author_id, "deleted_at": None}
         if status is not None:
             conditions["status"] = status
@@ -54,7 +63,13 @@ class ContentRepository:
         return [FeedEntry(article, article.published_at) for article in articles if article.published_at is not None]
 
     @staticmethod
-    async def list_publications(author_id: PydanticObjectId, kind: FeedKind, *, offset: int = 0, limit: int = 50) -> list[FeedEntry]:
+    async def list_publications(
+        author_id: PydanticObjectId,
+        kind: FeedKind,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[FeedEntry]:
         entries: list[FeedEntry] = []
         if kind in {"all", "micro_post"}:
             entries.extend(await ContentRepository.load_feed_type("micro_post", {"author_id": author_id, "deleted_at": None}, offset + limit))

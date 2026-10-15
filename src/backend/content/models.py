@@ -3,10 +3,10 @@ from typing import Literal
 from uuid import uuid4
 
 from beanie import Document, PydanticObjectId
-
-from backend.content.validation import ArticleBody
 from pydantic import Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
+
+from backend.content.validation import ArticleBody
 
 
 class MicroPost(Document):

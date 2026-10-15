@@ -1,7 +1,8 @@
+from typing import Literal
+
 from beanie import PydanticObjectId
 
 from backend.profiles.models import BadgeDefinition, Follow, User
-from typing import Literal
 
 
 class ProfileRepository:
@@ -36,7 +37,12 @@ class ProfileRepository:
         return {definition.code: definition for definition in definitions}
 
     @staticmethod
-    async def connections(user_id: PydanticObjectId, kind: Literal["followers", "following"], offset: int, limit: int) -> list[User]:
+    async def connections(
+        user_id: PydanticObjectId,
+        kind: Literal["followers", "following"],
+        offset: int,
+        limit: int,
+    ) -> list[User]:
         field = "followee_id" if kind == "followers" else "follower_id"
         follows = await Follow.find({field: user_id}).sort(("created_at", -1), ("_id", -1)).skip(offset).limit(limit).to_list()
         ids = [item.follower_id if kind == "followers" else item.followee_id for item in follows]

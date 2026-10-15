@@ -1,14 +1,14 @@
-from backend.core.api_metadata import documented_responses, Origin, PostId, ArticleId, UploadId
 from typing import Annotated
-from backend.audit.dependencies import Audit
-from backend.core.resources import Resources
 
 from fastapi import APIRouter, Depends, Response, status
 
-from backend.content.schemas import ArticleImageResponse, ArticleResponse, MicroPostResponse
+from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser
-from backend.profiles.schemas import OwnProfileResponse
+from backend.content.schemas import ArticleImageResponse, ArticleResponse, MicroPostResponse
+from backend.core.api_metadata import documented_responses, Origin, PostId, ArticleId, UploadId
+from backend.core.resources import Resources
 from backend.profiles.queries import ProfileQueries
+from backend.profiles.schemas import OwnProfileResponse
 from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse
 from backend.storage.service import ImageStorageService
 
@@ -36,7 +36,12 @@ Storage = Annotated[ImageStorageService, Depends(image_service)]
     tags=['Media'],
     responses=documented_responses(401, 403, 409, 413, 503),
 )
-async def prepare_avatar(_origin: Origin, payload: ImageUploadRequest, service: Storage, current_user: CurrentUser) -> ImageUploadResponse:
+async def prepare_avatar(
+    _origin: Origin,
+    payload: ImageUploadRequest,
+    service: Storage,
+    current_user: CurrentUser,
+) -> ImageUploadResponse:
     return await service.create(current_user, "avatars", str(current_user.id), payload)
 
 
@@ -56,7 +61,13 @@ async def prepare_avatar(_origin: Origin, payload: ImageUploadRequest, service: 
     tags=['Media'],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
-async def complete_avatar(_origin: Origin, upload_id: UploadId, service: Storage, response: Response, current_user: CurrentUser) -> OwnProfileResponse:
+async def complete_avatar(
+    _origin: Origin,
+    upload_id: UploadId,
+    service: Storage,
+    response: Response,
+    current_user: CurrentUser,
+) -> OwnProfileResponse:
     await service.complete(current_user, "avatars", str(current_user.id), upload_id)
     response.headers["Cache-Control"] = "private, no-store"
     return await ProfileQueries().own_by_id(current_user.id)
@@ -77,7 +88,13 @@ async def complete_avatar(_origin: Origin, upload_id: UploadId, service: Storage
     tags=['Media'],
     responses=documented_responses(401, 403, 404, 409, 413, 503),
 )
-async def prepare_post_images(_origin: Origin, post_id: PostId, payload: ImageUploadRequest, service: Storage, current_user: CurrentUser) -> ImageUploadResponse:
+async def prepare_post_images(
+    _origin: Origin,
+    post_id: PostId,
+    payload: ImageUploadRequest,
+    service: Storage,
+    current_user: CurrentUser,
+) -> ImageUploadResponse:
     return await service.create(current_user, "post-images", post_id, payload)
 
 
@@ -95,7 +112,13 @@ async def prepare_post_images(_origin: Origin, post_id: PostId, payload: ImageUp
     tags=['Media'],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
-async def complete_post_images(_origin: Origin, post_id: PostId, upload_id: UploadId, service: Storage, current_user: CurrentUser) -> MicroPostResponse:
+async def complete_post_images(
+    _origin: Origin,
+    post_id: PostId,
+    upload_id: UploadId,
+    service: Storage,
+    current_user: CurrentUser,
+) -> MicroPostResponse:
     result = await service.complete(current_user, "post-images", post_id, upload_id)
     return MicroPostResponse.model_validate(result.model_dump())
 
@@ -115,7 +138,13 @@ async def complete_post_images(_origin: Origin, post_id: PostId, upload_id: Uplo
     tags=['Media'],
     responses=documented_responses(401, 403, 404, 409, 413, 503),
 )
-async def prepare_cover(_origin: Origin, article_id: ArticleId, payload: ImageUploadRequest, service: Storage, current_user: CurrentUser) -> ImageUploadResponse:
+async def prepare_cover(
+    _origin: Origin,
+    article_id: ArticleId,
+    payload: ImageUploadRequest,
+    service: Storage,
+    current_user: CurrentUser,
+) -> ImageUploadResponse:
     return await service.create(current_user, "article-covers", article_id, payload)
 
 
@@ -133,7 +162,13 @@ async def prepare_cover(_origin: Origin, article_id: ArticleId, payload: ImageUp
     tags=['Media'],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
-async def complete_cover(_origin: Origin, article_id: ArticleId, upload_id: UploadId, service: Storage, current_user: CurrentUser) -> ArticleResponse:
+async def complete_cover(
+    _origin: Origin,
+    article_id: ArticleId,
+    upload_id: UploadId,
+    service: Storage,
+    current_user: CurrentUser,
+) -> ArticleResponse:
     result = await service.complete(current_user, "article-covers", article_id, upload_id)
     return ArticleResponse.model_validate(result.model_dump())
 
@@ -153,7 +188,13 @@ async def complete_cover(_origin: Origin, article_id: ArticleId, upload_id: Uplo
     tags=['Media'],
     responses=documented_responses(401, 403, 404, 409, 413, 503),
 )
-async def prepare_article_image(_origin: Origin, article_id: ArticleId, payload: ImageUploadRequest, service: Storage, current_user: CurrentUser) -> ImageUploadResponse:
+async def prepare_article_image(
+    _origin: Origin,
+    article_id: ArticleId,
+    payload: ImageUploadRequest,
+    service: Storage,
+    current_user: CurrentUser,
+) -> ImageUploadResponse:
     return await service.create(current_user, "article-images", article_id, payload)
 
 
@@ -171,6 +212,12 @@ async def prepare_article_image(_origin: Origin, article_id: ArticleId, payload:
     tags=['Media'],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
-async def complete_article_image(_origin: Origin, article_id: ArticleId, upload_id: UploadId, service: Storage, current_user: CurrentUser) -> ArticleImageResponse:
+async def complete_article_image(
+    _origin: Origin,
+    article_id: ArticleId,
+    upload_id: UploadId,
+    service: Storage,
+    current_user: CurrentUser,
+) -> ArticleImageResponse:
     result = await service.complete(current_user, "article-images", article_id, upload_id)
     return ArticleImageResponse.model_validate(result.model_dump())

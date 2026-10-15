@@ -1,8 +1,8 @@
 """Consistent fictional data used by API schemas and the interactive reference."""
 
+from datetime import UTC, datetime, timedelta
 import base64
 import json
-from datetime import UTC, datetime, timedelta
 
 
 ACCOUNT = {

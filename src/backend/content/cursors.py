@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+import base64
 
 from beanie import PydanticObjectId
 from pydantic import AwareDatetime, BaseModel, ValidationError

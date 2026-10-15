@@ -29,7 +29,11 @@ ERRORS = {
 }
 
 
-def documented_responses(*codes: int, examples: list[tuple[Any, str]] | None = None, success_status: int = 200) -> dict[int, dict[str, Any]]:
+def documented_responses(
+    *codes: int,
+    examples: list[tuple[Any, str]] | None = None,
+    success_status: int = 200,
+) -> dict[int, dict[str, Any]]:
     """Declare endpoint errors and examples next to the endpoint itself."""
     responses: dict[int, dict[str, Any]] = {}
     for code in codes:

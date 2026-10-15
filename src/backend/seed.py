@@ -1,16 +1,16 @@
-import asyncio
 from datetime import UTC, datetime, timedelta
+import asyncio
 
 from beanie import init_beanie
 from pymongo import AsyncMongoClient
 
-from backend.core.config import get_settings
-from backend.auth.security import hash_password
 from backend.auth.models import AuthIdentity
+from backend.auth.security import hash_password
 from backend.content.models import Article, MicroPost
+from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
-from backend.profiles.models import BadgeAssignment, BadgeDefinition, BadgePayload, Follow, User
 from backend.profiles.migrations import ensure_profile_schema
+from backend.profiles.models import BadgeAssignment, BadgeDefinition, BadgePayload, Follow, User
 
 
 DEMO_USERS = [

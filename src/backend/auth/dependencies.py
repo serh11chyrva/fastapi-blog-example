@@ -1,13 +1,13 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, cast
 
+from beanie.odm.queries.update import UpdateResponse
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyCookie
-from beanie.odm.queries.update import UpdateResponse
 
-from backend.core.config import get_settings, session_cookie_name
-from backend.auth.security import hash_session_token
 from backend.auth.models import AuthSession
+from backend.auth.security import hash_session_token
+from backend.core.config import get_settings, session_cookie_name
 from backend.profiles.models import User
 
 

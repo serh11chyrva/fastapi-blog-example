@@ -1,26 +1,26 @@
-from backend.core.transactions import transaction
-from loguru import logger
-from backend.core.resources import AppResources
-import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import cast
-from pydantic import JsonValue
 from uuid import uuid4
+import asyncio
 
 from beanie import PydanticObjectId
 from botocore.exceptions import BotoCoreError, ClientError
-from backend.core.errors import Conflict, InvalidOperation, NotFound, Unavailable
-from backend.audit.context import AuditContext
-from backend.storage.attachments import ImageAttachments, UploadResult, saved_result
-from backend.content.cache import invalidate_public_feed
+from loguru import logger
+from pydantic import JsonValue
 from pymongo.errors import PyMongoError
 
+from backend.audit.context import AuditContext
+from backend.content.cache import invalidate_public_feed
 from backend.content.models import Article
 from backend.core.config import get_settings
 from backend.core.errors import ApplicationError
-from backend.storage.errors import ImageTooLarge, UnsupportedImage
+from backend.core.errors import Conflict, InvalidOperation, NotFound, Unavailable
+from backend.core.resources import AppResources
+from backend.core.transactions import transaction
 from backend.profiles.models import User
+from backend.storage.attachments import ImageAttachments, UploadResult, saved_result
 from backend.storage.cleanup import queue_deletion
+from backend.storage.errors import ImageTooLarge, UnsupportedImage
 from backend.storage.models import ImagePurpose, ImageUpload, ObjectCleanup, UploadFileRecord
 from backend.storage.s3 import image_type
 from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse, PresignedImageFile
@@ -41,7 +41,13 @@ class ImageStorageService:
             return settings.avatar_max_bytes
         return settings.article_thumbnail_max_bytes if purpose == "article-covers" else settings.publication_image_max_bytes
 
-    async def create(self, owner: User, purpose: ImagePurpose, target_id: str, payload: ImageUploadRequest) -> ImageUploadResponse:
+    async def create(
+        self,
+        owner: User,
+        purpose: ImagePurpose,
+        target_id: str,
+        payload: ImageUploadRequest,
+    ) -> ImageUploadResponse:
         try:
             return await self._create(owner, purpose, target_id, payload)
         except ApplicationError:
@@ -50,7 +56,13 @@ class ImageStorageService:
             logger.exception("Failed to prepare image upload")
             raise Unavailable("Image storage or database is unavailable") from exc
 
-    async def _create(self, owner: User, purpose: ImagePurpose, target_id: str, payload: ImageUploadRequest) -> ImageUploadResponse:
+    async def _create(
+        self,
+        owner: User,
+        purpose: ImagePurpose,
+        target_id: str,
+        payload: ImageUploadRequest,
+    ) -> ImageUploadResponse:
         target = await self.attachments.target(purpose, target_id, owner)
         if purpose != "post-images" and len(payload.files) != 1:
             raise InvalidOperation("Choose exactly one image")

@@ -1,12 +1,12 @@
-from backend.core.api_metadata import documented_responses
-from backend.core.resources import get_resources
 import re
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from backend.content.models import Article, MicroPost
-from backend.core.config import get_settings
 from backend.auth.dependencies import OptionalUser
+from backend.content.models import Article, MicroPost
+from backend.core.api_metadata import documented_responses
+from backend.core.config import get_settings
+from backend.core.resources import get_resources
 from backend.profiles.models import User
 from backend.storage.models import ImagePurpose
 from backend.storage.s3 import get_object
@@ -26,7 +26,12 @@ router = APIRouter()
     responses={**documented_responses(404, 503), **{200: {'description': 'Attached image bytes in the detected format.', 'content': {'image/jpeg': {'schema': {'type': 'string', 'format': 'binary'}}, 'image/png': {'schema': {'type': 'string', 'format': 'binary'}}, 'image/webp': {'schema': {'type': 'string', 'format': 'binary'}}}}}},
     openapi_extra={"security": [{}, {"SessionCookie": []}]},
 )
-async def read_image(collection: ImagePurpose, object_name: str, request: Request, current_user: OptionalUser) -> Response:
+async def read_image(
+    collection: ImagePurpose,
+    object_name: str,
+    request: Request,
+    current_user: OptionalUser,
+) -> Response:
     if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", object_name):
         raise HTTPException(404, "Image not found")
     key = f"{collection}/{object_name}"

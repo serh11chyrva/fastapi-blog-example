@@ -1,8 +1,8 @@
 """Publication operations with explicit ownership and audited transaction boundaries."""
 
 from datetime import UTC, datetime
-import re
 from typing import TypeVar
+import re
 
 from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -37,7 +37,13 @@ class ContentService:
         self.audit = audit
         self.repository = ContentRepository()
 
-    async def owned(self, model: type[Publication], resource_id: str, owner: User, session: AsyncClientSession) -> Publication:
+    async def owned(
+        self,
+        model: type[Publication],
+        resource_id: str,
+        owner: User,
+        session: AsyncClientSession,
+    ) -> Publication:
         """Read ownership inside the write transaction so image updates are preserved."""
         item = await model.get(publication_id(resource_id), session=session)
         if item is None or item.deleted_at is not None or item.author_id != owner.id:
@@ -105,7 +111,13 @@ class ContentService:
         await invalidate_public_feed(self.resources.redis)
         return article
 
-    async def transition(self, article_id: str, owner: User, state: ArticleStatus, publish_at: datetime | None = None) -> Article:
+    async def transition(
+        self,
+        article_id: str,
+        owner: User,
+        state: ArticleStatus,
+        publish_at: datetime | None = None,
+    ) -> Article:
         """Change visibility and its timestamps together with the corresponding audit event.
 
         Publishing an already published article preserves its original timestamp.

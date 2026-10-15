@@ -1,9 +1,10 @@
-from backend.core.api_metadata import documented_responses
-import re
 from pathlib import Path
+import re
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+
+from backend.core.api_metadata import documented_responses
 
 
 router = APIRouter()

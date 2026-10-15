@@ -1,10 +1,10 @@
-import asyncio
 from typing import Any, Protocol, TypedDict, cast
+import asyncio
 
-import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
+import boto3
 
 from backend.core.config import Settings
 

@@ -1,8 +1,5 @@
 """HTTP adapters for publication operations."""
 
-from backend.core.api_metadata import documented_responses, Origin, PostId, ArticleId, Username, ShareSlug
-from backend.core import api_examples as examples
-
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -13,6 +10,8 @@ from backend.content.models import Article, MicroPost
 from backend.content.presenters import article_response, post_response
 from backend.content.schemas import ArticleCreate, ArticleResponse, ArticleScheduleRequest, ArticleUpdate, MicroPostCreate, MicroPostResponse
 from backend.content.service import ContentService
+from backend.core import api_examples as examples
+from backend.core.api_metadata import documented_responses, Origin, PostId, ArticleId, Username, ShareSlug
 from backend.core.resources import Resources
 
 
@@ -35,7 +34,12 @@ Content = Annotated[ContentService, Depends(get_content_service)]
     tags=['Micro-posts'],
     responses=documented_responses(401, 403, 409, 503, examples=[(examples.POST, 'New public note')], success_status=201),
 )
-async def create_micro_post(_origin: Origin, payload: MicroPostCreate, current_user: CurrentUser, content: Content) -> MicroPostResponse:
+async def create_micro_post(
+    _origin: Origin,
+    payload: MicroPostCreate,
+    current_user: CurrentUser,
+    content: Content,
+) -> MicroPostResponse:
     return post_response(await content.create_post(payload, current_user), current_user)
 
 
@@ -60,7 +64,13 @@ async def get_micro_post(post_id: PostId, content: Content) -> MicroPostResponse
     tags=['Micro-posts'],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
-async def update_micro_post(_origin: Origin, post_id: PostId, payload: MicroPostCreate, current_user: CurrentUser, content: Content) -> MicroPostResponse:
+async def update_micro_post(
+    _origin: Origin,
+    post_id: PostId,
+    payload: MicroPostCreate,
+    current_user: CurrentUser,
+    content: Content,
+) -> MicroPostResponse:
     return post_response(await content.edit_post(post_id, payload, current_user), current_user)
 
 
@@ -72,7 +82,12 @@ async def update_micro_post(_origin: Origin, post_id: PostId, payload: MicroPost
     tags=['Micro-posts'],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
-async def delete_micro_post(_origin: Origin, post_id: PostId, current_user: CurrentUser, content: Content) -> Response:
+async def delete_micro_post(
+    _origin: Origin,
+    post_id: PostId,
+    current_user: CurrentUser,
+    content: Content,
+) -> Response:
     await content.delete(MicroPost, post_id, current_user)
     return Response(status_code=204)
 
@@ -85,7 +100,12 @@ async def delete_micro_post(_origin: Origin, post_id: PostId, current_user: Curr
     tags=['Articles'],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
-async def delete_article(_origin: Origin, article_id: ArticleId, current_user: CurrentUser, content: Content) -> Response:
+async def delete_article(
+    _origin: Origin,
+    article_id: ArticleId,
+    current_user: CurrentUser,
+    content: Content,
+) -> Response:
     await content.delete(Article, article_id, current_user)
     return Response(status_code=204)
 
@@ -102,7 +122,12 @@ async def delete_article(_origin: Origin, article_id: ArticleId, current_user: C
     tags=['Articles'],
     responses=documented_responses(401, 403, 409, 503, examples=[(examples.ARTICLE, 'New private draft')], success_status=201),
 )
-async def create_article(_origin: Origin, payload: ArticleCreate, current_user: CurrentUser, content: Content) -> ArticleResponse:
+async def create_article(
+    _origin: Origin,
+    payload: ArticleCreate,
+    current_user: CurrentUser,
+    content: Content,
+) -> ArticleResponse:
     return article_response(await content.create_article(payload, current_user), current_user)
 
 
@@ -117,7 +142,11 @@ async def create_article(_origin: Origin, payload: ArticleCreate, current_user: 
     tags=['Publications'],
     responses=documented_responses(404, 503, examples=[(examples.POST_WITH_IMAGES, 'Public micro-post'), (examples.ARTICLE_PUBLISHED, 'Published article')]),
 )
-async def get_shared_publication(username: Username, share_slug: ShareSlug, content: Content) -> MicroPostResponse | ArticleResponse:
+async def get_shared_publication(
+    username: Username,
+    share_slug: ShareSlug,
+    content: Content,
+) -> MicroPostResponse | ArticleResponse:
     publication, author = await content.shared(username, share_slug)
     return post_response(publication, author) if isinstance(publication, MicroPost) else article_response(publication, author)
 
@@ -172,7 +201,13 @@ async def get_article(article_id: ArticleId, current_user: OptionalUser, content
     tags=['Articles'],
     responses=documented_responses(401, 403, 404, 409, 503, examples=[(examples.ARTICLE_UPDATED, 'Updated private article')]),
 )
-async def update_article(_origin: Origin, article_id: ArticleId, payload: ArticleUpdate, current_user: CurrentUser, content: Content) -> ArticleResponse:
+async def update_article(
+    _origin: Origin,
+    article_id: ArticleId,
+    payload: ArticleUpdate,
+    current_user: CurrentUser,
+    content: Content,
+) -> ArticleResponse:
     return article_response(await content.edit_article(article_id, payload, current_user), current_user)
 
 
@@ -188,7 +223,12 @@ async def update_article(_origin: Origin, article_id: ArticleId, payload: Articl
     tags=['Articles'],
     responses=documented_responses(401, 403, 404, 409, 503, examples=[(examples.ARTICLE_PUBLISHED | {'thumbnail_url': None}, 'Article published immediately')]),
 )
-async def publish_article(_origin: Origin, article_id: ArticleId, current_user: CurrentUser, content: Content) -> ArticleResponse:
+async def publish_article(
+    _origin: Origin,
+    article_id: ArticleId,
+    current_user: CurrentUser,
+    content: Content,
+) -> ArticleResponse:
     return article_response(await content.transition(article_id, current_user, "published"), current_user)
 
 
@@ -200,7 +240,12 @@ async def publish_article(_origin: Origin, article_id: ArticleId, current_user: 
     tags=['Articles'],
     responses=documented_responses(401, 403, 404, 409, 503, examples=[(examples.ARTICLE, 'Private draft with no schedule')]),
 )
-async def return_article_to_draft(_origin: Origin, article_id: ArticleId, current_user: CurrentUser, content: Content) -> ArticleResponse:
+async def return_article_to_draft(
+    _origin: Origin,
+    article_id: ArticleId,
+    current_user: CurrentUser,
+    content: Content,
+) -> ArticleResponse:
     return article_response(await content.transition(article_id, current_user, "draft"), current_user)
 
 
@@ -215,5 +260,11 @@ async def return_article_to_draft(_origin: Origin, article_id: ArticleId, curren
     tags=['Articles'],
     responses=documented_responses(401, 403, 404, 409, 503, examples=[(examples.ARTICLE_SCHEDULED, 'Article awaiting scheduled publication')]),
 )
-async def schedule_article(_origin: Origin, article_id: ArticleId, payload: ArticleScheduleRequest, current_user: CurrentUser, content: Content) -> ArticleResponse:
+async def schedule_article(
+    _origin: Origin,
+    article_id: ArticleId,
+    payload: ArticleScheduleRequest,
+    current_user: CurrentUser,
+    content: Content,
+) -> ArticleResponse:
     return article_response(await content.transition(article_id, current_user, "scheduled", payload.publish_at), current_user)

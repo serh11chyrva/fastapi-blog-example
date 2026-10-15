@@ -1,37 +1,37 @@
-from backend.core.api_metadata import documented_responses
-from backend.core.resources import AppResources, get_resources
-import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
+import asyncio
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import RequestResponseEndpoint
-from starlette.responses import Response
 from loguru import logger
 from pymongo import AsyncMongoClient
+from pymongo.errors import PyMongoError
 from redis.asyncio import Redis
 from scalar_fastapi import AgentScalarConfig, Theme, add_scalar_reference
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.responses import Response
 
+from backend.auth.router import router as auth_router
 from backend.content.feed_router import router as feed_router
+from backend.content.migrations import ensure_public_share_ids
 from backend.content.router import router as content_router
 from backend.content.scheduler import run_publication_scheduler
-from backend.content.migrations import ensure_public_share_ids
 from backend.core.api_docs import API_DESCRIPTION, OPENAPI_TAGS, configure_openapi
+from backend.core.api_metadata import documented_responses
 from backend.core.config import get_settings
-from backend.core.errors import ApplicationError
-from pymongo.errors import PyMongoError
 from backend.core.database import DOCUMENT_MODELS
+from backend.core.errors import ApplicationError
+from backend.core.resources import AppResources, get_resources
 from backend.core.schemas import ApplicationStatusResponse, HealthResponse
-from backend.profiles.router import router as profile_router
+from backend.links.router import router as link_router
 from backend.profiles.badge_router import router as badge_router
 from backend.profiles.migrations import ensure_profile_schema
-from backend.links.router import router as link_router
-from backend.storage.s3 import check_storage, create_s3_client
-from backend.storage.router import router as upload_router
-from backend.storage.image_router import router as image_router
+from backend.profiles.router import router as profile_router
 from backend.storage.cleanup import run_storage_cleanup
-from backend.auth.router import router as auth_router
+from backend.storage.image_router import router as image_router
+from backend.storage.router import router as upload_router
+from backend.storage.s3 import check_storage, create_s3_client
 
 
 @asynccontextmanager

@@ -29,7 +29,14 @@ class AttachmentResult:
 
 
 class ImageAttachments:
-    async def target(self, purpose: ImagePurpose, target_id: str, owner: User, *, session: AsyncClientSession | None = None) -> User | MicroPost | Article:
+    async def target(
+        self,
+        purpose: ImagePurpose,
+        target_id: str,
+        owner: User,
+        *,
+        session: AsyncClientSession | None = None,
+    ) -> User | MicroPost | Article:
         if not PydanticObjectId.is_valid(target_id):
             raise NotFound("Resource not found")
         object_id = PydanticObjectId(target_id)
@@ -43,7 +50,14 @@ class ImageAttachments:
             raise NotFound("Resource not found")
         return publication
 
-    async def apply(self, upload: ImageUpload, keys: list[str], owner: User, audit: AuditContext, session: AsyncClientSession) -> AttachmentResult:
+    async def apply(
+        self,
+        upload: ImageUpload,
+        keys: list[str],
+        owner: User,
+        audit: AuditContext,
+        session: AsyncClientSession,
+    ) -> AttachmentResult:
         """Mutate a freshly read target and audit it inside the caller's transaction."""
         target = await self.target(upload.purpose, str(upload.target_id), owner, session=session)
         old_keys: list[str] = []

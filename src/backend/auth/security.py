@@ -1,10 +1,10 @@
-import base64
+from concurrent.futures import ThreadPoolExecutor
+from typing import Final
 import asyncio
+import base64
 import hashlib
 import hmac
 import secrets
-from typing import Final
-from concurrent.futures import ThreadPoolExecutor
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError

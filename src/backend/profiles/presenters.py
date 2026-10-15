@@ -1,7 +1,5 @@
 """Pure profile response construction, keeping owner-only data explicit."""
 
-from beanie import PydanticObjectId
-
 from backend.links.models import ProfileLink
 from backend.links.platforms import detect_platform
 from backend.profiles.models import BadgeDefinition, User
@@ -20,7 +18,13 @@ def user_card(user: User) -> ProfileUserResponse:
     return ProfileUserResponse(id=str(user.id), username=user.username, display_name=user.display_name, avatar_url=avatar_url(user))
 
 
-def public_profile(user: User, definitions: dict[str, BadgeDefinition], follower_count: int, following_count: int, is_following: bool) -> ProfileResponse:
+def public_profile(
+    user: User,
+    definitions: dict[str, BadgeDefinition],
+    follower_count: int,
+    following_count: int,
+    is_following: bool,
+) -> ProfileResponse:
     return ProfileResponse(
         id=str(user.id), username=user.username, display_name=user.display_name,
         bio=user.bio, links=[link_response(link) for link in user.links],
@@ -30,7 +34,11 @@ def public_profile(user: User, definitions: dict[str, BadgeDefinition], follower
     )
 
 
-def own_profile(user: User, public: ProfileResponse, definitions: dict[str, BadgeDefinition]) -> OwnProfileResponse:
+def own_profile(
+    user: User,
+    public: ProfileResponse,
+    definitions: dict[str, BadgeDefinition],
+) -> OwnProfileResponse:
     return OwnProfileResponse(
         **public.model_dump(exclude={"badges"}), revision=user.revision,
         badges=[OwnerBadgeResponse(
