@@ -10,6 +10,8 @@ from backend.audit.service import record_audit
 from backend.audit.dependencies import audit_context
 from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.content.schemas import FeedItem
+from backend.content.presenters import feed_item
+from backend.content.repository import FeedKind
 from backend.content.repository import ContentRepository
 from backend.content.urls import article_thumbnail_url, publication_image_url, share_path
 from backend.profiles.models import Follow, User
@@ -44,30 +46,13 @@ async def get_profile(username: str, current_user: OptionalUser) -> ProfileRespo
 
 
 @router.get("/users/{username}/publications", response_model=list[FeedItem])
-async def list_profile_publications(username: str, kind: str = Query(default="all", pattern="^(all|micro_post|article)$")) -> list[FeedItem]:
+async def list_profile_publications(username: str, kind: FeedKind = "all", offset: int = Query(default=0, ge=0), limit: int = Query(default=50, ge=1, le=50)) -> list[FeedItem]:
     user = await ProfileRepository.find_by_username(username)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-    pairs = await content_repository.list_publications(user.id, kind)
-    pairs.sort(key=lambda pair: (pair[2], pair[0], str(pair[1].id)), reverse=True)
-    return [
-        FeedItem(
-            id=str(item.id),
-            kind=item_kind,
-            share_url=share_path(user.username, item.title if item_kind == "article" else item.text, item.share_id),
-            title=item.title if item_kind == "article" else None,
-            text=item.text if item_kind == "micro_post" else None,
-            summary=item.summary if item_kind == "article" else None,
-            thumbnail_url=article_thumbnail_url(item.thumbnail_key) if item_kind == "article" else None,
-            images=[publication_image_url(key, "post-images") for key in item.image_keys] if item_kind == "micro_post" else [],
-            author_id=str(user.id),
-            author_username=user.username,
-            author_display_name=user.display_name,
-            author_avatar_url=_avatar_url(user),
-            published_at=published_at,
-        )
-        for item_kind, item, published_at in pairs[:50]
-    ]
+    entries = await content_repository.list_publications(user.id, kind, offset=offset, limit=limit)
+    return [feed_item(entry.publication, user) for entry in entries]
+
 
 
 @router.get("/me/profile", response_model=OwnProfileResponse)

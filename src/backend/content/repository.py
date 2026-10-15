@@ -1,36 +1,64 @@
+"""Beanie queries for publications and stable feed ordering."""
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Literal
+
 from beanie import PydanticObjectId
+from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.content.models import Article, MicroPost
 
 
+type PublicationKind = Literal["micro_post", "article"]
+type FeedKind = Literal["all", "micro_post", "article"]
+type ArticleStatus = Literal["draft", "scheduled", "published"]
+
+
+@dataclass(frozen=True, slots=True)
+class FeedEntry:
+    publication: MicroPost | Article
+    published_at: datetime
+
+    @property
+    def kind(self) -> PublicationKind:
+        return "micro_post" if isinstance(self.publication, MicroPost) else "article"
+
+    @property
+    def sort_key(self) -> tuple[datetime, str, str]:
+        return self.published_at, self.kind, str(self.publication.id)
+
+
 class ContentRepository:
     @staticmethod
-    async def get_post(post_id: PydanticObjectId) -> MicroPost | None:
-        return await MicroPost.get(post_id)
+    async def get_post(post_id: PydanticObjectId, session: AsyncClientSession | None = None) -> MicroPost | None:
+        return await MicroPost.get(post_id, session=session)
 
     @staticmethod
-    async def get_article(article_id: PydanticObjectId) -> Article | None:
-        return await Article.get(article_id)
+    async def get_article(article_id: PydanticObjectId, session: AsyncClientSession | None = None) -> Article | None:
+        return await Article.get(article_id, session=session)
 
     @staticmethod
-    async def list_articles(author_id: PydanticObjectId, status: str | None = None) -> list[Article]:
-        conditions: dict = {"author_id": author_id, "deleted_at": None}
+    async def list_articles(author_id: PydanticObjectId, status: ArticleStatus | None = None, *, offset: int = 0, limit: int = 20) -> list[Article]:
+        conditions: dict[str, Any] = {"author_id": author_id, "deleted_at": None}
         if status is not None:
             conditions["status"] = status
-        return await Article.find(conditions).sort(("updated_at", -1)).limit(100).to_list()
+        return await Article.find(conditions).sort(("updated_at", -1), ("_id", -1)).skip(offset).limit(limit).to_list()
 
     @staticmethod
-    async def list_publications(author_id: PydanticObjectId, kind: str) -> list[tuple[str, object, object]]:
-        pairs: list[tuple[str, object, object]] = []
+    async def load_feed_type(kind: PublicationKind, conditions: dict[str, Any], limit: int) -> list[FeedEntry]:
+        if kind == "micro_post":
+            posts = await MicroPost.find(conditions).sort(("created_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+            return [FeedEntry(post, post.created_at) for post in posts]
+        articles = await Article.find(conditions).sort(("published_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+        return [FeedEntry(article, article.published_at) for article in articles if article.published_at is not None]
+
+    @staticmethod
+    async def list_publications(author_id: PydanticObjectId, kind: FeedKind, *, offset: int = 0, limit: int = 50) -> list[FeedEntry]:
+        entries: list[FeedEntry] = []
         if kind in {"all", "micro_post"}:
-            posts = await MicroPost.find(MicroPost.author_id == author_id, MicroPost.deleted_at == None).sort(("created_at", -1)).limit(25).to_list()  # noqa: E711
-            pairs.extend(("micro_post", item, item.created_at) for item in posts)
+            entries.extend(await ContentRepository.load_feed_type("micro_post", {"author_id": author_id, "deleted_at": None}, offset + limit))
         if kind in {"all", "article"}:
-            articles = await Article.find(Article.author_id == author_id, Article.status == "published", Article.deleted_at == None).sort(("published_at", -1)).limit(25).to_list()  # noqa: E711
-            pairs.extend(("article", item, item.published_at) for item in articles if item.published_at is not None)
-        return pairs
-
-    @staticmethod
-    async def load_feed_type(kind: str, conditions: dict, date_field: str, limit: int) -> list[object]:
-        model = MicroPost if kind == "micro_post" else Article
-        return await model.find(conditions).sort((date_field, -1), ("_id", -1)).limit(limit + 1).to_list()
+            entries.extend(await ContentRepository.load_feed_type("article", {"author_id": author_id, "deleted_at": None, "status": "published", "published_at": {"$ne": None}}, offset + limit))
+        entries.sort(key=lambda entry: entry.sort_key, reverse=True)
+        return entries[offset:offset + limit]

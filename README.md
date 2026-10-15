@@ -121,7 +121,7 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 
 ## Architecture
 
-- Backend code lives under `src/backend/`. Authentication, profiles, content, and audit each keep their Beanie documents in their domain package; repositories own common persistence queries and services hold reusable domain behavior.
+- Backend code lives under `src/backend/`. Authentication, profiles, content, and audit each keep their Beanie documents in their domain package; repositories own persistence queries, services own audited publication operations, and presenters map documents to API responses using an already loaded author. Feed loading and opaque cursors live outside HTTP routers.
 - `links/` resolves saved redirects independently of profile handles. Profiles keep embedded link identities and badge assignments; the shared `badge_definitions` catalog owns badge display and policy. Startup migrates older profile records once, preserving link IDs. Links use format version 1, badges version 2; profile PATCH requests require the revision from `GET /api/v1/me/profile`. See the API guide for compatibility and migration details.
 - Infrastructure clients are held in a typed `AppResources` container. HTTP dependencies produce transport-independent audit metadata; audit writes live in `audit/`. Authentication dependencies, rate limiting, and password operations live in `auth/`.
 - Audited transactions report concurrent write conflicts as 409 without replaying the operation automatically. Database failures return 503; clients should reload before retrying an uncertain write.

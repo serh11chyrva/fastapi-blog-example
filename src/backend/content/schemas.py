@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -143,24 +143,43 @@ class ArticleResponse(BaseModel):
     published_at: datetime | None = Field(description="UTC time when the article became public; null while draft or scheduled.", examples=[examples.ARTICLE_PUBLISHED["published_at"], None])
 
 
-class FeedItem(BaseModel):
-    """Discriminated feed item: inspect `kind` to read `text` or `title`."""
+class FeedBase(BaseModel):
+    """Shared author and ordering data for a public feed entry."""
 
     model_config = ConfigDict(title="Feed publication", json_schema_extra={"examples": [examples.FEED_ARTICLE, examples.FEED_POST]})
 
     id: str = Field(description="Publication identifier; use kind to select the post or article endpoint.", examples=[examples.ARTICLE["id"]])
-    kind: Literal["micro_post", "article"] = Field(description="Publication type: micro_post provides text, article provides title and summary.", examples=["article", "micro_post"])
     share_url: str | None = Field(default=None, description="Relative URL of the public publication page.", examples=[examples.ARTICLE["share_url"]])
-    title: str | None = Field(default=None, description="Article title; null for micro-posts.", examples=[examples.ARTICLE_CREATE["title"]])
-    text: str | None = Field(default=None, description="Micro-post text; null for articles.", examples=[examples.POST_TEXT])
-    summary: str | None = Field(default=None, description="Article preview, possibly empty; null for micro-posts.", examples=[examples.ARTICLE_CREATE["summary"]])
-    thumbnail_url: str | None = Field(default=None, description="Article cover URL; null for micro-posts or articles without a cover.", examples=[examples.THUMBNAIL_URL])
-    images: list[str] = Field(default_factory=list, description="Micro-post image URLs in display order; empty for articles.", examples=[[examples.POST_IMAGE_URL]])
     author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
     author_username: str = Field(description="Author public handle without @.", examples=[examples.ACCOUNT["username"]])
     author_display_name: str = Field(description="Author public display name.", examples=[examples.ACCOUNT["display_name"]])
     author_avatar_url: str | None = Field(description="Author avatar URL, or null when absent.", examples=[examples.AVATAR_URL])
     published_at: datetime = Field(description="UTC publication time used for feed ordering; creation time for micro-posts.", examples=[examples.ARTICLE_PUBLISHED["published_at"]])
+
+
+class PostFeedItem(FeedBase):
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_POST]})
+
+    kind: Literal["micro_post"] = "micro_post"
+    text: str = Field(description="Public micro-post text.")
+    images: list[str] = Field(default_factory=list, description="Post image URLs in display order.")
+    title: None = None
+    summary: None = None
+    thumbnail_url: None = None
+
+
+class ArticleFeedItem(FeedBase):
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_ARTICLE]})
+
+    kind: Literal["article"] = "article"
+    title: str = Field(description="Public article title.")
+    summary: str = Field(description="Article preview; may be empty.")
+    thumbnail_url: str | None = Field(default=None, description="Article cover URL, if present.")
+    text: None = None
+    images: list[str] = Field(default_factory=list, max_length=0)
+
+
+FeedItem = Annotated[PostFeedItem | ArticleFeedItem, Field(discriminator="kind")]
 
 
 class FeedResponse(BaseModel):

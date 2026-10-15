@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request
 from pymongo.errors import OperationFailure
 
 from backend.content.models import Article, MicroPost
-from backend.content.service import ContentService
+from backend.content.presenters import post_response, article_response
 from backend.content.urls import publication_image_url
 from backend.audit.service import record_audit
 from backend.audit.dependencies import audit_context
@@ -204,9 +204,9 @@ class ImageStorageService:
                 response = await ProfileService().response(target, owner.id)
                 result = response.model_dump(mode="json")
             elif upload.purpose == "post-images":
-                result = (await ContentService().post_response(target)).model_dump(mode="json")
+                result = post_response(target, owner).model_dump(mode="json")
             elif upload.purpose == "article-covers":
-                result = (await ContentService().article_response(target)).model_dump(mode="json")
+                result = article_response(target, owner).model_dump(mode="json")
             else:
                 result = {"url": publication_image_url(keys[0], "article-images"), "alt_text": upload.files[0].filename}
             current.status = "completed"

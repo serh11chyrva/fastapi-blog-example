@@ -280,6 +280,8 @@ Following yourself returns `400`. Repeated follow/unfollow requests are safe and
 | GET | `/feeds/public?kind=all&limit=20` | Public | Chronological mixed feed |
 | GET | `/feeds/following?kind=all&limit=20` | Session | Chronological feed from followed accounts |
 
+Feed items are a discriminated union: `micro_post` requires text, while `article` requires title and summary. The unused alternative fields remain null or empty for compatibility.
+
 `kind` is `all`, `micro_post`, or `article`. `limit` is 1–50 (default 20). When `next_cursor` is non-null, pass it unchanged as the next `cursor` query parameter. Do not construct or edit cursors.
 
 ```json
@@ -359,7 +361,7 @@ Text must contain 1–280 non-whitespace characters. `PATCH` accepts the same co
 | POST | `/articles/{article_id}/draft` | Author | Return an article to draft |
 | DELETE | `/articles/{article_id}` | Author | Soft-delete article |
 
-Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, `scheduled`, or `published`. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 UTF-8 encoded bytes, 64 nesting levels, and 10,000 content nodes. Every node, attribute object, mark list, and child array is validated. Null child/mark arrays, unsupported nodes, and invalid parent-child structures return 422. Documents and blockquotes require block content; lists require list items; list items start with a paragraph.
+Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, `scheduled`, or `published`. The author list accepts `offset` (default 0) and `limit` (default 20, maximum 100), ordered by updated time and ID descending. Request the next offset until fewer than limit entries are returned; there is no silent 100-article cutoff. Profile publication lists accept offset and limit too (default/maximum 50). Offset pagination can shift when publications are added or edited; refresh from offset 0 when reconciling changes. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 UTF-8 encoded bytes, 64 nesting levels, and 10,000 content nodes. Every node, attribute object, mark list, and child array is validated. Null child/mark arrays, unsupported nodes, and invalid parent-child structures return 422. Documents and blockquotes require block content; lists require list items; list items start with a paragraph.
 
 Upload an optional cover through `/articles/{article_id}/cover/uploads` and its matching confirmation endpoint (JPEG, PNG, or WebP; 10 MiB maximum). A published thumbnail is public; while an article is a draft or scheduled, only its author can retrieve the image. Set a future ISO 8601 timestamp with timezone to schedule publication (replace the illustrative date with your intended future time):
 
