@@ -1,3 +1,4 @@
+from backend.core.resources import AppResources, get_resources
 import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
@@ -15,6 +16,8 @@ from backend.content.scheduler import run_publication_scheduler
 from backend.content.migrations import ensure_public_share_ids
 from backend.core.api_docs import API_DESCRIPTION, OPENAPI_TAGS, configure_openapi
 from backend.core.config import get_settings
+from backend.core.errors import ApplicationError
+from pymongo.errors import PyMongoError
 from backend.core.database import DOCUMENT_MODELS
 from backend.core.schemas import ApplicationStatusResponse, HealthResponse
 from backend.profiles.router import router as profile_router
@@ -35,11 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis_client = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=3)
     s3_client = create_s3_client(settings)
     s3_public_client = create_s3_client(settings, public=True)
-    app.state.mongo_client = mongo_client
-    app.state.redis = redis_client
-    app.state.s3_client = s3_client
-    app.state.s3_public_client = s3_public_client
-    app.state.logger = logger
+    app.state.resources = AppResources(mongo_client, redis_client, s3_client, s3_public_client)
     scheduler_task = None
     cleanup_task = None
     try:
@@ -107,6 +106,15 @@ def create_app() -> FastAPI:
         telemetry=False,
     )
 
+    @app.exception_handler(ApplicationError)
+    async def application_error(request: Request, exc: ApplicationError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    @app.exception_handler(PyMongoError)
+    async def database_error(request: Request, exc: PyMongoError) -> JSONResponse:
+        logger.opt(exception=exc).error("Database operation failed")
+        return JSONResponse(status_code=503, content={"detail": "Database is unavailable; reload before retrying"})
+
     @app.middleware("http")
     async def enforce_same_origin(request: Request, call_next):
         if request.url.path.startswith("/api/v1/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
@@ -122,9 +130,9 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["health"], response_model=HealthResponse)
     async def health(request: Request) -> dict[str, str]:
         try:
-            await request.app.state.mongo_client.admin.command("ping")
-            await request.app.state.redis.ping()
-            await check_storage(request.app.state.s3_client, get_settings())
+            await get_resources(request).mongo.admin.command("ping")
+            await get_resources(request).redis.ping()
+            await check_storage(get_resources(request).s3, get_settings())
         except Exception as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="A required service is unavailable") from exc
         return {"status": "ok", "database": "ok", "redis": "ok", "object_storage": "ok"}

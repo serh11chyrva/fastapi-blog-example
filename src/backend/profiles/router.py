@@ -1,11 +1,14 @@
+from backend.core.transactions import transaction
+from backend.core.resources import get_resources
 from datetime import UTC, datetime
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from pymongo.errors import DuplicateKeyError
 
-from backend.core.audit import record_audit
-from backend.core.dependencies import CurrentUser, OptionalUser
+from backend.audit.service import record_audit
+from backend.audit.dependencies import audit_context
+from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.content.schemas import FeedItem
 from backend.content.repository import ContentRepository
 from backend.content.urls import article_thumbnail_url, publication_image_url, share_path
@@ -116,12 +119,11 @@ async def follow_user(username: str, request: Request, current_user: CurrentUser
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot follow yourself")
     existing = await Follow.find_one(Follow.follower_id == current_user.id, Follow.followee_id == user.id)
     if existing is None:
-        client = request.app.state.mongo_client
+        client = get_resources(request).mongo
         try:
-            async with client.start_session() as db_session:
-                async with await db_session.start_transaction():
-                    await Follow(follower_id=current_user.id, followee_id=user.id, created_at=datetime.now(UTC)).insert(session=db_session)
-                    await record_audit(request, "USER_FOLLOWED", actor_id=current_user.id, target_type="user", target_id=str(user.id), session=db_session)
+            async with transaction(client) as db_session:
+                await Follow(follower_id=current_user.id, followee_id=user.id, created_at=datetime.now(UTC)).insert(session=db_session)
+                await record_audit(audit_context(request), "USER_FOLLOWED", actor_id=current_user.id, target_type="user", target_id=str(user.id), session=db_session)
         except DuplicateKeyError:
             pass
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -134,9 +136,8 @@ async def unfollow_user(username: str, request: Request, current_user: CurrentUs
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
     existing = await Follow.find_one(Follow.follower_id == current_user.id, Follow.followee_id == user.id)
     if existing is not None:
-        client = request.app.state.mongo_client
-        async with client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                await existing.delete(session=db_session)
-                await record_audit(request, "USER_UNFOLLOWED", actor_id=current_user.id, target_type="user", target_id=str(user.id), session=db_session)
+        client = get_resources(request).mongo
+        async with transaction(client) as db_session:
+            await existing.delete(session=db_session)
+            await record_audit(audit_context(request), "USER_UNFOLLOWED", actor_id=current_user.id, target_type="user", target_id=str(user.id), session=db_session)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

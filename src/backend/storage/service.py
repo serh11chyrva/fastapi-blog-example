@@ -1,3 +1,6 @@
+from backend.core.transactions import transaction
+from loguru import logger
+from backend.core.resources import get_resources
 import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -11,8 +14,10 @@ from pymongo.errors import OperationFailure
 from backend.content.models import Article, MicroPost
 from backend.content.service import ContentService
 from backend.content.urls import publication_image_url
-from backend.core.audit import record_audit
+from backend.audit.service import record_audit
+from backend.audit.dependencies import audit_context
 from backend.core.config import get_settings
+from backend.core.errors import ApplicationError
 from backend.profiles.models import User
 from backend.profiles.service import ProfileService
 from backend.storage.cleanup import queue_deletion
@@ -45,10 +50,10 @@ class ImageStorageService:
     async def create(self, request: Request, owner: User, purpose: ImagePurpose, target_id: str, payload: ImageUploadRequest) -> ImageUploadResponse:
         try:
             return await self._create(request, owner, purpose, target_id, payload)
-        except HTTPException:
+        except (HTTPException, ApplicationError):
             raise
         except Exception as exc:
-            request.app.state.logger.exception("Failed to prepare image upload")
+            logger.exception("Failed to prepare image upload")
             raise HTTPException(503, "Image storage or database is unavailable") from exc
 
     async def _create(self, request: Request, owner: User, purpose: ImagePurpose, target_id: str, payload: ImageUploadRequest) -> ImageUploadResponse:
@@ -71,20 +76,19 @@ class ImageStorageService:
         instructions = []
         for file in upload.files:
             url = await asyncio.to_thread(
-                request.app.state.s3_public_client.generate_presigned_url, "put_object",
+                get_resources(request).s3_public.generate_presigned_url, "put_object",
                 Params={"Bucket": upload.bucket, "Key": file.temporary_key, "ContentType": file.content_type},
                 ExpiresIn=settings.upload_expiry_seconds, HttpMethod="PUT",
             )
             instructions.append(PresignedImageFile(upload_url=url, headers={"Content-Type": file.content_type}, max_size_bytes=limit))
-        async with request.app.state.mongo_client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                await upload.insert(session=db_session)
-                for file in upload.files:
-                    await queue_deletion(upload.bucket, file.temporary_key, not_before=upload.expires_at + timedelta(hours=1), session=db_session)
+        async with transaction(get_resources(request).mongo) as db_session:
+            await upload.insert(session=db_session)
+            for file in upload.files:
+                await queue_deletion(upload.bucket, file.temporary_key, not_before=upload.expires_at + timedelta(hours=1), session=db_session)
         return ImageUploadResponse(upload_id=str(upload.id), expires_at=upload.expires_at, files=instructions)
 
     async def _copy_and_validate(self, request: Request, upload: ImageUpload, keys: list[str]) -> None:
-        client = request.app.state.s3_client
+        client = get_resources(request).s3
         for file, key in zip(upload.files, keys, strict=True):
             try:
                 await asyncio.to_thread(
@@ -113,10 +117,10 @@ class ImageStorageService:
     async def complete(self, request: Request, owner: User, purpose: ImagePurpose, target_id: str, upload_id: str) -> dict[str, Any]:
         try:
             return await self._complete(request, owner, purpose, target_id, upload_id)
-        except HTTPException:
+        except (HTTPException, ApplicationError):
             raise
         except Exception as exc:
-            request.app.state.logger.exception("Failed to confirm image upload")
+            logger.exception("Failed to confirm image upload")
             raise HTTPException(503, "Image storage or database is unavailable; retry confirmation") from exc
 
     async def _complete(self, request: Request, owner: User, purpose: ImagePurpose, target_id: str, upload_id: str) -> dict[str, Any]:
@@ -152,66 +156,65 @@ class ImageStorageService:
                 {"$set": {"status": "pending", "lease_token": None, "lease_until": None}}
             )
             # Keep cleanup records until a committed attachment can be ruled out.
-            if isinstance(exc, HTTPException):
+            if isinstance(exc, (HTTPException, ApplicationError)):
                 await ObjectCleanup.find({"bucket": upload.bucket, "key": {"$in": keys}}).update(
                     {"$set": {"not_before": datetime.now(UTC)}}
                 )
                 raise
             if isinstance(exc, OperationFailure) and exc.has_error_label("TransientTransactionError"):
                 raise HTTPException(409, "The resource changed; retry confirmation") from exc
-            request.app.state.logger.exception("Image upload confirmation failed")
+            logger.exception("Image upload confirmation failed")
             raise HTTPException(503, "Image storage or database is unavailable; retry confirmation") from exc
         try:
-            await request.app.state.redis.incr("feed:public:version")
+            await get_resources(request).redis.incr("feed:public:version")
         except Exception:
-            request.app.state.logger.warning("Failed to invalidate the public feed after an image update")
+            logger.warning("Failed to invalidate the public feed after an image update")
         return result
 
     async def _attach(self, request: Request, owner: User, upload: ImageUpload, keys: list[str], token: str) -> dict[str, Any]:
-        async with request.app.state.mongo_client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                current = await ImageUpload.get(upload.id, session=db_session)
-                if current is None or current.status != "processing" or current.lease_token != token or current.lease_until is None or current.lease_until <= datetime.now(UTC):
-                    raise HTTPException(409, "Confirmation lease expired; retry confirmation")
-                target = await self.target(upload.purpose, str(upload.target_id), owner, session=db_session)
-                old_keys = []
-                if upload.purpose == "avatars":
-                    old_keys = [target.avatar_key] if target.avatar_key else []
-                    target.avatar_key = keys[0]
-                    target.avatar_content_type = upload.files[0].content_type
-                    target.revision += 1
-                    action, target_type = "AVATAR_CHANGED", "user"
-                elif upload.purpose == "post-images":
-                    old_keys = target.image_keys
-                    target.image_keys = keys
-                    action, target_type = "MICRO_POST_IMAGES_CHANGED", "micro_post"
-                elif upload.purpose == "article-covers":
-                    old_keys = [target.thumbnail_key] if target.thumbnail_key else []
-                    target.thumbnail_key = keys[0]
-                    action, target_type = "ARTICLE_THUMBNAIL_CHANGED", "article"
-                else:
-                    if len(target.inline_image_keys) >= 30:
-                        raise HTTPException(422, "An article can contain up to 30 inline images")
-                    target.inline_image_keys.append(keys[0])
-                    action, target_type = "ARTICLE_IMAGE_ADDED", "article"
-                target.updated_at = datetime.now(UTC)
-                await target.save(session=db_session)
-                await record_audit(request, action, actor_id=owner.id, target_type=target_type, target_id=str(target.id), metadata={"image_count": len(keys)}, session=db_session)
-                if upload.purpose == "avatars":
-                    response = await ProfileService().response(target, owner.id)
-                    result = response.model_dump(mode="json")
-                elif upload.purpose == "post-images":
-                    result = (await ContentService().post_response(target)).model_dump(mode="json")
-                elif upload.purpose == "article-covers":
-                    result = (await ContentService().article_response(target)).model_dump(mode="json")
-                else:
-                    result = {"url": publication_image_url(keys[0], "article-images"), "alt_text": upload.files[0].filename}
-                current.status = "completed"
-                current.result = result
-                current.lease_token = None
-                current.lease_until = None
-                await current.save(session=db_session)
-                await ObjectCleanup.find({"bucket": upload.bucket, "key": {"$in": keys}}).delete(session=db_session)
-                for key in old_keys:
-                    await queue_deletion(upload.bucket, key, session=db_session)
+        async with transaction(get_resources(request).mongo) as db_session:
+            current = await ImageUpload.get(upload.id, session=db_session)
+            if current is None or current.status != "processing" or current.lease_token != token or current.lease_until is None or current.lease_until <= datetime.now(UTC):
+                raise HTTPException(409, "Confirmation lease expired; retry confirmation")
+            target = await self.target(upload.purpose, str(upload.target_id), owner, session=db_session)
+            old_keys = []
+            if upload.purpose == "avatars":
+                old_keys = [target.avatar_key] if target.avatar_key else []
+                target.avatar_key = keys[0]
+                target.avatar_content_type = upload.files[0].content_type
+                target.revision += 1
+                action, target_type = "AVATAR_CHANGED", "user"
+            elif upload.purpose == "post-images":
+                old_keys = target.image_keys
+                target.image_keys = keys
+                action, target_type = "MICRO_POST_IMAGES_CHANGED", "micro_post"
+            elif upload.purpose == "article-covers":
+                old_keys = [target.thumbnail_key] if target.thumbnail_key else []
+                target.thumbnail_key = keys[0]
+                action, target_type = "ARTICLE_THUMBNAIL_CHANGED", "article"
+            else:
+                if len(target.inline_image_keys) >= 30:
+                    raise HTTPException(422, "An article can contain up to 30 inline images")
+                target.inline_image_keys.append(keys[0])
+                action, target_type = "ARTICLE_IMAGE_ADDED", "article"
+            target.updated_at = datetime.now(UTC)
+            await target.save(session=db_session)
+            await record_audit(audit_context(request), action, actor_id=owner.id, target_type=target_type, target_id=str(target.id), metadata={"image_count": len(keys)}, session=db_session)
+            if upload.purpose == "avatars":
+                response = await ProfileService().response(target, owner.id)
+                result = response.model_dump(mode="json")
+            elif upload.purpose == "post-images":
+                result = (await ContentService().post_response(target)).model_dump(mode="json")
+            elif upload.purpose == "article-covers":
+                result = (await ContentService().article_response(target)).model_dump(mode="json")
+            else:
+                result = {"url": publication_image_url(keys[0], "article-images"), "alt_text": upload.files[0].filename}
+            current.status = "completed"
+            current.result = result
+            current.lease_token = None
+            current.lease_until = None
+            await current.save(session=db_session)
+            await ObjectCleanup.find({"bucket": upload.bucket, "key": {"$in": keys}}).delete(session=db_session)
+            for key in old_keys:
+                await queue_deletion(upload.bucket, key, session=db_session)
         return result

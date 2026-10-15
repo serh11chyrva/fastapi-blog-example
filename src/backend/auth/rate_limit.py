@@ -1,9 +1,10 @@
+from backend.core.resources import get_resources
 import hashlib
 
 from fastapi import HTTPException, Request, status
 from redis.exceptions import RedisError
 
-from backend.core.audit import request_details
+from backend.audit.dependencies import request_details
 
 
 RATE_LIMIT_SCRIPT = """
@@ -27,7 +28,7 @@ async def enforce_rate_limit(request: Request, namespace: str, identity: str, *,
     ip_fingerprint = hashlib.sha256((ip_address or "unknown").encode()).hexdigest()
     identity_fingerprint = hashlib.sha256(identity.casefold().encode()).hexdigest()
     keys = (f"rate:{namespace}:ip:{ip_fingerprint}", f"rate:{namespace}:identity:{identity_fingerprint}")
-    redis = request.app.state.redis
+    redis = get_resources(request).redis
     try:
         exceeded = await redis.eval(RATE_LIMIT_SCRIPT, len(keys), *keys, limit, window_seconds)
     except RedisError as exc:

@@ -1,8 +1,7 @@
 from datetime import datetime
-from typing import Any
 
 from beanie import Document, PydanticObjectId
-from pydantic import Field
+from pydantic import Field, JsonValue
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 
@@ -14,7 +13,7 @@ class AuditEvent(Document):
     occurred_at: datetime
     ip_address: str | None = None
     user_agent: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
     class Settings:
         name = "audit_events"

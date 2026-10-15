@@ -5,7 +5,7 @@ from beanie import init_beanie
 from pymongo import AsyncMongoClient
 
 from backend.core.config import get_settings
-from backend.core.security import hash_password
+from backend.auth.security import hash_password
 from backend.auth.models import AuthIdentity
 from backend.content.models import Article, MicroPost
 from backend.core.database import DOCUMENT_MODELS

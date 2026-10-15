@@ -1,3 +1,4 @@
+from backend.core.transactions import transaction
 import asyncio
 from datetime import UTC, datetime
 
@@ -18,27 +19,26 @@ async def publish_due_articles(mongo_client: AsyncMongoClient) -> int:
     ).to_list()
     published_count = 0
     for article in due_articles:
-        async with mongo_client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                current = await Article.get(article.id, session=db_session)
-                if current is None or current.status != "scheduled" or current.scheduled_at is None or current.scheduled_at > now:
-                    continue
-                current.status = "published"
-                current.published_at = now
-                current.scheduled_at = None
-                current.updated_at = now
-                await current.save(session=db_session)
-                await AuditEvent(
-                    actor_id=current.author_id,
-                    action="ARTICLE_PUBLISHED",
-                    target_type="article",
-                    target_id=str(current.id),
-                    occurred_at=now,
-                    ip_address=None,
-                    user_agent=None,
-                    metadata={"source": "scheduled_publication"},
-                ).insert(session=db_session)
-                published_count += 1
+        async with transaction(mongo_client) as db_session:
+            current = await Article.get(article.id, session=db_session)
+            if current is None or current.status != "scheduled" or current.scheduled_at is None or current.scheduled_at > now:
+                continue
+            current.status = "published"
+            current.published_at = now
+            current.scheduled_at = None
+            current.updated_at = now
+            await current.save(session=db_session)
+            await AuditEvent(
+                actor_id=current.author_id,
+                action="ARTICLE_PUBLISHED",
+                target_type="article",
+                target_id=str(current.id),
+                occurred_at=now,
+                ip_address=None,
+                user_agent=None,
+                metadata={"source": "scheduled_publication"},
+            ).insert(session=db_session)
+            published_count += 1
     return published_count
 
 

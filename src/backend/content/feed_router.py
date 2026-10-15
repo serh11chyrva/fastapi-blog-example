@@ -1,3 +1,5 @@
+from loguru import logger
+from backend.core.resources import get_resources
 import base64
 import json
 from datetime import UTC, datetime
@@ -9,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from backend.content.schemas import FeedItem, FeedResponse
 from backend.content.repository import ContentRepository
 from backend.content.urls import article_thumbnail_url, publication_image_url, share_path
-from backend.core.dependencies import CurrentUser
+from backend.auth.dependencies import CurrentUser
 from backend.profiles.models import Follow, User
 from backend.profiles.service import ProfileService
 
@@ -76,11 +78,11 @@ async def _load_type(kind: str, authors: list[PydanticObjectId] | None, cursor: 
 async def _make_feed(request: Request, authors: list[PydanticObjectId] | None, kind_filter: FeedKind, cursor_text: str | None, limit: int, cache_key: str | None) -> FeedResponse:
     if cache_key:
         try:
-            cached = await request.app.state.redis.get(cache_key)
+            cached = await get_resources(request).redis.get(cache_key)
             if cached:
                 return FeedResponse.model_validate_json(cached)
         except Exception:
-            request.app.state.logger.warning("Redis unavailable while reading public feed cache")
+            logger.warning("Redis unavailable while reading public feed cache")
 
     cursor = _decode_cursor(cursor_text)
     types = [kind_filter] if kind_filter != "all" else ["micro_post", "article"]
@@ -118,9 +120,9 @@ async def _make_feed(request: Request, authors: list[PydanticObjectId] | None, k
     result = FeedResponse(items=feed_items, next_cursor=next_cursor)
     if cache_key:
         try:
-            await request.app.state.redis.set(cache_key, result.model_dump_json(), ex=20)
+            await get_resources(request).redis.set(cache_key, result.model_dump_json(), ex=20)
         except Exception:
-            request.app.state.logger.warning("Redis unavailable while writing public feed cache")
+            logger.warning("Redis unavailable while writing public feed cache")
     return result
 
 
@@ -132,7 +134,7 @@ async def public_feed(
     limit: int = Query(default=20, ge=1, le=50),
 ) -> FeedResponse:
     try:
-        version = await request.app.state.redis.get("feed:public:version") or "0"
+        version = await get_resources(request).redis.get("feed:public:version") or "0"
     except Exception:
         version = "0"
     cache_key = f"feed:public:{version}:{kind}:{limit}:{cursor or 'first'}"

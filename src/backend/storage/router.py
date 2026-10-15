@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from backend.content.schemas import ArticleImageResponse, ArticleResponse, MicroPostResponse
-from backend.core.dependencies import CurrentUser
+from backend.auth.dependencies import CurrentUser
 from backend.profiles.schemas import OwnProfileResponse
 from backend.profiles.models import User
 from backend.profiles.service import ProfileService

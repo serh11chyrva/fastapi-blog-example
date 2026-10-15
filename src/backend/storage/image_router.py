@@ -1,10 +1,11 @@
+from backend.core.resources import get_resources
 import re
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.content.models import Article, MicroPost
 from backend.core.config import get_settings
-from backend.core.dependencies import OptionalUser
+from backend.auth.dependencies import OptionalUser
 from backend.profiles.models import User
 from backend.storage.models import ImagePurpose
 from backend.storage.s3 import get_object
@@ -36,7 +37,7 @@ async def read_image(collection: ImagePurpose, object_name: str, request: Reques
     if attached is None:
         raise HTTPException(404, "Image not found")
     try:
-        result = await get_object(request.app.state.s3_client, bucket, key)
+        result = await get_object(get_resources(request).s3, bucket, key)
     except Exception as exc:
         raise HTTPException(503, "Image storage is unavailable") from exc
     if result is None:

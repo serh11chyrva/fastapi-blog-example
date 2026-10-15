@@ -1,3 +1,6 @@
+from backend.core.transactions import transaction
+from loguru import logger
+from backend.core.resources import get_resources
 from datetime import UTC, datetime
 import re
 from typing import Any, Literal
@@ -9,8 +12,9 @@ from backend.content.schemas import ArticleCreate, ArticleResponse, ArticleSched
 from backend.content.repository import ContentRepository
 from backend.content.service import ContentService
 from backend.content.validation import article_image_keys
-from backend.core.audit import record_audit
-from backend.core.dependencies import CurrentUser, OptionalUser
+from backend.audit.service import record_audit
+from backend.audit.dependencies import audit_context
+from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.config import get_settings
 from backend.content.models import Article, MicroPost
 from backend.profiles.models import User
@@ -38,9 +42,9 @@ async def _article_response(article: Article) -> ArticleResponse:
 
 async def _bump_public_feed_version(request: Request) -> None:
     try:
-        await request.app.state.redis.incr("feed:public:version")
+        await get_resources(request).redis.incr("feed:public:version")
     except Exception:
-        request.app.state.logger.warning("Redis unavailable while invalidating public feed cache")
+        logger.warning("Redis unavailable while invalidating public feed cache")
 
 
 async def _owned_publication(model: type[MicroPost] | type[Article], resource_id: str, owner_id: PydanticObjectId, db_session: Any) -> MicroPost | Article:
@@ -55,11 +59,10 @@ async def _owned_publication(model: type[MicroPost] | type[Article], resource_id
 async def create_micro_post(payload: MicroPostCreate, request: Request, current_user: CurrentUser) -> MicroPostResponse:
     now = datetime.now(UTC)
     post = MicroPost(author_id=current_user.id, text=payload.text, created_at=now, updated_at=now)
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            await post.insert(session=db_session)
-            await record_audit(request, "MICRO_POST_CREATED", actor_id=current_user.id, target_type="micro_post", target_id=str(post.id), session=db_session)
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        await post.insert(session=db_session)
+        await record_audit(audit_context(request), "MICRO_POST_CREATED", actor_id=current_user.id, target_type="micro_post", target_id=str(post.id), session=db_session)
     await _bump_public_feed_version(request)
     return await _post_response(post)
 
@@ -81,14 +84,13 @@ async def update_micro_post(post_id: str, payload: MicroPostCreate, request: Req
     post = await content_repository.get_post(PydanticObjectId(post_id))
     if post is None or post.deleted_at is not None or post.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            post = await _owned_publication(MicroPost, post_id, current_user.id, db_session)
-            post.text = payload.text
-            post.updated_at = datetime.now(UTC)
-            await post.save(session=db_session)
-            await record_audit(request, "MICRO_POST_EDITED", actor_id=current_user.id, target_type="micro_post", target_id=post_id, session=db_session)
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        post = await _owned_publication(MicroPost, post_id, current_user.id, db_session)
+        post.text = payload.text
+        post.updated_at = datetime.now(UTC)
+        await post.save(session=db_session)
+        await record_audit(audit_context(request), "MICRO_POST_EDITED", actor_id=current_user.id, target_type="micro_post", target_id=post_id, session=db_session)
     await _bump_public_feed_version(request)
     return await _post_response(post)
 
@@ -101,16 +103,15 @@ async def delete_micro_post(post_id: str, request: Request, current_user: Curren
     if post is None or post.deleted_at is not None or post.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     now = datetime.now(UTC)
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            post = await _owned_publication(MicroPost, post_id, current_user.id, db_session)
-            post.deleted_at = now
-            post.updated_at = now
-            await post.save(session=db_session)
-            for key in post.image_keys:
-                await queue_deletion(get_settings().publication_bucket, key, session=db_session)
-            await record_audit(request, "MICRO_POST_DELETED", actor_id=current_user.id, target_type="micro_post", target_id=post_id, session=db_session)
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        post = await _owned_publication(MicroPost, post_id, current_user.id, db_session)
+        post.deleted_at = now
+        post.updated_at = now
+        await post.save(session=db_session)
+        for key in post.image_keys:
+            await queue_deletion(get_settings().publication_bucket, key, session=db_session)
+        await record_audit(audit_context(request), "MICRO_POST_DELETED", actor_id=current_user.id, target_type="micro_post", target_id=post_id, session=db_session)
     await _bump_public_feed_version(request)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -123,15 +124,14 @@ async def delete_article(article_id: str, request: Request, current_user: Curren
     if article is None or article.deleted_at is not None or article.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
     now = datetime.now(UTC)
-    async with request.app.state.mongo_client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            article = await _owned_publication(Article, article_id, current_user.id, db_session)
-            article.deleted_at = now
-            article.updated_at = now
-            await article.save(session=db_session)
-            for key in ([article.thumbnail_key] if article.thumbnail_key else []) + article.inline_image_keys:
-                await queue_deletion(get_settings().publication_bucket, key, session=db_session)
-            await record_audit(request, "ARTICLE_DELETED", actor_id=current_user.id, target_type="article", target_id=article_id, session=db_session)
+    async with transaction(get_resources(request).mongo) as db_session:
+        article = await _owned_publication(Article, article_id, current_user.id, db_session)
+        article.deleted_at = now
+        article.updated_at = now
+        await article.save(session=db_session)
+        for key in ([article.thumbnail_key] if article.thumbnail_key else []) + article.inline_image_keys:
+            await queue_deletion(get_settings().publication_bucket, key, session=db_session)
+        await record_audit(audit_context(request), "ARTICLE_DELETED", actor_id=current_user.id, target_type="article", target_id=article_id, session=db_session)
     await _bump_public_feed_version(request)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -142,11 +142,10 @@ async def create_article(payload: ArticleCreate, request: Request, current_user:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Upload article images after creating a draft")
     now = datetime.now(UTC)
     article = Article(author_id=current_user.id, title=payload.title, summary=payload.summary, body=payload.body, status="draft", created_at=now, updated_at=now)
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            await article.insert(session=db_session)
-            await record_audit(request, "ARTICLE_CREATED", actor_id=current_user.id, target_type="article", target_id=str(article.id), metadata={"status": "draft"}, session=db_session)
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        await article.insert(session=db_session)
+        await record_audit(audit_context(request), "ARTICLE_CREATED", actor_id=current_user.id, target_type="article", target_id=str(article.id), metadata={"status": "draft"}, session=db_session)
     return await _article_response(article)
 
 
@@ -191,18 +190,17 @@ async def update_article(article_id: str, payload: ArticleUpdate, request: Reque
     if article is None or article.deleted_at is not None or article.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
     changes = payload.model_dump(exclude_unset=True)
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            article = await _owned_publication(Article, article_id, current_user.id, db_session)
-            if "body" in changes and changes["body"] is not None and not article_image_keys(changes["body"]).issubset(set(article.inline_image_keys)):
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Article body references an image not uploaded to this article")
-            for field, value in changes.items():
-                if value is not None:
-                    setattr(article, field, value)
-            article.updated_at = datetime.now(UTC)
-            await article.save(session=db_session)
-            await record_audit(request, "ARTICLE_EDITED", actor_id=current_user.id, target_type="article", target_id=article_id, metadata={"fields": sorted(changes)}, session=db_session)
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        article = await _owned_publication(Article, article_id, current_user.id, db_session)
+        if "body" in changes and changes["body"] is not None and not article_image_keys(changes["body"]).issubset(set(article.inline_image_keys)):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Article body references an image not uploaded to this article")
+        for field, value in changes.items():
+            if value is not None:
+                setattr(article, field, value)
+        article.updated_at = datetime.now(UTC)
+        await article.save(session=db_session)
+        await record_audit(audit_context(request), "ARTICLE_EDITED", actor_id=current_user.id, target_type="article", target_id=article_id, metadata={"fields": sorted(changes)}, session=db_session)
     await _bump_public_feed_version(request)
     return await _article_response(article)
 
@@ -216,17 +214,16 @@ async def publish_article(article_id: str, request: Request, current_user: Curre
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
     if article.status != "published":
         now = datetime.now(UTC)
-        client = request.app.state.mongo_client
-        async with client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                article = await _owned_publication(Article, article_id, current_user.id, db_session)
-                if article.status != "published":
-                    article.status = "published"
-                    article.published_at = now
-                    article.scheduled_at = None
-                    article.updated_at = now
-                    await article.save(session=db_session)
-                    await record_audit(request, "ARTICLE_PUBLISHED", actor_id=current_user.id, target_type="article", target_id=article_id, session=db_session)
+        client = get_resources(request).mongo
+        async with transaction(client) as db_session:
+            article = await _owned_publication(Article, article_id, current_user.id, db_session)
+            if article.status != "published":
+                article.status = "published"
+                article.published_at = now
+                article.scheduled_at = None
+                article.updated_at = now
+                await article.save(session=db_session)
+                await record_audit(audit_context(request), "ARTICLE_PUBLISHED", actor_id=current_user.id, target_type="article", target_id=article_id, session=db_session)
         await _bump_public_feed_version(request)
     return await _article_response(article)
 
@@ -238,15 +235,14 @@ async def return_article_to_draft(article_id: str, request: Request, current_use
     article = await content_repository.get_article(PydanticObjectId(article_id))
     if article is None or article.deleted_at is not None or article.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-    async with request.app.state.mongo_client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            article = await _owned_publication(Article, article_id, current_user.id, db_session)
-            article.status = "draft"
-            article.scheduled_at = None
-            article.published_at = None
-            article.updated_at = datetime.now(UTC)
-            await article.save(session=db_session)
-            await record_audit(request, "ARTICLE_UNPUBLISHED", actor_id=current_user.id, target_type="article", target_id=article_id, session=db_session)
+    async with transaction(get_resources(request).mongo) as db_session:
+        article = await _owned_publication(Article, article_id, current_user.id, db_session)
+        article.status = "draft"
+        article.scheduled_at = None
+        article.published_at = None
+        article.updated_at = datetime.now(UTC)
+        await article.save(session=db_session)
+        await record_audit(audit_context(request), "ARTICLE_UNPUBLISHED", actor_id=current_user.id, target_type="article", target_id=article_id, session=db_session)
     await _bump_public_feed_version(request)
     return await _article_response(article)
 
@@ -263,22 +259,21 @@ async def schedule_article(
     article = await content_repository.get_article(PydanticObjectId(article_id))
     if article is None or article.deleted_at is not None or article.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-    async with request.app.state.mongo_client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            article = await _owned_publication(Article, article_id, current_user.id, db_session)
-            article.status = "scheduled"
-            article.scheduled_at = payload.publish_at
-            article.published_at = None
-            article.updated_at = datetime.now(UTC)
-            await article.save(session=db_session)
-            await record_audit(
-                request,
-                "ARTICLE_SCHEDULED",
-                actor_id=current_user.id,
-                target_type="article",
-                target_id=article_id,
-                metadata={"publish_at": payload.publish_at.isoformat()},
-                session=db_session,
-            )
+    async with transaction(get_resources(request).mongo) as db_session:
+        article = await _owned_publication(Article, article_id, current_user.id, db_session)
+        article.status = "scheduled"
+        article.scheduled_at = payload.publish_at
+        article.published_at = None
+        article.updated_at = datetime.now(UTC)
+        await article.save(session=db_session)
+        await record_audit(
+            audit_context(request),
+            "ARTICLE_SCHEDULED",
+            actor_id=current_user.id,
+            target_type="article",
+            target_id=article_id,
+            metadata={"publish_at": payload.publish_at.isoformat()},
+            session=db_session,
+        )
     await _bump_public_feed_version(request)
     return await _article_response(article)

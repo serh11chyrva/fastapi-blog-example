@@ -307,6 +307,8 @@ def configure_openapi(app: FastAPI) -> None:
                            ("patch", "/api/v1/me/profile"), ("patch", "/api/v1/me/badges/{code}")}:
                     operation["responses"]["503"] = _error_response("A referenced badge definition is missing.", "Badge definition is unavailable")
                 if method in {"post", "put", "patch", "delete"} and path.startswith("/api/v1/"):
+                    operation["responses"].setdefault("409", _error_response("A concurrent write conflicted; reload before retrying.", "The resource changed; reload before retrying"))
+                    operation["responses"].setdefault("503", _error_response("Database unavailable; reload before retrying an uncertain write.", "Database is unavailable; reload before retrying"))
                     operation.setdefault("parameters", []).append({
                         "name": "Origin", "in": "header", "required": True,
                         "description": "Must match the configured application origin. Browsers set this header automatically.",

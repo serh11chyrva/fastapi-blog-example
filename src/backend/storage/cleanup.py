@@ -1,16 +1,21 @@
+from pymongo.asynchronous.client_session import AsyncClientSession
 import asyncio
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from loguru import logger
 
 from backend.content.models import Article, MicroPost
 from backend.profiles.models import User
 from backend.storage.models import ObjectCleanup
-from backend.storage.s3 import delete_object
+from backend.storage.s3 import S3Client, delete_object
 
 
-async def queue_deletion(bucket: str, key: str, *, not_before: datetime | None = None, session: Any = None) -> None:
+async def queue_deletion(bucket: str, key: str, *, not_before: datetime | None = None, session: AsyncClientSession | None = None) -> None:
+    """Persist a deletion job, optionally atomically with attachment replacement.
+
+    not_before defers temporary or uncommitted objects; the worker checks whether
+    a final object is attached before deleting it and retries storage failures.
+    """
     await ObjectCleanup(bucket=bucket, key=key, not_before=not_before or datetime.now(UTC)).insert(session=session)
 
 
@@ -22,7 +27,7 @@ async def is_attached(key: str) -> bool:
     return await Article.find_one({"deleted_at": None, "$or": [{"thumbnail_key": key}, {"inline_image_keys": key}]}) is not None
 
 
-async def run_storage_cleanup(client: Any) -> None:
+async def run_storage_cleanup(client: S3Client) -> None:
     while True:
         try:
             jobs = await ObjectCleanup.find(ObjectCleanup.not_before <= datetime.now(UTC)).sort("not_before").limit(100).to_list()

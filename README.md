@@ -123,6 +123,8 @@ Likes, reposts, threaded micro-post replies, flat article comments, email delive
 
 - Backend code lives under `src/backend/`. Authentication, profiles, content, and audit each keep their Beanie documents in their domain package; repositories own common persistence queries and services hold reusable domain behavior.
 - `links/` resolves saved redirects independently of profile handles. Profiles keep embedded link identities and badge assignments; the shared `badge_definitions` catalog owns badge display and policy. Startup migrates older profile records once, preserving link IDs. Links use format version 1, badges version 2; profile PATCH requests require the revision from `GET /api/v1/me/profile`. See the API guide for compatibility and migration details.
+- Infrastructure clients are held in a typed `AppResources` container. HTTP dependencies produce transport-independent audit metadata; audit writes live in `audit/`. Authentication dependencies, rate limiting, and password operations live in `auth/`.
+- Audited transactions report concurrent write conflicts as 409 without replaying the operation automatically. Database failures return 503; clients should reload before retrying an uncertain write.
 - `main.py` wires FastAPI, the async PyMongo client used by Beanie, Redis, and Garage. MongoDB is the source of truth; audited writes use replica-set transactions.
 - The public feed cache version advances on API startup so deployments and explicit data resets do not reuse cached responses with obsolete image URLs.
 - Passwords use Argon2id. Existing scrypt hashes are checked and upgraded after a successful login. API hashing and verification run in a dedicated pool limited to four concurrent operations per process, keeping the event loop available.

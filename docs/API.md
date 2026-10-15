@@ -11,6 +11,7 @@ This guide documents the implemented API in addition to the interactive Scalar r
 - Authentication is a server-side session delivered in the `blog_session` HttpOnly cookie. The raw token is never part of a JSON response. The cookie defaults to `SameSite=Lax`; `Secure` is configurable.
 - Keep the cookie between application API requests. Use same-origin `fetch` with `credentials: "same-origin"`. All POST, PUT, PATCH, and DELETE requests under `/api/v1` must include the configured `APP_ORIGIN` in the `Origin` header as a CSRF defense. Presigned Garage PUT requests use `credentials: "omit"` and the returned headers; browser access is controlled by storage CORS.
 - Successful deletes, logout, follow, and unfollow return `204 No Content` with an empty body.
+- Concurrent audited writes can return `409`; reload the affected resource and reconcile changes before retrying. Transaction bodies are not automatically replayed. Database failures return `503`; an uncertain commit may have succeeded, so reload before retrying.
 - Validation errors return `422` with FastAPI's `{ "detail": [...] }` shape. Unauthenticated protected calls return `401`; missing or inaccessible objects generally return `404`.
 - Rate limits: registration is limited to 5 attempts per email per hour; login is limited to 8 attempts per identifier per 10 minutes. Limits are enforced per client IP and per normalized identity. Counters and their expiry are updated atomically; existing counters missing an expiry are repaired. A limit response is `429`.
 

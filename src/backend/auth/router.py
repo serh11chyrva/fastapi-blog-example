@@ -1,3 +1,5 @@
+from backend.core.transactions import transaction
+from backend.core.resources import get_resources
 from datetime import UTC, datetime, timedelta
 
 from beanie import PydanticObjectId
@@ -6,11 +8,12 @@ from pymongo.errors import DuplicateKeyError
 
 from backend.auth.schemas import AuthResponse, LoginRequest, RegisterRequest, SessionResponse
 from backend.auth.service import AuthService, PasswordRejected
-from backend.core.audit import record_audit, request_details
+from backend.audit.service import record_audit
+from backend.audit.dependencies import audit_context, request_details
 from backend.core.config import get_settings
-from backend.core.dependencies import CurrentUser
-from backend.core.rate_limit import enforce_rate_limit
-from backend.core.security import hash_password_async, hash_session_token, new_session_token
+from backend.auth.dependencies import CurrentUser
+from backend.auth.rate_limit import enforce_rate_limit
+from backend.auth.security import hash_password_async, hash_session_token, new_session_token
 from backend.auth.models import AuthIdentity, AuthSession
 from backend.profiles.models import User
 
@@ -64,13 +67,12 @@ async def _create_session(
         ip_address=ip_address,
         user_agent=user_agent,
     )
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            await auth_session.insert(session=db_session)
-            if identity_to_upgrade is not None and identity_to_upgrade.password_hash is not None:
-                await identity_to_upgrade.save(session=db_session)
-            await record_audit(request, action, actor_id=user.id, target_type="session", target_id=str(auth_session.id), session=db_session)
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        await auth_session.insert(session=db_session)
+        if identity_to_upgrade is not None and identity_to_upgrade.password_hash is not None:
+            await identity_to_upgrade.save(session=db_session)
+        await record_audit(audit_context(request), action, actor_id=user.id, target_type="session", target_id=str(auth_session.id), session=db_session)
     return token, auth_session
 
 
@@ -104,21 +106,20 @@ async def register(payload: RegisterRequest, request: Request, response: Respons
         ip_address=ip_address,
         user_agent=user_agent,
     )
-    client = request.app.state.mongo_client
+    client = get_resources(request).mongo
     try:
-        async with client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                await user.insert(session=db_session)
-                await identity.insert(session=db_session)
-                await auth_session.insert(session=db_session)
-                await record_audit(
-                    request,
-                    "USER_REGISTERED",
-                    actor_id=user.id,
-                    target_type="user",
-                    target_id=str(user.id),
-                    session=db_session,
-                )
+        async with transaction(client) as db_session:
+            await user.insert(session=db_session)
+            await identity.insert(session=db_session)
+            await auth_session.insert(session=db_session)
+            await record_audit(
+                audit_context(request),
+                "USER_REGISTERED",
+                actor_id=user.id,
+                target_type="user",
+                target_id=str(user.id),
+                session=db_session,
+            )
     except DuplicateKeyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email or username is already in use") from exc
     _set_session_cookie(response, token)
@@ -133,7 +134,7 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
     if isinstance(authentication, PasswordRejected):
         user = authentication.user
         await record_audit(
-            request,
+            audit_context(request),
             "LOGIN_FAILED",
             actor_id=user.id if user else None,
             target_type="user" if user else None,
@@ -157,11 +158,10 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
 async def logout(request: Request, response: Response, current_user: CurrentUser) -> Response:
     auth_session: AuthSession = request.state.auth_session
     now = datetime.now(UTC)
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            await auth_session.set({AuthSession.revoked_at: now}, session=db_session)
-            await record_audit(request, "LOGOUT", actor_id=current_user.id, target_type="session", target_id=str(auth_session.id), session=db_session)
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        await auth_session.set({AuthSession.revoked_at: now}, session=db_session)
+        await record_audit(audit_context(request), "LOGOUT", actor_id=current_user.id, target_type="session", target_id=str(auth_session.id), session=db_session)
     _clear_session_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
@@ -200,11 +200,10 @@ async def revoke_session(session_id: str, request: Request, response: Response, 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
     if auth_session.revoked_at is None:
         now = datetime.now(UTC)
-        client = request.app.state.mongo_client
-        async with client.start_session() as db_session:
-            async with await db_session.start_transaction():
-                await auth_session.set({AuthSession.revoked_at: now}, session=db_session)
-                await record_audit(request, "SESSION_REVOKED", actor_id=current_user.id, target_type="session", target_id=session_id, session=db_session)
+        client = get_resources(request).mongo
+        async with transaction(client) as db_session:
+            await auth_session.set({AuthSession.revoked_at: now}, session=db_session)
+            await record_audit(audit_context(request), "SESSION_REVOKED", actor_id=current_user.id, target_type="session", target_id=session_id, session=db_session)
     if request.state.auth_session.id == auth_session.id:
         _clear_session_cookie(response)
         response.status_code = status.HTTP_204_NO_CONTENT
@@ -222,18 +221,17 @@ async def logout_other_sessions(request: Request, current_user: CurrentUser) -> 
         AuthSession.id != current_id,
         AuthSession.expires_at > now,
     ).to_list()
-    client = request.app.state.mongo_client
-    async with client.start_session() as db_session:
-        async with await db_session.start_transaction():
-            for item in sessions:
-                await item.set({AuthSession.revoked_at: now}, session=db_session)
-            await record_audit(
-                request,
-                "OTHER_SESSIONS_REVOKED",
-                actor_id=current_user.id,
-                target_type="user",
-                target_id=str(current_user.id),
-                metadata={"revoked_count": len(sessions)},
-                session=db_session,
-            )
+    client = get_resources(request).mongo
+    async with transaction(client) as db_session:
+        for item in sessions:
+            await item.set({AuthSession.revoked_at: now}, session=db_session)
+        await record_audit(
+            audit_context(request),
+            "OTHER_SESSIONS_REVOKED",
+            actor_id=current_user.id,
+            target_type="user",
+            target_id=str(current_user.id),
+            metadata={"revoked_count": len(sessions)},
+            session=db_session,
+        )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

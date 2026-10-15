@@ -5,7 +5,7 @@ from beanie import PydanticObjectId
 
 from backend.auth.models import AuthIdentity
 from backend.auth.repository import AuthRepository
-from backend.core.security import hash_password_async, password_hash_needs_rehash, verify_password_async
+from backend.auth.security import hash_password_async, password_hash_needs_rehash, verify_password_async
 from backend.profiles.models import User
 
 

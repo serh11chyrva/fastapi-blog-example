@@ -1,11 +1,14 @@
+from backend.core.transactions import transaction
+from backend.core.resources import get_resources
 from datetime import UTC, datetime
 
 from beanie import PydanticObjectId
 from fastapi import HTTPException, Request
-from pymongo.errors import OperationFailure
+from backend.core.errors import Conflict
 
 from backend.links.platforms import detect_platform
-from backend.core.audit import record_audit
+from backend.audit.service import record_audit
+from backend.audit.dependencies import audit_context
 from backend.profiles.models import BadgeDefinition, ProfileLink, User
 from backend.profiles.repository import ProfileRepository
 from backend.profiles.schemas import (
@@ -93,47 +96,44 @@ class ProfileService:
 
     async def update(self, request: Request, user_id: PydanticObjectId, payload: ProfileUpdate | BadgePreferenceUpdate,
                      badge_code: str | None = None) -> OwnProfileResponse:
-        client = request.app.state.mongo_client
+        client = get_resources(request).mongo
         try:
-            async with client.start_session() as db_session:
-                async with await db_session.start_transaction():
-                    user = await User.get(user_id, session=db_session)
-                    if user is None:
-                        raise HTTPException(404, "Profile not found")
-                    if user.revision != payload.revision:
-                        raise HTTPException(409, "Profile changed; reload your profile before saving")
-                    if isinstance(payload, BadgePreferenceUpdate):
-                        badge = next((item for item in user.badges if item.code == badge_code), None)
-                        definition = await BadgeDefinition.find_one(BadgeDefinition.code == badge_code, session=db_session)
-                        if badge is None or definition is None:
-                            raise HTTPException(404, "Badge assignment not found")
-                        if not payload.enabled and not definition.can_disable:
-                            raise HTTPException(403, "This badge cannot be disabled")
-                        badge.enabled = payload.enabled
-                        changes = {"badges": [item.model_dump() for item in user.badges]}
-                        action = "BADGE_VISIBILITY_UPDATED"
-                    else:
-                        changes = payload.model_dump(exclude_unset=True, exclude={"revision"})
-                        changes = {field: value for field, value in changes.items() if value is not None}
-                        if payload.links is not None:
-                            changes["links"] = [link.model_dump(mode="json") for link in self.replace_links(user.links, payload.links)]
-                        action = "PROFILE_UPDATED"
-                    fields = sorted(changes)
-                    changes["updated_at"] = datetime.now(UTC)
-                    result = await User.find_one({"_id": user_id, "revision": payload.revision}).update(
-                        {"$set": changes, "$inc": {"revision": 1}}, session=db_session,
-                    )
-                    if result.matched_count != 1:
-                        raise HTTPException(409, "Profile changed; reload your profile before saving")
-                    await record_audit(request, action, actor_id=user_id, target_type="user", target_id=str(user_id),
-                                       metadata={"fields": fields, **({"badge_code": badge_code} if badge_code else {})}, session=db_session)
-                    updated = await User.get(user_id, session=db_session)
-                    if updated is None:
-                        raise HTTPException(409, "Profile changed; reload your profile before saving")
-        except OperationFailure as exc:
-            if exc.code == 112 or exc.has_error_label("TransientTransactionError"):
-                raise HTTPException(409, "Profile changed; reload your profile before saving") from exc
-            raise
+            async with transaction(client) as db_session:
+                user = await User.get(user_id, session=db_session)
+                if user is None:
+                    raise HTTPException(404, "Profile not found")
+                if user.revision != payload.revision:
+                    raise HTTPException(409, "Profile changed; reload your profile before saving")
+                if isinstance(payload, BadgePreferenceUpdate):
+                    badge = next((item for item in user.badges if item.code == badge_code), None)
+                    definition = await BadgeDefinition.find_one(BadgeDefinition.code == badge_code, session=db_session)
+                    if badge is None or definition is None:
+                        raise HTTPException(404, "Badge assignment not found")
+                    if not payload.enabled and not definition.can_disable:
+                        raise HTTPException(403, "This badge cannot be disabled")
+                    badge.enabled = payload.enabled
+                    changes = {"badges": [item.model_dump() for item in user.badges]}
+                    action = "BADGE_VISIBILITY_UPDATED"
+                else:
+                    changes = payload.model_dump(exclude_unset=True, exclude={"revision"})
+                    changes = {field: value for field, value in changes.items() if value is not None}
+                    if payload.links is not None:
+                        changes["links"] = [link.model_dump(mode="json") for link in self.replace_links(user.links, payload.links)]
+                    action = "PROFILE_UPDATED"
+                fields = sorted(changes)
+                changes["updated_at"] = datetime.now(UTC)
+                result = await User.find_one({"_id": user_id, "revision": payload.revision}).update(
+                    {"$set": changes, "$inc": {"revision": 1}}, session=db_session,
+                )
+                if result.matched_count != 1:
+                    raise HTTPException(409, "Profile changed; reload your profile before saving")
+                await record_audit(audit_context(request), action, actor_id=user_id, target_type="user", target_id=str(user_id),
+                                   metadata={"fields": fields, **({"badge_code": badge_code} if badge_code else {})}, session=db_session)
+                updated = await User.get(user_id, session=db_session)
+                if updated is None:
+                    raise HTTPException(409, "Profile changed; reload your profile before saving")
+        except Conflict as exc:
+            raise HTTPException(409, "Profile changed; reload your profile before saving") from exc
         return await self.own_response(updated)
 
     @staticmethod

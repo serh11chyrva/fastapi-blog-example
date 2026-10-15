@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, Request, status
 from beanie.odm.queries.update import UpdateResponse
 
 from backend.core.config import get_settings
-from backend.core.security import hash_session_token
+from backend.auth.security import hash_session_token
 from backend.auth.models import AuthSession
 from backend.profiles.models import User
 
