@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
+from beanie.odm.queries.update import UpdateResponse
 
 from backend.core.config import get_settings
 from backend.core.security import hash_session_token
@@ -10,6 +11,11 @@ from backend.profiles.models import User
 
 
 async def get_current_user(request: Request) -> User:
+    """Resolve a session and atomically record activity without undoing revocation.
+
+    Absolute and idle deadlines must both remain valid at the activity update.
+    The refreshed session and account are available on request.state afterwards.
+    """
     token = request.cookies.get(get_settings().session_cookie_name)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
@@ -19,19 +25,38 @@ async def get_current_user(request: Request) -> User:
     if auth_session is None or auth_session.revoked_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid")
     if auth_session.expires_at <= now or auth_session.last_seen_at + timedelta(days=get_settings().session_idle_days) <= now:
-        auth_session.revoked_at = now
-        await auth_session.save()
+        await AuthSession.find_one({
+            "_id": auth_session.id,
+            "revoked_at": None,
+            "$or": [
+                {"expires_at": {"$lte": now}},
+                {"last_seen_at": {"$lte": now - timedelta(days=get_settings().session_idle_days)}},
+            ],
+        }).update({"$set": {"revoked_at": now}})
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired")
 
     user = await User.get(auth_session.user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is unavailable")
 
-    auth_session.last_seen_at = now
     ip_address = request.headers.get("x-real-ip") or (request.client.host if request.client else None)
-    auth_session.ip_address = ip_address
-    auth_session.user_agent = request.headers.get("user-agent", "")[:512] or None
-    await auth_session.save()
+    auth_session = await AuthSession.find_one({
+        "_id": auth_session.id,
+        "revoked_at": None,
+        "expires_at": {"$gt": now},
+        "last_seen_at": {"$gt": now - timedelta(days=get_settings().session_idle_days)},
+    }).update(
+        {
+            "$max": {"last_seen_at": now},
+            "$set": {
+                "ip_address": ip_address,
+                "user_agent": request.headers.get("user-agent", "")[:512] or None,
+            },
+        },
+        response_type=UpdateResponse.NEW_DOCUMENT,
+    )
+    if auth_session is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid")
     request.state.auth_session = auth_session
     request.state.current_user = user
     return user

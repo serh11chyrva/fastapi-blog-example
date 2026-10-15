@@ -159,8 +159,7 @@ async def logout(request: Request, response: Response, current_user: CurrentUser
     client = request.app.state.mongo_client
     async with client.start_session() as db_session:
         async with await db_session.start_transaction():
-            auth_session.revoked_at = now
-            await auth_session.save(session=db_session)
+            await auth_session.set({AuthSession.revoked_at: now}, session=db_session)
             await record_audit(request, "LOGOUT", actor_id=current_user.id, target_type="session", target_id=str(auth_session.id), session=db_session)
     _clear_session_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
@@ -203,8 +202,7 @@ async def revoke_session(session_id: str, request: Request, response: Response, 
         client = request.app.state.mongo_client
         async with client.start_session() as db_session:
             async with await db_session.start_transaction():
-                auth_session.revoked_at = now
-                await auth_session.save(session=db_session)
+                await auth_session.set({AuthSession.revoked_at: now}, session=db_session)
                 await record_audit(request, "SESSION_REVOKED", actor_id=current_user.id, target_type="session", target_id=session_id, session=db_session)
     if request.state.auth_session.id == auth_session.id:
         _clear_session_cookie(response)
@@ -227,8 +225,7 @@ async def logout_other_sessions(request: Request, current_user: CurrentUser) -> 
     async with client.start_session() as db_session:
         async with await db_session.start_transaction():
             for item in sessions:
-                item.revoked_at = now
-                await item.save(session=db_session)
+                await item.set({AuthSession.revoked_at: now}, session=db_session)
             await record_audit(
                 request,
                 "OTHER_SESSIONS_REVOKED",
