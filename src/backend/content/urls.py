@@ -2,7 +2,7 @@ import re
 
 
 def share_url(username: str, title: str) -> str:
-    """Build a stable public URL from a readable slug and persisted share ID."""
+    """Build the readable author-and-title prefix; share_path appends the stable ID."""
     from unicodedata import normalize
 
     value = normalize("NFKD", title).encode("ascii", "ignore").decode().lower()
@@ -11,6 +11,7 @@ def share_url(username: str, title: str) -> str:
 
 
 def share_path(username: str, title: str, share_id: str) -> str:
+    """Append the persisted share ID; resolution ignores the readable title slug."""
     return f"{share_url(username, title)}--{share_id}"
 
 

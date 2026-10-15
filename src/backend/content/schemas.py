@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.content.validation import validate_tiptap_document
+from backend.content.validation import ArticleBody, validate_tiptap_document
 from backend.core import api_examples as examples
 
 
@@ -48,7 +48,7 @@ class ArticleCreate(BaseModel):
 
     title: str = Field(min_length=1, max_length=160, description="Article title, trimmed and nonblank, up to 160 characters.", examples=[examples.ARTICLE_CREATE["title"]])
     summary: str = Field(default="", max_length=320, description="Short feed preview, up to 320 characters. Trimmed; may be empty.", examples=[examples.ARTICLE_CREATE["summary"]])
-    body: dict[str, Any] = Field(description="TipTap JSON document, up to 1,000,000 UTF-8 bytes. Supports paragraphs, headings (levels 1-3), lists, blockquotes, code blocks, breaks, rules, and uploaded images; marks: bold, italic, strike, code, and HTTP(S) links. Image sources must reference images uploaded to this article.", examples=[examples.ARTICLE_BODY])
+    body: ArticleBody = Field(description="TipTap JSON document, up to 1,000,000 UTF-8 bytes, 64 levels, and 10,000 nodes. Malformed node shapes and parent-child structures are rejected. Supports paragraphs, headings (levels 1-3), lists, blockquotes, code blocks, breaks, rules, and uploaded images; marks: bold, italic, strike, code, and HTTP(S) links. Image sources must reference images uploaded to this article.", examples=[examples.ARTICLE_BODY])
 
     @field_validator("title")
     @classmethod
@@ -65,7 +65,7 @@ class ArticleCreate(BaseModel):
 
     @field_validator("body")
     @classmethod
-    def validate_body(cls, value: dict[str, Any]) -> dict[str, Any]:
+    def validate_body(cls, value: ArticleBody) -> ArticleBody:
         validate_tiptap_document(value)
         return value
 
@@ -77,7 +77,7 @@ class ArticleUpdate(BaseModel):
 
     title: str | None = Field(default=None, min_length=1, max_length=160, description="Replacement title, trimmed and nonblank. Omit or use null to keep the current title.", examples=[examples.ARTICLE_UPDATE["title"]])
     summary: str | None = Field(default=None, max_length=320, description="Replacement feed preview. Use an empty string to clear it; omit or use null to keep it.", examples=[examples.ARTICLE_UPDATE["summary"]])
-    body: dict[str, Any] | None = Field(default=None, description="Complete replacement TipTap JSON document, subject to the same rules as creation. Omit or use null to keep the body. Referenced images must have been uploaded to this article.", examples=[examples.ARTICLE_BODY])
+    body: ArticleBody | None = Field(default=None, description="Complete replacement TipTap JSON document, subject to the same rules as creation. Omit or use null to keep the body. Referenced images must have been uploaded to this article.", examples=[examples.ARTICLE_BODY])
 
     @field_validator("title")
     @classmethod
@@ -96,7 +96,7 @@ class ArticleUpdate(BaseModel):
 
     @field_validator("body")
     @classmethod
-    def validate_body(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+    def validate_body(cls, value: ArticleBody | None) -> ArticleBody | None:
         if value is not None:
             validate_tiptap_document(value)
         return value
@@ -129,7 +129,7 @@ class ArticleResponse(BaseModel):
     share_url: str | None = Field(default=None, description="Relative page URL with a readable slug and stable UUID. The article is publicly accessible only when published.", examples=[examples.ARTICLE["share_url"]])
     title: str = Field(description="Article title without surrounding whitespace.", examples=[examples.ARTICLE_CREATE["title"]])
     summary: str = Field(description="Short feed preview; may be empty.", examples=[examples.ARTICLE_CREATE["summary"]])
-    body: dict[str, Any] = Field(description="Validated TipTap JSON document used to render the full article.", examples=[examples.ARTICLE_BODY])
+    body: ArticleBody = Field(description="Validated TipTap JSON document used to render the full article.", examples=[examples.ARTICLE_BODY])
     thumbnail_url: str | None = Field(default=None, description="Same-origin cover image URL, or null when absent. Unpublished media requires the author's session.", examples=[examples.THUMBNAIL_URL])
     inline_image_urls: list[str] = Field(default_factory=list, description="URLs of images uploaded to this article, including images not yet inserted into its body. Up to 30 images.", examples=[[examples.ARTICLE_IMAGE["url"]]])
     status: Literal["draft", "scheduled", "published"] = Field(description="Visibility state: draft and scheduled are private to the author; published is public.", examples=["published", "draft", "scheduled"])

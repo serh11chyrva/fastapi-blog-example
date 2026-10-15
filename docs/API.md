@@ -358,12 +358,12 @@ Text must contain 1–280 non-whitespace characters. `PATCH` accepts the same co
 | POST | `/articles/{article_id}/draft` | Author | Return an article to draft |
 | DELETE | `/articles/{article_id}` | Author | Soft-delete article |
 
-Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, `scheduled`, or `published`. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 encoded bytes.
+Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, `scheduled`, or `published`. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 UTF-8 encoded bytes, 64 nesting levels, and 10,000 content nodes. Every node, attribute object, mark list, and child array is validated. Null child/mark arrays, unsupported nodes, and invalid parent-child structures return 422. Documents and blockquotes require block content; lists require list items; list items start with a paragraph.
 
-Upload an optional cover through `/articles/{article_id}/cover/uploads` and its matching confirmation endpoint (JPEG, PNG, or WebP; 10 MiB maximum). A published thumbnail is public; while an article is a draft or scheduled, only its author can retrieve the image. Set a future ISO 8601 timestamp with timezone to schedule publication:
+Upload an optional cover through `/articles/{article_id}/cover/uploads` and its matching confirmation endpoint (JPEG, PNG, or WebP; 10 MiB maximum). A published thumbnail is public; while an article is a draft or scheduled, only its author can retrieve the image. Set a future ISO 8601 timestamp with timezone to schedule publication (replace the illustrative date with your intended future time):
 
 ```json
-{"publish_at":"2026-10-13T09:00:00Z"}
+{"publish_at":"2099-01-01T09:00:00Z"}
 ```
 
 The scheduler checks every 15 seconds. Returning to draft clears a pending schedule or unpublishes an article. Deleting an article soft-deletes it and removes it from public feeds.

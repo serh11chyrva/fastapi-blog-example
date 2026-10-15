@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 from uuid import uuid4
 
 from beanie import Document, PydanticObjectId
+
+from backend.content.validation import ArticleBody
 from pydantic import Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
@@ -29,7 +31,7 @@ class Article(Document):
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
     summary: str = ""
-    body: dict[str, Any]
+    body: ArticleBody
     thumbnail_key: str | None = None
     inline_image_keys: list[str] = Field(default_factory=list)
     status: Literal["draft", "scheduled", "published"] = "draft"
