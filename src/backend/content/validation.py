@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Literal
 import json
 import re
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
@@ -55,6 +55,8 @@ def _bound_tree(document: ArticleBody) -> None:
         children = value.get("content", [])
         if not isinstance(children, list):
             raise ValueError("Node content must be an array")
+        if count + len(pending) + len(children) > MAX_ARTICLE_NODES:
+            raise ValueError("Article exceeds 10,000 content nodes")
         pending.extend((child, depth + 1) for child in children)
 
 
