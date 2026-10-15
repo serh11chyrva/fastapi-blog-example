@@ -202,6 +202,8 @@ Startup runs an idempotent Beanie migration before serving requests. Existing li
 
 Legacy badge display fields and policy are promoted to definitions, and assignments retain code, timestamp, and enabled state. An existing definition wins; otherwise the first legacy assignment in user ObjectId order supplies the shared definition for that code. If historical copies differ, reconcile the resulting catalog before relying on those differences. Defaults preserve neutral colors and the star icon. Unsupported link versions or invalid legacy links fail migration rather than being silently discarded. New-format assignment writes are strictly validated.
 
+Follower and following lists accept `offset` (default 0) and `limit` (default 20, maximum 100). Results keep descending follow time and ID order. Continue with offset plus the page size until a shorter page is returned. Concurrent follows/unfollows can shift offset pages; reload from offset 0 to refresh.
+
 ## Image uploads and downloads
 
 Image uploads have three steps: prepare with JSON metadata, PUT raw bytes to the returned Garage URLs, then confirm. All preparation and confirmation routes require the resource owner's session and the application Origin header. Create the post or article draft before preparing its images. Preparation never changes attachments.

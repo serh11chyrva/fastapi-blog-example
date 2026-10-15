@@ -13,6 +13,10 @@ class NotFound(ApplicationError):
     status_code = 404
 
 
+class BadRequest(ApplicationError):
+    status_code = 400
+
+
 class InvalidOperation(ApplicationError):
     status_code = 422
 

@@ -6,7 +6,7 @@ from backend.content.schemas import ArticleImageResponse, ArticleResponse, Micro
 from backend.auth.dependencies import CurrentUser
 from backend.profiles.schemas import OwnProfileResponse
 from backend.profiles.models import User
-from backend.profiles.service import ProfileService
+from backend.profiles.queries import ProfileQueries
 from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse
 from backend.storage.service import ImageStorageService
 
@@ -27,7 +27,7 @@ async def complete_avatar(upload_id: str, request: Request, response: Response, 
     if user is None:
         raise HTTPException(404, "Profile not found")
     response.headers["Cache-Control"] = "private, no-store"
-    return await ProfileService().own_response(user)
+    return await ProfileQueries().own_response(user)
 
 
 @router.post("/posts/{post_id}/images/uploads", response_model=ImageUploadResponse, status_code=status.HTTP_201_CREATED, summary="Prepare a post gallery upload")

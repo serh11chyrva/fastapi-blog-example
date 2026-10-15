@@ -69,6 +69,7 @@ class User(Document):
             IndexModel([("email", ASCENDING)], unique=True, name="users_email_unique"),
             IndexModel([("username", ASCENDING)], unique=True, name="users_username_unique"),
             IndexModel([("links.id", ASCENDING)], name="profile_links_by_id"),
+            IndexModel([("avatar_key", ASCENDING)], name="users_avatar_key"),
         ]
 
 
@@ -81,6 +82,6 @@ class Follow(Document):
         name = "follows"
         indexes = [
             IndexModel([("follower_id", ASCENDING), ("followee_id", ASCENDING)], unique=True, name="follow_pair_unique"),
-            IndexModel([("followee_id", ASCENDING), ("created_at", ASCENDING)], name="followers_by_time"),
-            IndexModel([("follower_id", ASCENDING), ("created_at", ASCENDING)], name="following_by_time"),
+            IndexModel([("followee_id", ASCENDING), ("created_at", -1), ("_id", -1)], name="followers_page"),
+            IndexModel([("follower_id", ASCENDING), ("created_at", -1), ("_id", -1)], name="following_page"),
         ]

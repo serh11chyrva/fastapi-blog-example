@@ -1,6 +1,7 @@
 from beanie import PydanticObjectId
 
-from backend.profiles.models import Follow, User
+from backend.profiles.models import BadgeDefinition, Follow, User
+from typing import Literal
 
 
 class ProfileRepository:
@@ -27,3 +28,17 @@ class ProfileRepository:
     @staticmethod
     async def users_by_ids(user_ids: list[PydanticObjectId]) -> list[User]:
         return await User.find({"_id": {"$in": user_ids}}).to_list() if user_ids else []
+
+
+    @staticmethod
+    async def badge_definitions(codes: list[str]) -> dict[str, BadgeDefinition]:
+        definitions = await BadgeDefinition.find({"code": {"$in": codes}}).to_list() if codes else []
+        return {definition.code: definition for definition in definitions}
+
+    @staticmethod
+    async def connections(user_id: PydanticObjectId, kind: Literal["followers", "following"], offset: int, limit: int) -> list[User]:
+        field = "followee_id" if kind == "followers" else "follower_id"
+        follows = await Follow.find({field: user_id}).sort(("created_at", -1), ("_id", -1)).skip(offset).limit(limit).to_list()
+        ids = [item.follower_id if kind == "followers" else item.followee_id for item in follows]
+        by_id = {user.id: user for user in await ProfileRepository.users_by_ids(ids)}
+        return [by_id[user_id] for user_id in ids if user_id in by_id]

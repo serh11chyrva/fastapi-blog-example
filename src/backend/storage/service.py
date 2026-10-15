@@ -19,7 +19,7 @@ from backend.audit.dependencies import audit_context
 from backend.core.config import get_settings
 from backend.core.errors import ApplicationError
 from backend.profiles.models import User
-from backend.profiles.service import ProfileService
+from backend.profiles.queries import ProfileQueries
 from backend.storage.cleanup import queue_deletion
 from backend.storage.models import ImagePurpose, ImageUpload, ObjectCleanup, UploadFileRecord
 from backend.storage.s3 import image_type
@@ -201,7 +201,7 @@ class ImageStorageService:
             await target.save(session=db_session)
             await record_audit(audit_context(request), action, actor_id=owner.id, target_type=target_type, target_id=str(target.id), metadata={"image_count": len(keys)}, session=db_session)
             if upload.purpose == "avatars":
-                response = await ProfileService().response(target, owner.id)
+                response = await ProfileQueries().response(target, owner.id)
                 result = response.model_dump(mode="json")
             elif upload.purpose == "post-images":
                 result = post_response(target, owner).model_dump(mode="json")

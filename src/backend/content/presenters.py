@@ -4,14 +4,14 @@ from backend.content.models import Article, MicroPost
 from backend.content.schemas import ArticleResponse, MicroPostResponse, FeedItem, PostFeedItem, ArticleFeedItem
 from backend.content.urls import article_thumbnail_url, publication_image_url, share_path
 from backend.profiles.models import User
-from backend.profiles.service import ProfileService
+from backend.profiles.presenters import avatar_url
 
 
 def post_response(post: MicroPost, author: User) -> MicroPostResponse:
     return MicroPostResponse(
         id=str(post.id), share_url=share_path(author.username, post.text, post.share_id), text=post.text,
         images=[publication_image_url(key, "post-images") for key in post.image_keys], author_id=str(author.id), author_username=author.username,
-        author_display_name=author.display_name, author_avatar_url=ProfileService.avatar_url(author),
+        author_display_name=author.display_name, author_avatar_url=avatar_url(author),
         created_at=post.created_at, updated_at=post.updated_at,
     )
 
@@ -21,7 +21,7 @@ def article_response(article: Article, author: User) -> ArticleResponse:
         summary=article.summary, body=article.body, thumbnail_url=article_thumbnail_url(article.thumbnail_key),
         inline_image_urls=[publication_image_url(key, "article-images") for key in article.inline_image_keys], status=article.status,
         author_id=str(author.id), author_username=author.username, author_display_name=author.display_name,
-        author_avatar_url=ProfileService.avatar_url(author), created_at=article.created_at,
+        author_avatar_url=avatar_url(author), created_at=article.created_at,
         updated_at=article.updated_at, scheduled_at=article.scheduled_at, published_at=article.published_at,
     )
 
@@ -32,7 +32,7 @@ def feed_item(publication: MicroPost | Article, author: User) -> FeedItem:
         author_id=str(author.id),
         author_username=author.username,
         author_display_name=author.display_name,
-        author_avatar_url=ProfileService.avatar_url(author),
+        author_avatar_url=avatar_url(author),
     )
     if isinstance(publication, MicroPost):
         return PostFeedItem(
