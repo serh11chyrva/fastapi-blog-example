@@ -8,7 +8,7 @@ This guide documents the implemented API in addition to the interactive Scalar r
 - Base path: `/api/v1`.
 - Application API requests use JSON. Presigned Garage PUT requests send raw file bytes without application cookies.
 - Timestamps are ISO 8601 UTC strings. Account and document IDs are MongoDB ObjectId strings; profile link IDs are UUID strings.
-- Authentication is a server-side session delivered in the `blog_session` HttpOnly cookie. The raw token is never part of a JSON response. The cookie defaults to `SameSite=Lax`; `Secure` is configurable.
+- Authentication is a server-side session delivered in the `session_token` HttpOnly cookie by default; `SESSION_COOKIE_NAME` can override its name. The raw token is never part of a JSON response. The cookie defaults to `SameSite=Lax`; `Secure` is configurable.
 - Keep the cookie between application API requests. Use same-origin `fetch` with `credentials: "same-origin"`. All POST, PUT, PATCH, and DELETE requests under `/api/v1` must include the configured `APP_ORIGIN` in the `Origin` header as a CSRF defense. Presigned Garage PUT requests use `credentials: "omit"` and the returned headers; browser access is controlled by storage CORS.
 - Successful deletes, logout, follow, and unfollow return `204 No Content` with an empty body.
 - Concurrent audited writes can return `409`; reload the affected resource and reconcile changes before retrying. Transaction bodies are not automatically replayed. Database failures return `503`; an uncertain commit may have succeeded, so reload before retrying.

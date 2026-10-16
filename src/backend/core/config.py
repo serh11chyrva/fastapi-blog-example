@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 def session_cookie_name() -> str:
-    return environ.get("SESSION_COOKIE_NAME", "blog_session")
+    return environ.get("SESSION_COOKIE_NAME", "session_token")
 
 
 class Settings(BaseModel):
