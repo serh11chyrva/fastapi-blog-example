@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+from scalar_fastapi import AgentScalarConfig, Theme, add_scalar_reference
 
 
 API_DESCRIPTION = """Publish short notes and long-form articles, discover writers, and manage your profile.
@@ -54,6 +55,22 @@ OPENAPI_TAGS = [
     {"name": "Media", "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and post images are public; unpublished article media requires the author's session."},
     {"name": "System", "description": "Identify the application and inspect dependency availability. The health endpoint checks MongoDB, Redis, and object storage and returns 503 when a required service is unavailable."},
 ]
+
+
+def add_api_reference(app: FastAPI, *, documentation_only: bool = False) -> None:
+    """Use the same reference presentation for the API and standalone preview."""
+    add_scalar_reference(
+        app,
+        route="/api/docs",
+        title="Commonplace API Reference",
+        theme=Theme.DEFAULT,
+        hide_models=not documentation_only,
+        hide_test_request_button=documentation_only,
+        hide_client_button=documentation_only,
+        agent=AgentScalarConfig(disabled=True),
+        telemetry=False,
+    )
+
 
 def _schema_examples(node: dict[str, Any], schemas: dict[str, Any]) -> list[Any]:
     """Read Pydantic examples, preserving alternatives and list response shapes."""

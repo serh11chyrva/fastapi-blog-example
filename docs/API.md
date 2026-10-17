@@ -2,6 +2,26 @@
 
 This guide documents the implemented API in addition to the interactive Scalar reference at `http://localhost:8080/api/docs` and its machine-readable schema at `/api/openapi.json`. Endpoint metadata is declared beside each route; required cookie security is generated from authentication dependencies, and optional-session reads explicitly allow anonymous access.
 
+## Standalone design preview
+
+From the repository root, install dependencies with `uv sync`, then run:
+
+```sh
+uv run uvicorn backend.docs:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Browse <http://localhost:8000/api/docs> or download the schema at
+<http://localhost:8000/api/openapi.json>. No Docker, MongoDB, Redis, object storage,
+GeoIP database, or environment configuration is required. Scalar browser assets
+load from a CDN and require internet access.
+
+The schema includes the full application's current endpoints, fields, security,
+errors, and examples, including the upload protocol below. Models are visible and
+request testing and client buttons are hidden. This server exposes only the reference,
+schema, and `/` redirect; all application endpoints return 404. Uploads, authentication,
+image downloads, and health checks cannot be executed. The examples below require
+the full application stack; the preview does not provide mock responses.
+
 ## Conventions
 
 - Upload size limits are defined in `src/backend/core/config.py`: 5 MiB per avatar, post image, or inline article image, and 10 MiB per article thumbnail. These limits are not configured through environment variables.

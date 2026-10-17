@@ -29,6 +29,14 @@ does not own feature policy.
 worker lifetimes. `core/security.py` retains compatibility exports for existing
 callers; password and token implementation belongs to `auth/security.py`.
 
+`docs.py` creates a separate documentation application using the main application's
+OpenAPI generator without entering its lifespan or registering its runtime routes
+or middleware. It creates no infrastructure clients and requires no service settings.
+Only Scalar, the OpenAPI schema, and a root redirect are served. A preview notice
+is added to a copy of the schema; endpoint contracts and examples remain shared.
+`core/api_docs.py` shares Scalar presentation, with models visible and request testing
+and client buttons hidden in the standalone preview.
+
 ## Consistency contracts
 
 Session activity changes only activity fields, checks that the session is still

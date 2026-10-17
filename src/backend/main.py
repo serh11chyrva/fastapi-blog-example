@@ -8,7 +8,6 @@ from loguru import logger
 from pymongo import AsyncMongoClient
 from pymongo.errors import PyMongoError
 from redis.asyncio import Redis
-from scalar_fastapi import AgentScalarConfig, Theme, add_scalar_reference
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
@@ -18,7 +17,7 @@ from backend.content.feed_router import router as feed_router
 from backend.content.migrations import ensure_public_share_ids
 from backend.content.router import router as content_router
 from backend.content.scheduler import run_publication_scheduler
-from backend.core.api_docs import API_DESCRIPTION, OPENAPI_TAGS, configure_openapi
+from backend.core.api_docs import API_DESCRIPTION, OPENAPI_TAGS, add_api_reference, configure_openapi
 from backend.core.api_metadata import documented_responses
 from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
@@ -103,15 +102,7 @@ def create_app() -> FastAPI:
 
     configure_openapi(app)
 
-    add_scalar_reference(
-        app,
-        route="/api/docs",
-        title="Commonplace API Reference",
-        theme=Theme.DEFAULT,
-        hide_models=True,
-        agent=AgentScalarConfig(disabled=True),
-        telemetry=False,
-    )
+    add_api_reference(app)
 
     @app.exception_handler(ApplicationError)
     async def application_error(request: Request, exc: ApplicationError) -> JSONResponse:

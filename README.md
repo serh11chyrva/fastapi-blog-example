@@ -2,6 +2,28 @@
 
 A demonstration microblog built with FastAPI, Beanie, MongoDB Atlas, Redis, React, Tailwind CSS, TipTap, Nginx, and Garage S3-compatible object storage.
 
+## Preview the API design without Docker
+
+Run from the repository root with Python 3.13 or newer and `uv` installed:
+
+```sh
+uv sync
+uv run uvicorn backend.docs:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Open <http://localhost:8000/api/docs> (or `/`, which redirects there). The raw schema
+is available at <http://localhost:8000/api/openapi.json>. This standalone preview
+requires no Docker, MongoDB, Redis, Garage, GeoIP database, or `.env` configuration.
+Python dependencies must still be installed. Scalar loads its browser assets from
+a CDN, so viewing the reference requires internet access.
+
+The preview generates the complete contract from the application's current routes,
+including models, authentication, examples, and upload descriptions. Scalar's request
+testing and client buttons are hidden. Only the reference, schema, and root redirect
+are served; application endpoints (including uploads, image downloads, and `/health`)
+return 404. Examples describe the full application, not a running backend or mock data.
+Use the full stack below to execute API operations.
+
 ## Start the application
 
 Copy the sample configuration if you do not already have an `.env` file:
