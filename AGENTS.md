@@ -10,6 +10,14 @@
 - Organize routers, services, repositories, domain models, and configuration in focused package areas. Keep `main.py` focused on application creation and wiring.
 - Keep modules focused and avoid introducing layers that do not support a concrete feature.
 
+## Backend Code Style
+
+- Keep backend code structured into focused classes, functions, and methods with clear responsibilities. Separate logical blocks with blank lines, and follow the existing module organization.
+- Add or maintain English docstrings for every backend class, function, and method, including private helpers, nested functions, protocol methods, and configuration classes.
+- Start each docstring with a concise description of its purpose. For functions and methods, document every explicit parameter except `self` and `cls` using reStructuredText `:param name:` fields, and document the result using `:return:`. Use `:return: None.` for callables that return no value. Class docstrings should describe their responsibility; document explicit constructor parameters on `__init__`.
+- Describe actual behavior, including optional values, ownership or visibility rules, side effects, and transaction guarantees where relevant. Preserve useful existing explanations and update docstrings whenever behavior or signatures change.
+- Follow the Ruff configuration in `pyproject.toml`, including the target line width of 120 characters. Run Ruff or other verification tools only when the user requests them, as specified below.
+
 ## MongoDB
 
 - Use Beanie for MongoDB document models and routine database operations.
