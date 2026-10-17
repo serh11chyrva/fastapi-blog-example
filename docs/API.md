@@ -9,6 +9,13 @@ in `api/endpoints/` and retain their root paths (`/`, `/health`, and
 in `api/docs.py`, `api/metadata.py`, and `api/examples.py`. This package layout
 does not change endpoint URLs, request/response fields, examples, or access rules.
 
+Article and micro-post HTTP adapters are separated into `api/v1/endpoints/articles.py`
+and `api/v1/endpoints/posts.py`. Their contracts and business rules belong to the
+independent `articles/` and `posts/` packages. Mixed feeds use `feeds/`; shared public
+links use `publications/` through `api/v1/endpoints/publications.py`. These module
+boundaries preserve the existing operation names, schema names, field descriptions,
+and examples used by the generated OpenAPI/Scalar reference at `/api/docs`.
+
 Both the application reference and standalone preview preserve property order from
 the OpenAPI schemas, including nested models. Scalar does not alphabetize fields
 or move required fields ahead of optional fields, so related fields stay together.

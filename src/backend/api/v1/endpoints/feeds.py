@@ -4,10 +4,10 @@ from fastapi import APIRouter, Query
 
 from backend.api.metadata import documented_responses
 from backend.auth.dependencies import CurrentUser
-from backend.content.feed import load_following_feed, load_public_feed
-from backend.content.repository import FeedKind
-from backend.content.schemas import FeedResponse
 from backend.core.resources import Resources
+from backend.feeds.repository import FeedKind
+from backend.feeds.schemas import FeedResponse
+from backend.feeds.service import load_following_feed, load_public_feed
 
 router = APIRouter(prefix="/feeds")
 

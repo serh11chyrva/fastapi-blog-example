@@ -1,0 +1,43 @@
+"""Beanie queries owned by the feature."""
+
+from typing import Any
+
+from beanie import PydanticObjectId
+from pymongo.asynchronous.client_session import AsyncClientSession
+
+from backend.posts.models import MicroPost
+
+
+class PostRepository:
+    """Persistence queries for posts."""
+
+    @staticmethod
+    async def get_post(post_id: PydanticObjectId, session: AsyncClientSession | None = None) -> MicroPost | None:
+        """Load a micro-post document by its identifier.
+
+        :param post_id: MongoDB identifier of the micro-post.
+        :param session: Optional MongoDB session for the operation or caller
+            transaction.
+        :return: The micro-post, or None when absent.
+        """
+        return await MicroPost.get(post_id, session=session)
+
+    @staticmethod
+    async def load_feed(conditions: dict[str, Any], limit: int) -> list[MicroPost]:
+        """Load a bounded publication page with one continuation candidate.
+
+        :param conditions: Visibility, author, and cursor filters supplied by the feed coordinator.
+        :param limit: Page size before the extra continuation candidate.
+        :return: Documents ordered by publication time and identifier descending.
+        """
+        return await MicroPost.find(conditions).sort(("created_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+
+    @staticmethod
+    async def find_shared(author_id: PydanticObjectId, share_id: str) -> MicroPost | None:
+        """Find an undeleted public publication by its author's stable share identity.
+
+        :param author_id: Account owning the publication.
+        :param share_id: Persisted stable share identity.
+        :return: The public publication, or None when absent or private.
+        """
+        return await MicroPost.find_one({"author_id": author_id, "share_id": share_id, "deleted_at": None})

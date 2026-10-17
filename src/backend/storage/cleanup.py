@@ -4,7 +4,8 @@ from datetime import UTC, datetime, timedelta
 from loguru import logger
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from backend.content.models import Article, MicroPost
+from backend.articles.models import Article
+from backend.posts.models import MicroPost
 from backend.profiles.models import User
 from backend.storage.models import ObjectCleanup
 from backend.storage.s3 import S3Client, delete_object

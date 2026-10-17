@@ -1,0 +1,1 @@
+"""Publications feature package."""

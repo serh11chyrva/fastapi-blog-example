@@ -5,13 +5,14 @@ from datetime import datetime
 from typing import Any, Literal
 
 from beanie import PydanticObjectId
-from pymongo.asynchronous.client_session import AsyncClientSession
 
-from backend.content.models import Article, MicroPost
+from backend.articles.models import Article
+from backend.articles.repository import ArticleRepository
+from backend.posts.models import MicroPost
+from backend.posts.repository import PostRepository
 
 type PublicationKind = Literal["micro_post", "article"]
 type FeedKind = Literal["all", "micro_post", "article"]
-type ArticleStatus = Literal["draft", "scheduled", "published"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,73 +39,24 @@ class FeedEntry:
         return self.published_at, self.kind, str(self.publication.id)
 
 
-class ContentRepository:
-    """Beanie publication queries and deterministic feed pagination."""
-
-    @staticmethod
-    async def get_post(post_id: PydanticObjectId, session: AsyncClientSession | None = None) -> MicroPost | None:
-        """Load a micro-post document by its identifier.
-
-        :param post_id: MongoDB identifier of the micro-post.
-        :param session: Optional MongoDB session for the operation or caller
-            transaction.
-        :return: The micro-post, or None when absent.
-        """
-        return await MicroPost.get(post_id, session=session)
-
-    @staticmethod
-    async def get_article(
-        article_id: PydanticObjectId,
-        session: AsyncClientSession | None = None,
-    ) -> Article | None:
-        """Load an article document by its identifier.
-
-        :param article_id: MongoDB identifier of the article.
-        :param session: Optional MongoDB session for the operation or caller
-            transaction.
-        :return: The article, or None when absent.
-        """
-        return await Article.get(article_id, session=session)
-
-    @staticmethod
-    async def list_articles(
-        author_id: PydanticObjectId,
-        status: ArticleStatus | None = None,
-        *,
-        offset: int = 0,
-        limit: int = 20,
-    ) -> list[Article]:
-        """List an author's undeleted articles with optional status filtering.
-
-        :param author_id: MongoDB identifier of the publication author.
-        :param status: Optional article publication status filter.
-        :param offset: Number of matching entries to skip before selecting the page.
-        :param limit: Maximum number of entries to return in this page.
-        :return: The requested page ordered by update time and ID descending.
-        """
-        conditions: dict[str, Any] = {"author_id": author_id, "deleted_at": None}
-
-        if status is not None:
-            conditions["status"] = status
-
-        return await Article.find(conditions).sort(("updated_at", -1), ("_id", -1)).skip(offset).limit(limit).to_list()
+class FeedRepository:
+    """Coordinate feature repositories for deterministic mixed publication pages."""
 
     @staticmethod
     async def load_feed_type(kind: PublicationKind, conditions: dict[str, Any], limit: int) -> list[FeedEntry]:
         """Load one publication type with an extra item for cursor pagination.
 
-        :param kind: Publication type filter: micro_post, article, or all when
-            supported.
+        :param kind: Publication type to load: micro_post or article.
         :param conditions: MongoDB filters applied before ordering and pagination.
         :param limit: Maximum number of entries to return in this page.
         :return: Feed entries ordered newest first, up to limit plus one.
         """
         if kind == "micro_post":
-            posts = await MicroPost.find(conditions).sort(("created_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+            posts = await PostRepository.load_feed(conditions, limit)
 
             return [FeedEntry(post, post.created_at) for post in posts]
 
-        articles = await Article.find(conditions).sort(("published_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+        articles = await ArticleRepository.load_feed(conditions, limit)
 
         return [FeedEntry(article, article.published_at) for article in articles if article.published_at is not None]
 
@@ -129,7 +81,7 @@ class ContentRepository:
 
         if kind in {"all", "micro_post"}:
             entries.extend(
-                await ContentRepository.load_feed_type(
+                await FeedRepository.load_feed_type(
                     "micro_post",
                     {"author_id": author_id, "deleted_at": None},
                     offset + limit,
@@ -138,7 +90,7 @@ class ContentRepository:
 
         if kind in {"all", "article"}:
             entries.extend(
-                await ContentRepository.load_feed_type(
+                await FeedRepository.load_feed_type(
                     "article",
                     {
                         "author_id": author_id,

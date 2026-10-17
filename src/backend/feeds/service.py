@@ -7,16 +7,11 @@ from loguru import logger
 from pydantic import ValidationError
 from redis.exceptions import RedisError
 
-from backend.content.cursors import FeedCursor
-from backend.content.presenters import feed_item
-from backend.content.repository import (
-    ContentRepository,
-    FeedEntry,
-    FeedKind,
-    PublicationKind,
-)
-from backend.content.schemas import FeedResponse
 from backend.core.resources import AppResources
+from backend.feeds.cursors import FeedCursor
+from backend.feeds.presenters import feed_item
+from backend.feeds.repository import FeedEntry, FeedKind, FeedRepository, PublicationKind
+from backend.feeds.schemas import FeedResponse
 from backend.profiles.models import Follow, User
 
 
@@ -69,7 +64,7 @@ async def make_feed(
         if cursor:
             conditions.update(cursor.conditions(item_kind, date_field))
 
-        entries.extend(await ContentRepository.load_feed_type(item_kind, conditions, limit))
+        entries.extend(await FeedRepository.load_feed_type(item_kind, conditions, limit))
 
     entries.sort(key=lambda entry: entry.sort_key, reverse=True)
     page = entries[:limit]

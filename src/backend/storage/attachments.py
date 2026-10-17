@@ -6,21 +6,20 @@ from datetime import UTC, datetime
 from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from backend.articles.models import Article
+from backend.articles.presenters import article_response
+from backend.articles.schemas import ArticleImageResponse, ArticleResponse
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
-from backend.content.models import Article, MicroPost
-from backend.content.presenters import article_response, post_response
-from backend.content.schemas import (
-    ArticleImageResponse,
-    ArticleResponse,
-    MicroPostResponse,
-)
-from backend.content.urls import publication_image_url
 from backend.core.errors import InvalidOperation, NotFound
+from backend.posts.models import MicroPost
+from backend.posts.presenters import post_response
+from backend.posts.schemas import MicroPostResponse
 from backend.profiles.models import User
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import ProfileResponse
 from backend.storage.models import ImagePurpose, ImageUpload
+from backend.storage.urls import publication_image_url
 
 type UploadResult = ProfileResponse | MicroPostResponse | ArticleResponse | ArticleImageResponse
 

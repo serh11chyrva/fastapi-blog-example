@@ -9,35 +9,20 @@ from loguru import logger
 from pydantic import JsonValue
 from pymongo.errors import PyMongoError
 
+from backend.articles.models import Article
 from backend.audit.context import AuditContext
-from backend.content.cache import invalidate_public_feed
-from backend.content.models import Article
 from backend.core.config import get_settings
-from backend.core.errors import (
-    ApplicationError,
-    Conflict,
-    InvalidOperation,
-    NotFound,
-    Unavailable,
-)
+from backend.core.errors import ApplicationError, Conflict, InvalidOperation, NotFound, Unavailable
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
+from backend.feeds.cache import invalidate_public_feed
 from backend.profiles.models import User
 from backend.storage.attachments import ImageAttachments, UploadResult, saved_result
 from backend.storage.cleanup import queue_deletion
 from backend.storage.errors import ImageTooLarge, UnsupportedImage
-from backend.storage.models import (
-    ImagePurpose,
-    ImageUpload,
-    ObjectCleanup,
-    UploadFileRecord,
-)
+from backend.storage.models import ImagePurpose, ImageUpload, ObjectCleanup, UploadFileRecord
 from backend.storage.s3 import image_type
-from backend.storage.schemas import (
-    ImageUploadRequest,
-    ImageUploadResponse,
-    PresignedImageFile,
-)
+from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse, PresignedImageFile
 
 EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 

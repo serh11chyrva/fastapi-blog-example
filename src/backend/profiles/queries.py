@@ -4,18 +4,14 @@ from typing import Literal
 
 from beanie import PydanticObjectId
 
-from backend.content.presenters import feed_item
-from backend.content.repository import ContentRepository, FeedKind
-from backend.content.schemas import FeedItem
 from backend.core.errors import NotFound, Unavailable
+from backend.feeds.presenters import feed_item
+from backend.feeds.repository import FeedKind, FeedRepository
+from backend.feeds.schemas import FeedItem
 from backend.profiles.models import BadgeDefinition, User
 from backend.profiles.presenters import own_profile, public_profile, user_card
 from backend.profiles.repository import ProfileRepository
-from backend.profiles.schemas import (
-    OwnProfileResponse,
-    ProfileResponse,
-    ProfileUserResponse,
-)
+from backend.profiles.schemas import OwnProfileResponse, ProfileResponse, ProfileUserResponse
 
 
 class ProfileQueries:
@@ -115,7 +111,7 @@ class ProfileQueries:
         :return: The profile's feed items ordered newest first.
         """
         user = await self.by_username(username)
-        entries = await ContentRepository.list_publications(user.id, kind, offset=offset, limit=limit)
+        entries = await FeedRepository.list_publications(user.id, kind, offset=offset, limit=limit)
 
         return [feed_item(entry.publication, user) for entry in entries]
 

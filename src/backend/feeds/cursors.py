@@ -10,8 +10,8 @@ from typing import Any
 from beanie import PydanticObjectId
 from pydantic import AwareDatetime, BaseModel, ValidationError
 
-from backend.content.repository import PublicationKind
 from backend.core.errors import InvalidOperation
+from backend.feeds.repository import PublicationKind
 
 
 class CursorPayload(BaseModel):

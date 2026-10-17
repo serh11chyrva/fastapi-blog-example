@@ -3,10 +3,11 @@ import re
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.api.metadata import documented_responses
+from backend.articles.models import Article
 from backend.auth.dependencies import OptionalUser
-from backend.content.models import Article, MicroPost
 from backend.core.config import get_settings
 from backend.core.resources import get_resources
+from backend.posts.models import MicroPost
 from backend.profiles.models import User
 from backend.storage.models import ImagePurpose
 from backend.storage.s3 import get_object

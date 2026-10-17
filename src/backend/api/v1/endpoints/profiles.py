@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, Query, Response
 from backend.api.metadata import Origin, Username, documented_responses
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
-from backend.content.repository import FeedKind
-from backend.content.schemas import FeedItem
 from backend.core.resources import Resources
+from backend.feeds.repository import FeedKind
+from backend.feeds.schemas import FeedItem
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import (
     BadgePreferenceUpdate,

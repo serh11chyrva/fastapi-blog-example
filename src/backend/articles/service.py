@@ -1,27 +1,23 @@
-"""Publication operations with explicit ownership and audited transaction boundaries."""
+"""Ownership-aware articles operations with audited transactions."""
 
-import re
 from datetime import UTC, datetime
-from typing import TypeVar
 
 from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from backend.articles.models import Article
+from backend.articles.repository import ArticleRepository, ArticleStatus
+from backend.articles.schemas import ArticleCreate, ArticleUpdate
+from backend.articles.validation import article_image_keys
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
-from backend.content.cache import invalidate_public_feed
-from backend.content.models import Article, MicroPost
-from backend.content.repository import ArticleStatus, ContentRepository
-from backend.content.schemas import ArticleCreate, ArticleUpdate, MicroPostCreate
-from backend.content.validation import article_image_keys
 from backend.core.config import get_settings
 from backend.core.errors import InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
+from backend.feeds.cache import invalidate_public_feed
 from backend.profiles.models import User
 from backend.storage.cleanup import queue_deletion
-
-Publication = TypeVar("Publication", MicroPost, Article)
 
 
 def publication_id(value: str) -> PydanticObjectId:
@@ -36,11 +32,11 @@ def publication_id(value: str) -> PydanticObjectId:
     return PydanticObjectId(value)
 
 
-class ContentService:
-    """Ownership-aware publication operations with audited transactions."""
+class ArticleService:
+    """Own articles reads, mutations, and transaction boundaries."""
 
     def __init__(self, resources: AppResources, audit: AuditContext) -> None:
-        """Initialize publication operations with infrastructure and audit metadata.
+        """Initialize articles operations with infrastructure and audit metadata.
 
         :param resources: Application-owned database, cache, and storage clients.
         :param audit: Request metadata attached to audited operations.
@@ -48,117 +44,27 @@ class ContentService:
         """
         self.resources = resources
         self.audit = audit
-        self.repository = ContentRepository()
+        self.repository = ArticleRepository()
 
     async def owned(
         self,
-        model: type[Publication],
         resource_id: str,
         owner: User,
         session: AsyncClientSession,
-    ) -> Publication:
+    ) -> Article:
         """Read ownership inside the write transaction so image updates are preserved.
 
-        :param model: Beanie document class for the target publication type.
         :param resource_id: String identifier of the publication to load or mutate.
         :param owner: Authenticated account owning or initiating the operation.
         :param session: MongoDB session for the caller transaction.
         :return: The undeleted publication owned by the supplied account.
         """
-        item = await model.get(publication_id(resource_id), session=session)
+        item = await self.repository.get_article(publication_id(resource_id), session=session)
 
         if item is None or item.deleted_at is not None or item.author_id != owner.id:
             raise NotFound("Publication not found")
 
         return item
-
-    async def create_post(self, payload: MicroPostCreate, owner: User) -> MicroPost:
-        """Insert a micro-post and its audit event, then invalidate the feed.
-
-        :param payload: Validated request data for the operation.
-        :param owner: Authenticated account owning or initiating the operation.
-        :return: The persisted micro-post.
-        """
-        now = datetime.now(UTC)
-        post = MicroPost(author_id=owner.id, text=payload.text, created_at=now, updated_at=now)
-
-        async with transaction(self.resources.mongo) as session:
-            await post.insert(session=session)
-            await record_audit(
-                self.audit,
-                "MICRO_POST_CREATED",
-                actor_id=owner.id,
-                target_type="micro_post",
-                target_id=str(post.id),
-                session=session,
-            )
-
-        await invalidate_public_feed(self.resources.redis)
-
-        return post
-
-    async def edit_post(self, post_id: str, payload: MicroPostCreate, owner: User) -> MicroPost:
-        """Replace an owned micro-post's text in an audited transaction.
-
-        :param post_id: MongoDB identifier of the micro-post.
-        :param payload: Validated request data for the operation.
-        :param owner: Authenticated account owning or initiating the operation.
-        :return: The updated micro-post.
-        """
-        async with transaction(self.resources.mongo) as session:
-            post = await self.owned(MicroPost, post_id, owner, session)
-            post.text = payload.text
-            post.updated_at = datetime.now(UTC)
-            await post.save(session=session)
-            await record_audit(
-                self.audit,
-                "MICRO_POST_EDITED",
-                actor_id=owner.id,
-                target_type="micro_post",
-                target_id=post_id,
-                session=session,
-            )
-
-        await invalidate_public_feed(self.resources.redis)
-
-        return post
-
-    async def delete(self, model: type[Publication], resource_id: str, owner: User) -> None:
-        """Soft-delete an owned publication and queue its images for cleanup.
-
-        :param model: Beanie document class for the target publication type.
-        :param resource_id: String identifier of the publication to load or mutate.
-        :param owner: Authenticated account owning or initiating the operation.
-        :return: None.
-        """
-        async with transaction(self.resources.mongo) as session:
-            item = await self.owned(model, resource_id, owner, session)
-            item.deleted_at = item.updated_at = datetime.now(UTC)
-            await item.save(session=session)
-
-            if isinstance(item, MicroPost):
-                keys, target_type, action = (
-                    item.image_keys,
-                    "micro_post",
-                    "MICRO_POST_DELETED",
-                )
-            else:
-                keys = ([item.thumbnail_key] if item.thumbnail_key else []) + item.inline_image_keys
-                target_type, action = "article", "ARTICLE_DELETED"
-
-            for key in keys:
-                await queue_deletion(get_settings().publication_bucket, key, session=session)
-
-            await record_audit(
-                self.audit,
-                action,
-                actor_id=owner.id,
-                target_type=target_type,
-                target_id=resource_id,
-                session=session,
-            )
-
-        await invalidate_public_feed(self.resources.redis)
 
     async def create_article(self, payload: ArticleCreate, owner: User) -> Article:
         """Create an audited article draft without preattached inline images.
@@ -203,7 +109,7 @@ class ContentService:
         :return: The updated article.
         """
         async with transaction(self.resources.mongo) as session:
-            article = await self.owned(Article, article_id, owner, session)
+            article = await self.owned(article_id, owner, session)
 
             if payload.body is not None:
                 if not article_image_keys(payload.body).issubset(set(article.inline_image_keys)):
@@ -254,7 +160,7 @@ class ContentService:
         :return: The article with its resulting visibility and timestamps.
         """
         async with transaction(self.resources.mongo) as session:
-            article = await self.owned(Article, article_id, owner, session)
+            article = await self.owned(article_id, owner, session)
 
             if state == "published" and article.status == "published":
                 return article
@@ -289,19 +195,6 @@ class ContentService:
 
         return article
 
-    async def get_post(self, resource_id: str) -> tuple[MicroPost, User]:
-        """Load a public undeleted micro-post and its author.
-
-        :param resource_id: String identifier of the publication to load or mutate.
-        :return: The micro-post and its author account.
-        """
-        post = await self.repository.get_post(publication_id(resource_id))
-
-        if post is None or post.deleted_at is not None:
-            raise NotFound("Post not found")
-
-        return post, await self.author(post.author_id)
-
     async def get_article(self, resource_id: str, viewer: User | None) -> tuple[Article, User]:
         """Load an article after enforcing publication visibility.
 
@@ -320,6 +213,45 @@ class ContentService:
 
         return article, await self.author(article.author_id)
 
+    async def list_mine(self, owner: User, status: ArticleStatus | None, offset: int, limit: int) -> list[Article]:
+        """List the owner's articles with status and offset pagination.
+
+        :param owner: Authenticated account owning or initiating the operation.
+        :param status: Optional article publication status filter.
+        :param offset: Number of matching entries to skip before selecting the page.
+        :param limit: Maximum number of entries to return in this page.
+        :return: The requested page of the owner's articles.
+        """
+        return await self.repository.list_articles(owner.id, status, offset=offset, limit=limit)
+
+    async def delete(self, resource_id: str, owner: User) -> None:
+        """Soft-delete an owned publication and queue its images for cleanup.
+
+        :param resource_id: String identifier of the publication to load or mutate.
+        :param owner: Authenticated account owning or initiating the operation.
+        :return: None.
+        """
+        async with transaction(self.resources.mongo) as session:
+            item = await self.owned(resource_id, owner, session)
+            item.deleted_at = item.updated_at = datetime.now(UTC)
+            await item.save(session=session)
+
+            keys = ([item.thumbnail_key] if item.thumbnail_key else []) + item.inline_image_keys
+
+            for key in keys:
+                await queue_deletion(get_settings().publication_bucket, key, session=session)
+
+            await record_audit(
+                self.audit,
+                "ARTICLE_DELETED",
+                actor_id=owner.id,
+                target_type="article",
+                target_id=resource_id,
+                session=session,
+            )
+
+        await invalidate_public_feed(self.resources.redis)
+
     async def author(self, author_id: PydanticObjectId) -> User:
         """Load a publication author or raise a not-found error.
 
@@ -332,44 +264,3 @@ class ContentService:
             raise NotFound("Author not found")
 
         return author
-
-    async def shared(self, username: str, slug: str) -> tuple[MicroPost | Article, User]:
-        """Resolve a stable share ID for an author's public publication.
-
-        :param username: Public profile handle, optionally prefixed with @.
-        :param slug: Readable share slug ending with the stable publication share ID.
-        :return: The visible publication and its author.
-        """
-        share_id = slug.rsplit("--", 1)[-1]
-
-        if not re.fullmatch(r"[0-9a-f]{32}", share_id):
-            raise NotFound("Publication not found")
-
-        author = await User.find_one(User.username == username.lower().removeprefix("@"))
-
-        if author is None:
-            raise NotFound("Publication not found")
-
-        conditions = {"author_id": author.id, "share_id": share_id, "deleted_at": None}
-        post = await MicroPost.find_one(conditions)
-
-        if post is not None:
-            return post, author
-
-        article = await Article.find_one({**conditions, "status": "published"})
-
-        if article is None:
-            raise NotFound("Publication not found")
-
-        return article, author
-
-    async def list_mine(self, owner: User, status: ArticleStatus | None, offset: int, limit: int) -> list[Article]:
-        """List the owner's articles with status and offset pagination.
-
-        :param owner: Authenticated account owning or initiating the operation.
-        :param status: Optional article publication status filter.
-        :param offset: Number of matching entries to skip before selecting the page.
-        :param limit: Maximum number of entries to return in this page.
-        :return: The requested page of the owner's articles.
-        """
-        return await self.repository.list_articles(owner.id, status, offset=offset, limit=limit)

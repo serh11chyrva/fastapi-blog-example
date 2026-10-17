@@ -1,8 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from backend.content.schemas import ArticleCreate, MicroPostCreate
-from backend.content.validation import validate_tiptap_document
+from backend.articles.schemas import ArticleCreate
+from backend.articles.validation import validate_tiptap_document
+from backend.posts.schemas import MicroPostCreate
 
 
 def test_micro_post_is_trimmed_and_limited_to_280_characters() -> None:

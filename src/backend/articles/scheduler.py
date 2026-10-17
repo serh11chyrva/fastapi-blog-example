@@ -5,11 +5,11 @@ from loguru import logger
 from pymongo import AsyncMongoClient
 from redis.asyncio import Redis
 
+from backend.articles.models import Article
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
-from backend.content.cache import invalidate_public_feed
-from backend.content.models import Article
 from backend.core.transactions import transaction
+from backend.feeds.cache import invalidate_public_feed
 
 
 async def publish_due_articles(mongo_client: AsyncMongoClient) -> int:

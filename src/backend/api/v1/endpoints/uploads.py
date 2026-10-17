@@ -2,21 +2,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
 
-from backend.api.metadata import (
-    ArticleId,
-    Origin,
-    PostId,
-    UploadId,
-    documented_responses,
-)
+from backend.api.metadata import ArticleId, Origin, PostId, UploadId, documented_responses
+from backend.articles.schemas import ArticleImageResponse, ArticleResponse
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser
-from backend.content.schemas import (
-    ArticleImageResponse,
-    ArticleResponse,
-    MicroPostResponse,
-)
 from backend.core.resources import Resources
+from backend.posts.schemas import MicroPostResponse
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import OwnProfileResponse
 from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse

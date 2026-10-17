@@ -27,7 +27,10 @@ formatting with `uv run --locked ruff format src/backend`.
 | `api/` | HTTP endpoints, root and versioned router composition, OpenAPI metadata and examples, Scalar presentation, and the standalone documentation preview |
 | `auth/` | Password verification, registration/login, sessions, cookie authentication dependencies, and rate limits |
 | `profiles/` | Profile revisions, follows, badge preferences, bounded list reads, and profile presenters |
-| `content/` | Publication operations, article validation, presenters, feeds, cursors, and scheduled publishing |
+| `articles/` | Article documents, request/response schemas, validation, repository, service, presenters, share-ID backfill, and scheduled publishing |
+| `posts/` | Micro-post documents, request/response schemas, repository, service, presenters, and share-ID backfill |
+| `feeds/` | Mixed publication reads, response schemas, presenters, deterministic cursors, and public feed cache invalidation |
+| `publications/` | Public share-link resolution across article/post repositories and shared readable URL construction |
 | `storage/` | Upload preparation, confirmation leases, immutable copies, attachment adapters, object storage access, and cleanup |
 | `audit/` | Transport-independent request metadata and transactional audit event writes |
 | `core/` | Configuration, typed clients, transaction conflict policy, and application errors |
@@ -38,11 +41,29 @@ callers; password and token implementation belongs to `auth/security.py`.
 
 `api/router.py` composes the application route tree. Its `api_router` owns the
 `/api` prefix and includes `api/v1/router.py`, which owns `/v1` and groups the
-authentication, profile, link, publication, feed, and upload endpoints under
+authentication, profile, link, article, post, shared-publication, feed, and upload endpoints under
 `api/v1/endpoints/`. The outer router also includes `api/endpoints/` for `/`,
 `/health`, badge icons, and attached images, preserving their application-root URLs.
 Badge assets remain in `profiles/icons/`. Services, repositories, domain models,
 and feature schemas remain in their feature packages.
+
+`articles/` and `posts/` each own their document, schema, repository, service, and
+presenter layers. Their services enforce ownership, write audit events in the same
+transaction as mutations, and queue deleted attachments for cleanup. Neither feature
+imports the other feature's code. HTTP adapters live in `api/v1/endpoints/articles.py`
+and `api/v1/endpoints/posts.py`, with separate service dependencies.
+
+`feeds/` coordinates both repositories for public, following, and profile publication
+lists; feature repositories perform the underlying document queries. `publications/`
+resolves shared links through those repositories while preserving post-first lookup
+and published-only article visibility. Image URL construction belongs to `storage/`,
+and article cover URL construction belongs to `articles/`. Upload orchestration remains
+in `storage/`, which imports each feature's models, schemas, and presenters directly.
+
+This split replaces `content/` without changing HTTP paths, operation names, schema
+names, response fields, or MongoDB collection/index names. Existing share IDs remain
+valid; each feature owns its legacy share-ID backfill, and the article scheduler is
+started from `articles/scheduler.py`.
 
 `api/docs.py`, `api/metadata.py`, and `api/examples.py` own shared API documentation
 presentation, response/header/path annotations, and example values respectively.
