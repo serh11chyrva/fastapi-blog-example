@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.core import api_examples as examples
+from backend.api import examples
 from backend.links.models import LinkData
 from backend.links.platforms import LinkPlatform
 from backend.profiles.models import BadgePayload

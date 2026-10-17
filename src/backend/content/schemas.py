@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.content.validation import ArticleBody, validate_tiptap_document
-from backend.core import api_examples as examples
+from backend.api import examples
 
 
 class MicroPostCreate(BaseModel):

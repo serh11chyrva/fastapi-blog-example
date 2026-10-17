@@ -2,12 +2,27 @@
 
 This guide documents the implemented API in addition to the interactive Scalar reference at `http://localhost:8080/api/docs` and its machine-readable schema at `/api/openapi.json`. Endpoint metadata is declared beside each route; required cookie security is generated from authentication dependencies, and optional-session reads explicitly allow anonymous access.
 
+HTTP handlers live in `src/backend/api/`. The `/api` router includes its `/v1`
+child, whose handlers live in `api/v1/endpoints/`. System and image handlers live
+in `api/endpoints/` and retain their root paths (`/`, `/health`, and
+`/static/images/...`). Shared OpenAPI presentation, annotations, and examples live
+in `api/docs.py`, `api/metadata.py`, and `api/examples.py`. This package layout
+does not change endpoint URLs, request/response fields, examples, or access rules.
+
+Both the application reference and standalone preview preserve property order from
+the OpenAPI schemas, including nested models. Scalar does not alphabetize fields
+or move required fields ahead of optional fields, so related fields stay together.
+Schema property order follows the Pydantic models, with inherited fields first.
+Request and response JSON examples are reordered to match their schemas as well,
+including objects inside arrays and publication variants. Example values and array
+item order are preserved; keys absent from the schema remain after declared fields.
+
 ## Standalone design preview
 
 From the repository root, install dependencies with `uv sync`, then run:
 
 ```sh
-uv run uvicorn backend.docs:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn backend.api.preview:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Browse <http://localhost:8000/api/docs> or download the schema at

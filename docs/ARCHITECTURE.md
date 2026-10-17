@@ -18,23 +18,37 @@ does not own feature policy.
 
 | Package | Main responsibilities |
 | --- | --- |
+| `api/` | HTTP endpoints, root and versioned router composition, OpenAPI metadata and examples, Scalar presentation, and the standalone documentation preview |
 | `auth/` | Password verification, registration/login, sessions, cookie authentication dependencies, and rate limits |
 | `profiles/` | Profile revisions, follows, badge preferences, bounded list reads, and profile presenters |
 | `content/` | Publication operations, article validation, presenters, feeds, cursors, and scheduled publishing |
-| `storage/` | Upload preparation, confirmation leases, immutable copies, attachment adapters, image serving, and cleanup |
+| `storage/` | Upload preparation, confirmation leases, immutable copies, attachment adapters, object storage access, and cleanup |
 | `audit/` | Transport-independent request metadata and transactional audit event writes |
-| `core/` | Configuration, typed clients, transaction conflict policy, application errors, and shared OpenAPI presentation |
+| `core/` | Configuration, typed clients, transaction conflict policy, and application errors |
 
 `main.py` creates the application, registers boundaries, and manages client and
 worker lifetimes. `core/security.py` retains compatibility exports for existing
 callers; password and token implementation belongs to `auth/security.py`.
 
-`docs.py` creates a separate documentation application using the main application's
+`api/router.py` composes the application route tree. Its `api_router` owns the
+`/api` prefix and includes `api/v1/router.py`, which owns `/v1` and groups the
+authentication, profile, link, publication, feed, and upload endpoints under
+`api/v1/endpoints/`. The outer router also includes `api/endpoints/` for `/`,
+`/health`, badge icons, and attached images, preserving their application-root URLs.
+Badge assets remain in `profiles/icons/`. Services, repositories, domain models,
+and feature schemas remain in their feature packages.
+
+`api/docs.py`, `api/metadata.py`, and `api/examples.py` own shared API documentation
+presentation, response/header/path annotations, and example values respectively.
+`api/schemas.py` defines system endpoint responses. Feature schemas reference the
+shared examples directly; the `api` package initializer does not import routers.
+
+`api/preview.py` creates a separate documentation application using the main application's
 OpenAPI generator without entering its lifespan or registering its runtime routes
 or middleware. It creates no infrastructure clients and requires no service settings.
 Only Scalar, the OpenAPI schema, and a root redirect are served. A preview notice
 is added to a copy of the schema; endpoint contracts and examples remain shared.
-`core/api_docs.py` shares Scalar presentation, with models visible and request testing
+`api/docs.py` shares Scalar presentation, with models visible and request testing
 and client buttons hidden in the standalone preview.
 
 ## Consistency contracts

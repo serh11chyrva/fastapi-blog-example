@@ -6,7 +6,7 @@ from backend.auth.dependencies import CurrentUser
 from backend.content.feed import load_public_feed, load_following_feed
 from backend.content.repository import FeedKind
 from backend.content.schemas import FeedResponse
-from backend.core.api_metadata import documented_responses
+from backend.api.metadata import documented_responses
 from backend.core.resources import Resources
 
 

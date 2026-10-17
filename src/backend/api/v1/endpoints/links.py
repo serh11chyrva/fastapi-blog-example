@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 
-from backend.core.api_metadata import documented_responses, Username
+from backend.api.metadata import documented_responses, Username
 from backend.links.service import LinkService
 from backend.profiles.repository import ProfileRepository
 

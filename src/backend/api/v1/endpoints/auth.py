@@ -8,7 +8,7 @@ from backend.auth.presentation import present_sessions
 from backend.auth.rate_limit import enforce_rate_limit
 from backend.auth.schemas import AuthResponse, LoginRequest, RegisterRequest, SessionResponse
 from backend.auth.sessions import SessionService
-from backend.core.api_metadata import documented_responses, Origin, SessionId
+from backend.api.metadata import documented_responses, Origin, SessionId
 from backend.core.config import get_settings
 from backend.core.resources import get_resources
 from backend.profiles.models import User

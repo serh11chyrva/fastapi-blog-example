@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.auth.dependencies import OptionalUser
 from backend.content.models import Article, MicroPost
-from backend.core.api_metadata import documented_responses
+from backend.api.metadata import documented_responses
 from backend.core.config import get_settings
 from backend.core.resources import get_resources
 from backend.profiles.models import User

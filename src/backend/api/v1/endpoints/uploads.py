@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Response, status
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser
 from backend.content.schemas import ArticleImageResponse, ArticleResponse, MicroPostResponse
-from backend.core.api_metadata import documented_responses, Origin, PostId, ArticleId, UploadId
+from backend.api.metadata import documented_responses, Origin, PostId, ArticleId, UploadId
 from backend.core.resources import Resources
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import OwnProfileResponse

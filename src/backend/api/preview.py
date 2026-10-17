@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
-from backend.core.api_docs import add_api_reference
+from backend.api.docs import API_REFERENCE_URL, OPENAPI_URL, add_api_reference
 from backend.main import app as api_app
 
 
@@ -17,7 +17,7 @@ def create_app() -> FastAPI:
         version=api_app.version,
         docs_url=None,
         redoc_url=None,
-        openapi_url="/api/openapi.json",
+        openapi_url=OPENAPI_URL,
     )
 
     def preview_openapi() -> dict[str, Any]:
@@ -37,7 +37,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
-        return RedirectResponse("/api/docs")
+        return RedirectResponse(API_REFERENCE_URL)
 
     return app
 

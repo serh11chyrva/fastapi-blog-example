@@ -10,8 +10,8 @@ from backend.content.models import Article, MicroPost
 from backend.content.presenters import article_response, post_response
 from backend.content.schemas import ArticleCreate, ArticleResponse, ArticleScheduleRequest, ArticleUpdate, MicroPostCreate, MicroPostResponse
 from backend.content.service import ContentService
-from backend.core import api_examples as examples
-from backend.core.api_metadata import documented_responses, Origin, PostId, ArticleId, Username, ShareSlug
+from backend.api import examples
+from backend.api.metadata import documented_responses, Origin, PostId, ArticleId, Username, ShareSlug
 from backend.core.resources import Resources
 
 

@@ -4,7 +4,7 @@ import re
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from backend.auth.client import ClientType
-from backend.core import api_examples as examples
+from backend.api import examples
 
 
 class SessionClientRequest(BaseModel):

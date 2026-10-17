@@ -8,7 +8,7 @@ from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.content.repository import FeedKind
 from backend.content.schemas import FeedItem
-from backend.core.api_metadata import documented_responses, Origin, Username
+from backend.api.metadata import documented_responses, Origin, Username
 from backend.core.resources import Resources
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import BadgePreferenceUpdate, OwnProfileResponse, ProfileResponse, ProfileUpdate, ProfileUserResponse

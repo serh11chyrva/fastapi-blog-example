@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 import asyncio
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pymongo import AsyncMongoClient
@@ -11,26 +11,26 @@ from redis.asyncio import Redis
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
+from backend.api.docs import (
+    API_DESCRIPTION,
+    API_SUMMARY,
+    API_TITLE,
+    API_VERSION,
+    OPENAPI_TAGS,
+    OPENAPI_URL,
+    add_api_reference,
+    configure_openapi,
+)
+from backend.api.router import router
 from backend.auth.presentation import open_geoip_database
-from backend.auth.router import router as auth_router
-from backend.content.feed_router import router as feed_router
 from backend.content.migrations import ensure_public_share_ids
-from backend.content.router import router as content_router
 from backend.content.scheduler import run_publication_scheduler
-from backend.core.api_docs import API_DESCRIPTION, OPENAPI_TAGS, add_api_reference, configure_openapi
-from backend.core.api_metadata import documented_responses
 from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
 from backend.core.errors import ApplicationError
-from backend.core.resources import AppResources, get_resources
-from backend.core.schemas import ApplicationStatusResponse, HealthResponse
-from backend.links.router import router as link_router
-from backend.profiles.badge_router import router as badge_router
+from backend.core.resources import AppResources
 from backend.profiles.migrations import ensure_profile_schema
-from backend.profiles.router import router as profile_router
 from backend.storage.cleanup import run_storage_cleanup
-from backend.storage.image_router import router as image_router
-from backend.storage.router import router as upload_router
 from backend.storage.s3 import check_storage, create_s3_client
 
 
@@ -81,24 +81,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Commonplace API",
-        version="0.1.0",
-        summary="A session-based microblog and article publishing API.",
+        title=API_TITLE,
+        version=API_VERSION,
+        summary=API_SUMMARY,
         description=API_DESCRIPTION,
         openapi_tags=OPENAPI_TAGS,
         docs_url=None,
         redoc_url=None,
-        openapi_url="/api/openapi.json",
+        openapi_url=OPENAPI_URL,
         lifespan=lifespan,
     )
-    app.include_router(auth_router, prefix="/api/v1")
-    app.include_router(profile_router, prefix="/api/v1")
-    app.include_router(link_router, prefix="/api/v1")
-    app.include_router(content_router, prefix="/api/v1")
-    app.include_router(feed_router, prefix="/api/v1")
-    app.include_router(upload_router, prefix="/api/v1")
-    app.include_router(badge_router)
-    app.include_router(image_router)
+    app.include_router(router)
 
     configure_openapi(app)
 
@@ -120,40 +113,6 @@ def create_app() -> FastAPI:
             if origin != get_settings().app_origin:
                 return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Cross-origin request rejected"})
         return await call_next(request)
-
-    @app.get(
-        "/",
-        tags=["System"],
-        response_model=ApplicationStatusResponse,
-        summary='Identify the application',
-        description=(
-            'Returns a short application identifier without checking dependency connectivity. Use '
-            '/health to inspect service availability.'
-        ),
-        responses=documented_responses(503, examples=[({'message': 'FastAPI Microblog Demo'}, 'Application identifier')]),
-    )
-    async def root() -> ApplicationStatusResponse:
-        return ApplicationStatusResponse(message="FastAPI Microblog Demo")
-
-    @app.get(
-        "/health",
-        tags=["System"],
-        response_model=HealthResponse,
-        summary='Check dependency health',
-        description=(
-            'Pings MongoDB and Redis and checks object storage; returns 503 if a dependency is '
-            'unavailable.'
-        ),
-        responses=documented_responses(503, examples=[({'status': 'ok', 'database': 'ok', 'redis': 'ok', 'object_storage': 'ok'}, 'All dependencies available')]),
-    )
-    async def health(request: Request) -> HealthResponse:
-        try:
-            await get_resources(request).mongo.admin.command("ping")
-            await get_resources(request).redis.ping()
-            await check_storage(get_resources(request).s3, get_settings())
-        except Exception as exc:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="A required service is unavailable") from exc
-        return HealthResponse(status="ok", database="ok", redis="ok", object_storage="ok")
 
     return app
 

@@ -4,11 +4,11 @@ import re
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from backend.core.api_metadata import documented_responses
+from backend.api.metadata import documented_responses
 
 
 router = APIRouter()
-ICON_DIRECTORY = Path(__file__).parent / "icons"
+ICON_DIRECTORY = Path(__file__).resolve().parents[2] / "profiles" / "icons"
 
 
 @router.get(
