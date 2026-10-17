@@ -7,9 +7,17 @@ from backend.links.platforms import validate_link_url
 
 
 class LinkData(BaseModel):
-    version: Literal[1] = Field(default=1, description="Link format version, independent of profile revision.")
-    label: str = Field(min_length=1, max_length=32, description="Nonblank public link label.")
-    url: str = Field(min_length=8, max_length=500, description="Absolute HTTP(S) destination without credentials or whitespace.")
+    version: Literal[1] = Field(
+        default=1, description="Link format version, independent of profile revision."
+    )
+    label: str = Field(
+        min_length=1, max_length=32, description="Nonblank public link label."
+    )
+    url: str = Field(
+        min_length=8,
+        max_length=500,
+        description="Absolute HTTP(S) destination without credentials or whitespace.",
+    )
 
     @field_validator("label", mode="before")
     @classmethod

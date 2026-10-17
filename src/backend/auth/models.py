@@ -16,8 +16,15 @@ class AuthIdentity(Document):
     class Settings:
         name = "auth_identities"
         indexes = [
-            IndexModel([("provider", ASCENDING), ("subject", ASCENDING)], unique=True, name="auth_identity_provider_subject_unique"),
-            IndexModel([("user_id", ASCENDING), ("provider", ASCENDING)], name="auth_identity_user_provider"),
+            IndexModel(
+                [("provider", ASCENDING), ("subject", ASCENDING)],
+                unique=True,
+                name="auth_identity_provider_subject_unique",
+            ),
+            IndexModel(
+                [("user_id", ASCENDING), ("provider", ASCENDING)],
+                name="auth_identity_user_provider",
+            ),
         ]
 
 
@@ -36,6 +43,17 @@ class AuthSession(Document):
     class Settings:
         name = "auth_sessions"
         indexes = [
-            IndexModel([("token_hash", ASCENDING)], unique=True, name="sessions_token_hash_unique"),
-            IndexModel([("user_id", ASCENDING), ("revoked_at", ASCENDING), ("expires_at", ASCENDING)], name="sessions_user_active"),
+            IndexModel(
+                [("token_hash", ASCENDING)],
+                unique=True,
+                name="sessions_token_hash_unique",
+            ),
+            IndexModel(
+                [
+                    ("user_id", ASCENDING),
+                    ("revoked_at", ASCENDING),
+                    ("expires_at", ASCENDING),
+                ],
+                name="sessions_user_active",
+            ),
         ]

@@ -10,7 +10,11 @@ from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.content.models import Article, MicroPost
 from backend.content.presenters import article_response, post_response
-from backend.content.schemas import ArticleImageResponse, ArticleResponse, MicroPostResponse
+from backend.content.schemas import (
+    ArticleImageResponse,
+    ArticleResponse,
+    MicroPostResponse,
+)
 from backend.content.urls import publication_image_url
 from backend.core.errors import InvalidOperation, NotFound
 from backend.profiles.models import User
@@ -18,8 +22,9 @@ from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import ProfileResponse
 from backend.storage.models import ImagePurpose, ImageUpload
 
-
-type UploadResult = ProfileResponse | MicroPostResponse | ArticleResponse | ArticleImageResponse
+type UploadResult = (
+    ProfileResponse | MicroPostResponse | ArticleResponse | ArticleImageResponse
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,8 +50,16 @@ class ImageAttachments:
             if user is None or user.id != owner.id:
                 raise NotFound("Resource not found")
             return user
-        publication = await MicroPost.get(object_id, session=session) if purpose == "post-images" else await Article.get(object_id, session=session)
-        if publication is None or publication.deleted_at is not None or publication.author_id != owner.id:
+        publication = (
+            await MicroPost.get(object_id, session=session)
+            if purpose == "post-images"
+            else await Article.get(object_id, session=session)
+        )
+        if (
+            publication is None
+            or publication.deleted_at is not None
+            or publication.author_id != owner.id
+        ):
             raise NotFound("Resource not found")
         return publication
 
@@ -59,7 +72,9 @@ class ImageAttachments:
         session: AsyncClientSession,
     ) -> AttachmentResult:
         """Mutate a freshly read target and audit it inside the caller's transaction."""
-        target = await self.target(upload.purpose, str(upload.target_id), owner, session=session)
+        target = await self.target(
+            upload.purpose, str(upload.target_id), owner, session=session
+        )
         old_keys: list[str] = []
         if isinstance(target, User):
             old_keys = [target.avatar_key] if target.avatar_key else []
@@ -82,7 +97,15 @@ class ImageAttachments:
             action, target_type = "ARTICLE_IMAGE_ADDED", "article"
         target.updated_at = datetime.now(UTC)
         await target.save(session=session)
-        await record_audit(audit, action, actor_id=owner.id, target_type=target_type, target_id=str(target.id), metadata={"image_count": len(keys)}, session=session)
+        await record_audit(
+            audit,
+            action,
+            actor_id=owner.id,
+            target_type=target_type,
+            target_id=str(target.id),
+            metadata={"image_count": len(keys)},
+            session=session,
+        )
         response: UploadResult
         if isinstance(target, User):
             response = await ProfileQueries().response(target, owner.id)
@@ -91,7 +114,10 @@ class ImageAttachments:
         elif upload.purpose == "article-covers":
             response = article_response(target, owner)
         else:
-            response = ArticleImageResponse(url=publication_image_url(keys[0], "article-images"), alt_text=upload.files[0].filename)
+            response = ArticleImageResponse(
+                url=publication_image_url(keys[0], "article-images"),
+                alt_text=upload.files[0].filename,
+            )
         return AttachmentResult(response, old_keys)
 
 

@@ -19,5 +19,8 @@ class AuditEvent(Document):
         name = "audit_events"
         indexes = [
             IndexModel([("occurred_at", DESCENDING)], name="audit_time_desc"),
-            IndexModel([("actor_id", ASCENDING), ("occurred_at", DESCENDING)], name="audit_actor_time"),
+            IndexModel(
+                [("actor_id", ASCENDING), ("occurred_at", DESCENDING)],
+                name="audit_actor_time",
+            ),
         ]

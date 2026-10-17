@@ -177,6 +177,17 @@ uv sync --all-groups
 uv run pytest
 ```
 
+Lint and format Python code with Ruff, including import sorting and Python 3.13
+syntax updates:
+
+```sh
+uv run ruff check --fix .
+uv run ruff format .
+```
+
+For checks without modifying files, use `uv run ruff check .` and
+`uv run ruff format --check .`.
+
 Frontend dependencies are managed with npm:
 
 ```sh

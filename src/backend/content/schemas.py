@@ -3,16 +3,23 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.content.validation import ArticleBody, validate_tiptap_document
 from backend.api import examples
+from backend.content.validation import ArticleBody, validate_tiptap_document
 
 
 class MicroPostCreate(BaseModel):
     """Text for a public micro-post; whitespace-only values are rejected."""
 
-    model_config = ConfigDict(title="Micro-post text", json_schema_extra={"examples": [examples.POST_CREATE]})
+    model_config = ConfigDict(
+        title="Micro-post text", json_schema_extra={"examples": [examples.POST_CREATE]}
+    )
 
-    text: str = Field(min_length=1, max_length=280, description="Complete post text, up to 280 characters. Surrounding whitespace is trimmed; blank text is rejected.", examples=[examples.POST_TEXT])
+    text: str = Field(
+        min_length=1,
+        max_length=280,
+        description="Complete post text, up to 280 characters. Surrounding whitespace is trimmed; blank text is rejected.",
+        examples=[examples.POST_TEXT],
+    )
 
     @field_validator("text")
     @classmethod
@@ -26,29 +33,83 @@ class MicroPostCreate(BaseModel):
 class MicroPostResponse(BaseModel):
     """Published micro-post with its public author card."""
 
-    model_config = ConfigDict(title="Published micro-post", json_schema_extra={"examples": [examples.POST_WITH_IMAGES]})
+    model_config = ConfigDict(
+        title="Published micro-post",
+        json_schema_extra={"examples": [examples.POST_WITH_IMAGES]},
+    )
 
-    id: str = Field(description="Post identifier: a 24-character MongoDB ObjectId.", examples=[examples.POST["id"]])
-    kind: Literal["micro_post"] = Field(default="micro_post", description="Publication type; always micro_post.", examples=["micro_post"])
-    share_url: str | None = Field(default=None, description="Relative public page URL containing the author handle, readable slug, and stable share UUID.", examples=[examples.POST["share_url"]])
-    text: str = Field(description="Public post text, without surrounding whitespace.", examples=[examples.POST_TEXT])
-    images: list[str] = Field(default_factory=list, description="Same-origin URLs for attached images, in display order. A post can have up to five images.", examples=[[examples.POST_IMAGE_URL]])
-    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
-    author_username: str = Field(description="Author public handle without @.", examples=[examples.ACCOUNT["username"]])
-    author_display_name: str = Field(description="Author public display name.", examples=[examples.ACCOUNT["display_name"]])
-    author_avatar_url: str | None = Field(description="Author avatar URL, or null when absent.", examples=[examples.AVATAR_URL])
-    created_at: datetime = Field(description="UTC creation time; micro-posts become public immediately.", examples=[examples.POST["created_at"]])
-    updated_at: datetime = Field(description="UTC time of the most recent text or image update.", examples=[examples.POST_WITH_IMAGES["updated_at"]])
+    id: str = Field(
+        description="Post identifier: a 24-character MongoDB ObjectId.",
+        examples=[examples.POST["id"]],
+    )
+    kind: Literal["micro_post"] = Field(
+        default="micro_post",
+        description="Publication type; always micro_post.",
+        examples=["micro_post"],
+    )
+    share_url: str | None = Field(
+        default=None,
+        description="Relative public page URL containing the author handle, readable slug, and stable share UUID.",
+        examples=[examples.POST["share_url"]],
+    )
+    text: str = Field(
+        description="Public post text, without surrounding whitespace.",
+        examples=[examples.POST_TEXT],
+    )
+    images: list[str] = Field(
+        default_factory=list,
+        description="Same-origin URLs for attached images, in display order. A post can have up to five images.",
+        examples=[[examples.POST_IMAGE_URL]],
+    )
+    author_id: str = Field(
+        description="Author account identifier.", examples=[examples.ACCOUNT["id"]]
+    )
+    author_username: str = Field(
+        description="Author public handle without @.",
+        examples=[examples.ACCOUNT["username"]],
+    )
+    author_display_name: str = Field(
+        description="Author public display name.",
+        examples=[examples.ACCOUNT["display_name"]],
+    )
+    author_avatar_url: str | None = Field(
+        description="Author avatar URL, or null when absent.",
+        examples=[examples.AVATAR_URL],
+    )
+    created_at: datetime = Field(
+        description="UTC creation time; micro-posts become public immediately.",
+        examples=[examples.POST["created_at"]],
+    )
+    updated_at: datetime = Field(
+        description="UTC time of the most recent text or image update.",
+        examples=[examples.POST_WITH_IMAGES["updated_at"]],
+    )
 
 
 class ArticleCreate(BaseModel):
     """Article draft whose body is a validated TipTap JSON document."""
 
-    model_config = ConfigDict(title="New article draft", json_schema_extra={"examples": [examples.ARTICLE_CREATE]})
+    model_config = ConfigDict(
+        title="New article draft",
+        json_schema_extra={"examples": [examples.ARTICLE_CREATE]},
+    )
 
-    title: str = Field(min_length=1, max_length=160, description="Article title, trimmed and nonblank, up to 160 characters.", examples=[examples.ARTICLE_CREATE["title"]])
-    summary: str = Field(default="", max_length=320, description="Short feed preview, up to 320 characters. Trimmed; may be empty.", examples=[examples.ARTICLE_CREATE["summary"]])
-    body: ArticleBody = Field(description="TipTap JSON document, up to 1,000,000 UTF-8 bytes, 64 levels, and 10,000 nodes. Malformed node shapes and parent-child structures are rejected. Supports paragraphs, headings (levels 1-3), lists, blockquotes, code blocks, breaks, rules, and uploaded images; marks: bold, italic, strike, code, and HTTP(S) links. Image sources must reference images uploaded to this article.", examples=[examples.ARTICLE_BODY])
+    title: str = Field(
+        min_length=1,
+        max_length=160,
+        description="Article title, trimmed and nonblank, up to 160 characters.",
+        examples=[examples.ARTICLE_CREATE["title"]],
+    )
+    summary: str = Field(
+        default="",
+        max_length=320,
+        description="Short feed preview, up to 320 characters. Trimmed; may be empty.",
+        examples=[examples.ARTICLE_CREATE["summary"]],
+    )
+    body: ArticleBody = Field(
+        description="TipTap JSON document, up to 1,000,000 UTF-8 bytes, 64 levels, and 10,000 nodes. Malformed node shapes and parent-child structures are rejected. Supports paragraphs, headings (levels 1-3), lists, blockquotes, code blocks, breaks, rules, and uploaded images; marks: bold, italic, strike, code, and HTTP(S) links. Image sources must reference images uploaded to this article.",
+        examples=[examples.ARTICLE_BODY],
+    )
 
     @field_validator("title")
     @classmethod
@@ -73,11 +134,29 @@ class ArticleCreate(BaseModel):
 class ArticleUpdate(BaseModel):
     """Partial article update. The author can edit drafts and publications."""
 
-    model_config = ConfigDict(title="Article changes", json_schema_extra={"examples": [examples.ARTICLE_UPDATE]})
+    model_config = ConfigDict(
+        title="Article changes",
+        json_schema_extra={"examples": [examples.ARTICLE_UPDATE]},
+    )
 
-    title: str | None = Field(default=None, min_length=1, max_length=160, description="Replacement title, trimmed and nonblank. Omit or use null to keep the current title.", examples=[examples.ARTICLE_UPDATE["title"]])
-    summary: str | None = Field(default=None, max_length=320, description="Replacement feed preview. Use an empty string to clear it; omit or use null to keep it.", examples=[examples.ARTICLE_UPDATE["summary"]])
-    body: ArticleBody | None = Field(default=None, description="Complete replacement TipTap JSON document, subject to the same rules as creation. Omit or use null to keep the body. Referenced images must have been uploaded to this article.", examples=[examples.ARTICLE_BODY])
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=160,
+        description="Replacement title, trimmed and nonblank. Omit or use null to keep the current title.",
+        examples=[examples.ARTICLE_UPDATE["title"]],
+    )
+    summary: str | None = Field(
+        default=None,
+        max_length=320,
+        description="Replacement feed preview. Use an empty string to clear it; omit or use null to keep it.",
+        examples=[examples.ARTICLE_UPDATE["summary"]],
+    )
+    body: ArticleBody | None = Field(
+        default=None,
+        description="Complete replacement TipTap JSON document, subject to the same rules as creation. Omit or use null to keep the body. Referenced images must have been uploaded to this article.",
+        examples=[examples.ARTICLE_BODY],
+    )
 
     @field_validator("title")
     @classmethod
@@ -105,9 +184,15 @@ class ArticleUpdate(BaseModel):
 class ArticleScheduleRequest(BaseModel):
     """Timezone-aware timestamp when an article should become public."""
 
-    model_config = ConfigDict(title="Article publication schedule", json_schema_extra={"examples": [examples.ARTICLE_SCHEDULE]})
+    model_config = ConfigDict(
+        title="Article publication schedule",
+        json_schema_extra={"examples": [examples.ARTICLE_SCHEDULE]},
+    )
 
-    publish_at: datetime = Field(description="Future publication time with a timezone (Z or an explicit offset). Converted to UTC; past or timezone-naive values are rejected.", examples=[examples.PUBLISH_AT])
+    publish_at: datetime = Field(
+        description="Future publication time with a timezone (Z or an explicit offset). Converted to UTC; past or timezone-naive values are rejected.",
+        examples=[examples.PUBLISH_AT],
+    )
 
     @field_validator("publish_at")
     @classmethod
@@ -119,42 +204,125 @@ class ArticleScheduleRequest(BaseModel):
             raise ValueError("Publish time must be in the future")
         return value
 
+
 class ArticleResponse(BaseModel):
     """Full article data. Drafts and scheduled articles are visible only to their author."""
 
-    model_config = ConfigDict(title="Article", json_schema_extra={"examples": [examples.ARTICLE_PUBLISHED, examples.ARTICLE]})
+    model_config = ConfigDict(
+        title="Article",
+        json_schema_extra={"examples": [examples.ARTICLE_PUBLISHED, examples.ARTICLE]},
+    )
 
-    id: str = Field(description="Article identifier: a 24-character MongoDB ObjectId.", examples=[examples.ARTICLE["id"]])
-    kind: Literal["article"] = Field(default="article", description="Publication type; always article.", examples=["article"])
-    share_url: str | None = Field(default=None, description="Relative page URL with a readable slug and stable UUID. The article is publicly accessible only when published.", examples=[examples.ARTICLE["share_url"]])
-    title: str = Field(description="Article title without surrounding whitespace.", examples=[examples.ARTICLE_CREATE["title"]])
-    summary: str = Field(description="Short feed preview; may be empty.", examples=[examples.ARTICLE_CREATE["summary"]])
-    body: ArticleBody = Field(description="Validated TipTap JSON document used to render the full article.", examples=[examples.ARTICLE_BODY])
-    thumbnail_url: str | None = Field(default=None, description="Same-origin cover image URL, or null when absent. Unpublished media requires the author's session.", examples=[examples.THUMBNAIL_URL])
-    inline_image_urls: list[str] = Field(default_factory=list, description="URLs of images uploaded to this article, including images not yet inserted into its body. Up to 30 images.", examples=[[examples.ARTICLE_IMAGE["url"]]])
-    status: Literal["draft", "scheduled", "published"] = Field(description="Visibility state: draft and scheduled are private to the author; published is public.", examples=["published", "draft", "scheduled"])
-    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
-    author_username: str = Field(description="Author public handle without @.", examples=[examples.ACCOUNT["username"]])
-    author_display_name: str = Field(description="Author public display name.", examples=[examples.ACCOUNT["display_name"]])
-    author_avatar_url: str | None = Field(description="Author avatar URL, or null when absent.", examples=[examples.AVATAR_URL])
-    created_at: datetime = Field(description="UTC time when the draft was created.", examples=[examples.ARTICLE["created_at"]])
-    updated_at: datetime = Field(description="UTC time of the most recent content, media, or publication-state update.", examples=[examples.ARTICLE_PUBLISHED["updated_at"]])
-    scheduled_at: datetime | None = Field(default=None, description="Planned UTC publication time while scheduled; null when draft or published.", examples=[examples.PUBLISH_AT, None])
-    published_at: datetime | None = Field(description="UTC time when the article became public; null while draft or scheduled.", examples=[examples.ARTICLE_PUBLISHED["published_at"], None])
+    id: str = Field(
+        description="Article identifier: a 24-character MongoDB ObjectId.",
+        examples=[examples.ARTICLE["id"]],
+    )
+    kind: Literal["article"] = Field(
+        default="article",
+        description="Publication type; always article.",
+        examples=["article"],
+    )
+    share_url: str | None = Field(
+        default=None,
+        description="Relative page URL with a readable slug and stable UUID. The article is publicly accessible only when published.",
+        examples=[examples.ARTICLE["share_url"]],
+    )
+    title: str = Field(
+        description="Article title without surrounding whitespace.",
+        examples=[examples.ARTICLE_CREATE["title"]],
+    )
+    summary: str = Field(
+        description="Short feed preview; may be empty.",
+        examples=[examples.ARTICLE_CREATE["summary"]],
+    )
+    body: ArticleBody = Field(
+        description="Validated TipTap JSON document used to render the full article.",
+        examples=[examples.ARTICLE_BODY],
+    )
+    thumbnail_url: str | None = Field(
+        default=None,
+        description="Same-origin cover image URL, or null when absent. Unpublished media requires the author's session.",
+        examples=[examples.THUMBNAIL_URL],
+    )
+    inline_image_urls: list[str] = Field(
+        default_factory=list,
+        description="URLs of images uploaded to this article, including images not yet inserted into its body. Up to 30 images.",
+        examples=[[examples.ARTICLE_IMAGE["url"]]],
+    )
+    status: Literal["draft", "scheduled", "published"] = Field(
+        description="Visibility state: draft and scheduled are private to the author; published is public.",
+        examples=["published", "draft", "scheduled"],
+    )
+    author_id: str = Field(
+        description="Author account identifier.", examples=[examples.ACCOUNT["id"]]
+    )
+    author_username: str = Field(
+        description="Author public handle without @.",
+        examples=[examples.ACCOUNT["username"]],
+    )
+    author_display_name: str = Field(
+        description="Author public display name.",
+        examples=[examples.ACCOUNT["display_name"]],
+    )
+    author_avatar_url: str | None = Field(
+        description="Author avatar URL, or null when absent.",
+        examples=[examples.AVATAR_URL],
+    )
+    created_at: datetime = Field(
+        description="UTC time when the draft was created.",
+        examples=[examples.ARTICLE["created_at"]],
+    )
+    updated_at: datetime = Field(
+        description="UTC time of the most recent content, media, or publication-state update.",
+        examples=[examples.ARTICLE_PUBLISHED["updated_at"]],
+    )
+    scheduled_at: datetime | None = Field(
+        default=None,
+        description="Planned UTC publication time while scheduled; null when draft or published.",
+        examples=[examples.PUBLISH_AT, None],
+    )
+    published_at: datetime | None = Field(
+        description="UTC time when the article became public; null while draft or scheduled.",
+        examples=[examples.ARTICLE_PUBLISHED["published_at"], None],
+    )
 
 
 class FeedBase(BaseModel):
     """Shared author and ordering data for a public feed entry."""
 
-    model_config = ConfigDict(title="Feed publication", json_schema_extra={"examples": [examples.FEED_ARTICLE, examples.FEED_POST]})
+    model_config = ConfigDict(
+        title="Feed publication",
+        json_schema_extra={"examples": [examples.FEED_ARTICLE, examples.FEED_POST]},
+    )
 
-    id: str = Field(description="Publication identifier; use kind to select the post or article endpoint.", examples=[examples.ARTICLE["id"]])
-    share_url: str | None = Field(default=None, description="Relative URL of the public publication page.", examples=[examples.ARTICLE["share_url"]])
-    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
-    author_username: str = Field(description="Author public handle without @.", examples=[examples.ACCOUNT["username"]])
-    author_display_name: str = Field(description="Author public display name.", examples=[examples.ACCOUNT["display_name"]])
-    author_avatar_url: str | None = Field(description="Author avatar URL, or null when absent.", examples=[examples.AVATAR_URL])
-    published_at: datetime = Field(description="UTC publication time used for feed ordering; creation time for micro-posts.", examples=[examples.ARTICLE_PUBLISHED["published_at"]])
+    id: str = Field(
+        description="Publication identifier; use kind to select the post or article endpoint.",
+        examples=[examples.ARTICLE["id"]],
+    )
+    share_url: str | None = Field(
+        default=None,
+        description="Relative URL of the public publication page.",
+        examples=[examples.ARTICLE["share_url"]],
+    )
+    author_id: str = Field(
+        description="Author account identifier.", examples=[examples.ACCOUNT["id"]]
+    )
+    author_username: str = Field(
+        description="Author public handle without @.",
+        examples=[examples.ACCOUNT["username"]],
+    )
+    author_display_name: str = Field(
+        description="Author public display name.",
+        examples=[examples.ACCOUNT["display_name"]],
+    )
+    author_avatar_url: str | None = Field(
+        description="Author avatar URL, or null when absent.",
+        examples=[examples.AVATAR_URL],
+    )
+    published_at: datetime = Field(
+        description="UTC publication time used for feed ordering; creation time for micro-posts.",
+        examples=[examples.ARTICLE_PUBLISHED["published_at"]],
+    )
 
 
 class PostFeedItem(FeedBase):
@@ -162,7 +330,9 @@ class PostFeedItem(FeedBase):
 
     kind: Literal["micro_post"] = "micro_post"
     text: str = Field(description="Public micro-post text.")
-    images: list[str] = Field(default_factory=list, description="Post image URLs in display order.")
+    images: list[str] = Field(
+        default_factory=list, description="Post image URLs in display order."
+    )
     title: None = None
     summary: None = None
     thumbnail_url: None = None
@@ -174,7 +344,9 @@ class ArticleFeedItem(FeedBase):
     kind: Literal["article"] = "article"
     title: str = Field(description="Public article title.")
     summary: str = Field(description="Article preview; may be empty.")
-    thumbnail_url: str | None = Field(default=None, description="Article cover URL, if present.")
+    thumbnail_url: str | None = Field(
+        default=None, description="Article cover URL, if present."
+    )
     text: None = None
     images: list[str] = Field(default_factory=list, max_length=0)
 
@@ -185,16 +357,33 @@ FeedItem = Annotated[PostFeedItem | ArticleFeedItem, Field(discriminator="kind")
 class FeedResponse(BaseModel):
     """Chronological page. Pass `next_cursor` back to continue."""
 
-    model_config = ConfigDict(title="Feed page", json_schema_extra={"examples": [examples.FEED]})
+    model_config = ConfigDict(
+        title="Feed page", json_schema_extra={"examples": [examples.FEED]}
+    )
 
-    items: list[FeedItem] = Field(description="Public publications ordered newest first. May be empty; article bodies are fetched separately.", examples=[[examples.FEED_ARTICLE, examples.FEED_POST]])
-    next_cursor: str | None = Field(description="Opaque pagination cursor. Pass unchanged as cursor with the same kind filter; null means there are no more results.", examples=[examples.CURSOR, None])
+    items: list[FeedItem] = Field(
+        description="Public publications ordered newest first. May be empty; article bodies are fetched separately.",
+        examples=[[examples.FEED_ARTICLE, examples.FEED_POST]],
+    )
+    next_cursor: str | None = Field(
+        description="Opaque pagination cursor. Pass unchanged as cursor with the same kind filter; null means there are no more results.",
+        examples=[examples.CURSOR, None],
+    )
 
 
 class ArticleImageResponse(BaseModel):
     """Uploaded inline image metadata for insertion into an article's TipTap body."""
 
-    model_config = ConfigDict(title="Uploaded article image", json_schema_extra={"examples": [examples.ARTICLE_IMAGE]})
+    model_config = ConfigDict(
+        title="Uploaded article image",
+        json_schema_extra={"examples": [examples.ARTICLE_IMAGE]},
+    )
 
-    url: str = Field(description="Same-origin image URL. Use this value as attrs.src in a TipTap image node for this article.", examples=[examples.ARTICLE_IMAGE["url"]])
-    alt_text: str = Field(description="Suggested alternate text, taken from the original filename; replace it with a useful image description in the editor.", examples=[examples.ARTICLE_IMAGE["alt_text"]])
+    url: str = Field(
+        description="Same-origin image URL. Use this value as attrs.src in a TipTap image node for this article.",
+        examples=[examples.ARTICLE_IMAGE["url"]],
+    )
+    alt_text: str = Field(
+        description="Suggested alternate text, taken from the original filename; replace it with a useful image description in the editor.",
+        examples=[examples.ARTICLE_IMAGE["alt_text"]],
+    )

@@ -9,7 +9,12 @@ from redis.exceptions import RedisError
 
 from backend.content.cursors import FeedCursor
 from backend.content.presenters import feed_item
-from backend.content.repository import ContentRepository, FeedEntry, FeedKind, PublicationKind
+from backend.content.repository import (
+    ContentRepository,
+    FeedEntry,
+    FeedKind,
+    PublicationKind,
+)
 from backend.content.schemas import FeedResponse
 from backend.core.resources import AppResources
 from backend.profiles.models import Follow, User
@@ -32,7 +37,9 @@ async def make_feed(
         except (RedisError, ValidationError):
             logger.warning("Public feed cache unavailable or incompatible")
     entries: list[FeedEntry] = []
-    kinds: list[PublicationKind] = ["micro_post", "article"] if kind == "all" else [kind]
+    kinds: list[PublicationKind] = (
+        ["micro_post", "article"] if kind == "all" else [kind]
+    )
     for item_kind in kinds:
         conditions: dict[str, Any] = {"deleted_at": None}
         date_field = "created_at"
@@ -45,16 +52,31 @@ async def make_feed(
             conditions["author_id"] = {"$in": authors}
         if cursor:
             conditions.update(cursor.conditions(item_kind, date_field))
-        entries.extend(await ContentRepository.load_feed_type(item_kind, conditions, limit))
+        entries.extend(
+            await ContentRepository.load_feed_type(item_kind, conditions, limit)
+        )
     entries.sort(key=lambda entry: entry.sort_key, reverse=True)
     page = entries[:limit]
     ids = list({entry.publication.author_id for entry in page})
-    by_id = {author.id: author for author in await User.find({"_id": {"$in": ids}}).to_list()} if ids else {}
-    items = [feed_item(entry.publication, by_id[entry.publication.author_id]) for entry in page if entry.publication.author_id in by_id]
+    by_id = (
+        {
+            author.id: author
+            for author in await User.find({"_id": {"$in": ids}}).to_list()
+        }
+        if ids
+        else {}
+    )
+    items = [
+        feed_item(entry.publication, by_id[entry.publication.author_id])
+        for entry in page
+        if entry.publication.author_id in by_id
+    ]
     next_cursor = None
     if len(entries) > limit and page:
         last = page[-1]
-        next_cursor = FeedCursor(last.published_at, last.kind, last.publication.id).encode()
+        next_cursor = FeedCursor(
+            last.published_at, last.kind, last.publication.id
+        ).encode()
     result = FeedResponse(items=items, next_cursor=next_cursor)
     if cache_key:
         try:
@@ -86,4 +108,6 @@ async def load_following_feed(
     limit: int,
 ) -> FeedResponse:
     follows = await Follow.find(Follow.follower_id == user.id).to_list()
-    return await make_feed(resources, [follow.followee_id for follow in follows], kind, cursor, limit)
+    return await make_feed(
+        resources, [follow.followee_id for follow in follows], kind, cursor, limit
+    )

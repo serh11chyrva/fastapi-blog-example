@@ -14,4 +14,6 @@ class AuthRepository:
 
     @staticmethod
     async def find_password_identity(user_id: PydanticObjectId) -> AuthIdentity | None:
-        return await AuthIdentity.find_one(AuthIdentity.user_id == user_id, AuthIdentity.provider == "password")
+        return await AuthIdentity.find_one(
+            AuthIdentity.user_id == user_id, AuthIdentity.provider == "password"
+        )

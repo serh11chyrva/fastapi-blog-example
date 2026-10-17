@@ -5,7 +5,6 @@ from beanie import Document, PydanticObjectId
 from pydantic import BaseModel, JsonValue
 from pymongo import ASCENDING, IndexModel
 
-
 ImagePurpose = Literal["avatars", "post-images", "article-covers", "article-images"]
 
 
@@ -31,7 +30,13 @@ class ImageUpload(Document):
 
     class Settings:
         name = "image_uploads"
-        indexes = [IndexModel([("expires_at", ASCENDING)], expireAfterSeconds=7 * 86400, name="uploads_retention")]
+        indexes = [
+            IndexModel(
+                [("expires_at", ASCENDING)],
+                expireAfterSeconds=7 * 86400,
+                name="uploads_retention",
+            )
+        ]
 
 
 class ObjectCleanup(Document):

@@ -1,6 +1,6 @@
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -37,26 +37,40 @@ from backend.storage.s3 import check_storage, create_s3_client
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    mongo_client = AsyncMongoClient(settings.mongodb_url, serverSelectionTimeoutMS=8_000, tz_aware=True)
-    redis_client = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=3)
+    mongo_client = AsyncMongoClient(
+        settings.mongodb_url, serverSelectionTimeoutMS=8_000, tz_aware=True
+    )
+    redis_client = Redis.from_url(
+        settings.redis_url, decode_responses=True, socket_connect_timeout=3
+    )
     s3_client = create_s3_client(settings)
     s3_public_client = create_s3_client(settings, public=True)
     geoip_reader = open_geoip_database(settings.geoip_city_db_path)
-    app.state.resources = AppResources(mongo_client, redis_client, s3_client, s3_public_client, geoip_reader)
+    app.state.resources = AppResources(
+        mongo_client, redis_client, s3_client, s3_public_client, geoip_reader
+    )
     scheduler_task: asyncio.Task[None] | None = None
     cleanup_task: asyncio.Task[None] | None = None
     try:
         await mongo_client.admin.command("ping")
         from beanie import init_beanie
 
-        await init_beanie(database=mongo_client[settings.mongodb_database], document_models=DOCUMENT_MODELS)
+        await init_beanie(
+            database=mongo_client[settings.mongodb_database],
+            document_models=DOCUMENT_MODELS,
+        )
         await ensure_profile_schema()
         await ensure_public_share_ids()
         await redis_client.ping()
         await check_storage(s3_client, settings)
         await redis_client.incr("feed:public:version")
-        cleanup_task = asyncio.create_task(run_storage_cleanup(s3_client), name="image-storage-cleanup")
-        scheduler_task = asyncio.create_task(run_publication_scheduler(mongo_client, redis_client), name="scheduled-publications")
+        cleanup_task = asyncio.create_task(
+            run_storage_cleanup(s3_client), name="image-storage-cleanup"
+        )
+        scheduler_task = asyncio.create_task(
+            run_publication_scheduler(mongo_client, redis_client),
+            name="scheduled-publications",
+        )
         yield
     finally:
         if cleanup_task is not None:
@@ -98,20 +112,35 @@ def create_app() -> FastAPI:
     add_api_reference(app)
 
     @app.exception_handler(ApplicationError)
-    async def application_error(request: Request, exc: ApplicationError) -> JSONResponse:
+    async def application_error(
+        request: Request, exc: ApplicationError
+    ) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
     @app.exception_handler(PyMongoError)
     async def database_error(request: Request, exc: PyMongoError) -> JSONResponse:
         logger.opt(exception=exc).error("Database operation failed")
-        return JSONResponse(status_code=503, content={"detail": "Database is unavailable; reload before retrying"})
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Database is unavailable; reload before retrying"},
+        )
 
     @app.middleware("http")
-    async def enforce_same_origin(request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if request.url.path.startswith("/api/v1/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+    async def enforce_same_origin(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        if request.url.path.startswith("/api/v1/") and request.method in {
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+        }:
             origin = request.headers.get("origin", "").rstrip("/")
             if origin != get_settings().app_origin:
-                return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Cross-origin request rejected"})
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"detail": "Cross-origin request rejected"},
+                )
         return await call_next(request)
 
     return app

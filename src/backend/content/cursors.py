@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
-import base64
 
 from beanie import PydanticObjectId
 from pydantic import AwareDatetime, BaseModel, ValidationError
@@ -27,8 +27,14 @@ class FeedCursor:
     object_id: PydanticObjectId
 
     def encode(self) -> str:
-        payload = CursorPayload(time=self.published_at, kind=self.kind, id=self.object_id)
-        return base64.urlsafe_b64encode(payload.model_dump_json().encode()).decode().rstrip("=")
+        payload = CursorPayload(
+            time=self.published_at, kind=self.kind, id=self.object_id
+        )
+        return (
+            base64.urlsafe_b64encode(payload.model_dump_json().encode())
+            .decode()
+            .rstrip("=")
+        )
 
     @classmethod
     def decode(cls, value: str | None) -> FeedCursor | None:
@@ -36,7 +42,11 @@ class FeedCursor:
         if not value:
             return None
         try:
-            payload = CursorPayload.model_validate_json(base64.b64decode(value + "=" * (-len(value) % 4), altchars=b"-_", validate=True))
+            payload = CursorPayload.model_validate_json(
+                base64.b64decode(
+                    value + "=" * (-len(value) % 4), altchars=b"-_", validate=True
+                )
+            )
         except (ValueError, TypeError, ValidationError) as exc:
             raise InvalidOperation("Invalid feed cursor") from exc
         return cls(payload.time, payload.kind, payload.id)
@@ -47,7 +57,9 @@ class FeedCursor:
             return {date_field: {"$lte": self.published_at}}
         if kind > self.kind:
             return {date_field: {"$lt": self.published_at}}
-        return {"$or": [
-            {date_field: {"$lt": self.published_at}},
-            {date_field: self.published_at, "_id": {"$lt": self.object_id}},
-        ]}
+        return {
+            "$or": [
+                {date_field: {"$lt": self.published_at}},
+                {date_field: self.published_at, "_id": {"$lt": self.object_id}},
+            ]
+        }

@@ -18,7 +18,9 @@ def open_geoip_database(path: str) -> Reader | None:
     try:
         return Reader(path)
     except (OSError, ValueError, InvalidDatabaseError):
-        logger.warning("GeoLite2 City database is unavailable; session locations will be unknown")
+        logger.warning(
+            "GeoLite2 City database is unavailable; session locations will be unknown"
+        )
         return None
 
 
@@ -30,8 +32,15 @@ def format_location(address: str | None, reader: Reader | None) -> str:
         if not parsed_address.is_global:
             return "Unknown location"
         location = reader.city(str(parsed_address))
-        parts = [location.city.name, location.subdivisions.most_specific.name, location.country.name]
-        return ", ".join(dict.fromkeys(part for part in parts if part)) or "Unknown location"
+        parts = [
+            location.city.name,
+            location.subdivisions.most_specific.name,
+            location.country.name,
+        ]
+        return (
+            ", ".join(dict.fromkeys(part for part in parts if part))
+            or "Unknown location"
+        )
     except (AddressNotFoundError, ValueError):
         return "Unknown location"
     except (OSError, InvalidDatabaseError):
@@ -43,7 +52,11 @@ def format_device(session: AuthSession) -> str:
     agent = parse((session.user_agent or "")[:512])
     operating_system = agent.get_os() if agent.os.family != "Other" else None
     if session.client_type == ClientType.WEB:
-        browser = agent.get_browser() if agent.browser.family != "Other" else "Unknown browser"
+        browser = (
+            agent.get_browser()
+            if agent.browser.family != "Other"
+            else "Unknown browser"
+        )
         return f"{browser} on {operating_system}" if operating_system else browser
     device = session.device_name
     if not device and agent.device.family != "Other":
@@ -53,11 +66,20 @@ def format_device(session: AuthSession) -> str:
     return device or operating_system or "Unknown device"
 
 
-def present_sessions(sessions: list[AuthSession], current_id: str, reader: Reader | None) -> list[SessionResponse]:
+def present_sessions(
+    sessions: list[AuthSession], current_id: str, reader: Reader | None
+) -> list[SessionResponse]:
     """Resolve locations off the event loop using the application-owned database reader."""
-    return [SessionResponse(
-        id=str(session.id), created_at=session.created_at, last_seen_at=session.last_seen_at,
-        expires_at=session.expires_at, client_type=session.client_type,
-        location=format_location(session.ip_address, reader), device=format_device(session),
-        current=str(session.id) == current_id,
-    ) for session in sessions]
+    return [
+        SessionResponse(
+            id=str(session.id),
+            created_at=session.created_at,
+            last_seen_at=session.last_seen_at,
+            expires_at=session.expires_at,
+            client_type=session.client_type,
+            location=format_location(session.ip_address, reader),
+            device=format_device(session),
+            current=str(session.id) == current_id,
+        )
+        for session in sessions
+    ]

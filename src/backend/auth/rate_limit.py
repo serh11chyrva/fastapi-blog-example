@@ -6,7 +6,6 @@ from redis.exceptions import RedisError
 from backend.audit.dependencies import request_details
 from backend.core.resources import get_resources
 
-
 RATE_LIMIT_SCRIPT = """
 local exceeded = 0
 for _, key in ipairs(KEYS) do
@@ -34,11 +33,22 @@ async def enforce_rate_limit(
     ip_address, _ = request_details(request)
     ip_fingerprint = hashlib.sha256((ip_address or "unknown").encode()).hexdigest()
     identity_fingerprint = hashlib.sha256(identity.casefold().encode()).hexdigest()
-    keys = (f"rate:{namespace}:ip:{ip_fingerprint}", f"rate:{namespace}:identity:{identity_fingerprint}")
+    keys = (
+        f"rate:{namespace}:ip:{ip_fingerprint}",
+        f"rate:{namespace}:identity:{identity_fingerprint}",
+    )
     redis = get_resources(request).redis
     try:
-        exceeded = await redis.eval(RATE_LIMIT_SCRIPT, len(keys), *keys, limit, window_seconds)
+        exceeded = await redis.eval(
+            RATE_LIMIT_SCRIPT, len(keys), *keys, limit, window_seconds
+        )
     except RedisError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Authentication service is temporarily unavailable") from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service is temporarily unavailable",
+        ) from exc
     if exceeded:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many attempts. Please try again later.")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many attempts. Please try again later.",
+        )

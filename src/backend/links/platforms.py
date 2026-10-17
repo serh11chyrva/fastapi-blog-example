@@ -70,16 +70,31 @@ PLATFORM_DOMAINS = {
 
 def validate_link_url(value: str) -> str:
     """Accept absolute HTTP(S) URLs safe to use in a Location header."""
-    if any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in value) or "\\" in value:
-        raise ValueError("Links cannot contain whitespace, control characters, or backslashes")
+    if (
+        any(
+            character.isspace() or ord(character) < 32 or ord(character) == 127
+            for character in value
+        )
+        or "\\" in value
+    ):
+        raise ValueError(
+            "Links cannot contain whitespace, control characters, or backslashes"
+        )
     try:
         parsed = urlsplit(value)
         _ = parsed.port
         hostname = parsed.hostname
     except ValueError as exc:
         raise ValueError("Links must use a valid http or https URL") from exc
-    if parsed.scheme not in {"https", "http"} or not hostname or parsed.username is not None or parsed.password is not None:
-        raise ValueError("Links must use an http or https URL with a hostname and no credentials")
+    if (
+        parsed.scheme not in {"https", "http"}
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError(
+            "Links must use an http or https URL with a hostname and no credentials"
+        )
     return value
 
 
@@ -87,6 +102,8 @@ def detect_platform(url: str) -> LinkPlatform:
     """Match hostnames at domain boundaries, never URL paths or query strings."""
     hostname = (urlsplit(url).hostname or "").lower().rstrip(".")
     for platform, domains in PLATFORM_DOMAINS.items():
-        if any(hostname == domain or hostname.endswith(f".{domain}") for domain in domains):
+        if any(
+            hostname == domain or hostname.endswith(f".{domain}") for domain in domains
+        ):
             return platform
     return LinkPlatform.WEBSITE

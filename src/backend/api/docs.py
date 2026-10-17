@@ -7,7 +7,6 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from scalar_fastapi import AgentScalarConfig, Theme, add_scalar_reference
 
-
 API_TITLE = "Commonplace API"
 API_VERSION = "0.1.0"
 API_SUMMARY = "A session-based microblog and article publishing API."

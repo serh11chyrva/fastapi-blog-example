@@ -10,7 +10,8 @@ from backend.audit.context import AuditContext
 def audit_context(request: Request) -> AuditContext:
     # The application is reached through a proxy that overwrites X-Real-IP.
     return AuditContext(
-        ip_address=request.headers.get("x-real-ip") or (request.client.host if request.client else None),
+        ip_address=request.headers.get("x-real-ip")
+        or (request.client.host if request.client else None),
         user_agent=request.headers.get("user-agent", "")[:512] or None,
     )
 

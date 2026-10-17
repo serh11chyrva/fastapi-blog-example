@@ -2,25 +2,45 @@
 
 from __future__ import annotations
 
-from typing import Literal
 import json
 import re
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
 from backend.links.platforms import validate_link_url
 
-
 type ArticleBody = dict[str, JsonValue]
 type NodeKind = Literal[
-    "doc", "paragraph", "heading", "text", "bulletList", "orderedList", "listItem",
-    "blockquote", "codeBlock", "hardBreak", "horizontalRule", "image",
+    "doc",
+    "paragraph",
+    "heading",
+    "text",
+    "bulletList",
+    "orderedList",
+    "listItem",
+    "blockquote",
+    "codeBlock",
+    "hardBreak",
+    "horizontalRule",
+    "image",
 ]
 MAX_ARTICLE_JSON_BYTES = 1_000_000
 MAX_ARTICLE_DEPTH = 64
 MAX_ARTICLE_NODES = 10_000
-IMAGE_SOURCE = re.compile(r"/static/images/article-images/([0-9a-f]{32}\.(?:jpg|png|webp))")
-BLOCK_NODES = {"paragraph", "heading", "bulletList", "orderedList", "blockquote", "codeBlock", "horizontalRule", "image"}
+IMAGE_SOURCE = re.compile(
+    r"/static/images/article-images/([0-9a-f]{32}\.(?:jpg|png|webp))"
+)
+BLOCK_NODES = {
+    "paragraph",
+    "heading",
+    "bulletList",
+    "orderedList",
+    "blockquote",
+    "codeBlock",
+    "horizontalRule",
+    "image",
+}
 
 
 class TiptapMark(BaseModel):
@@ -70,11 +90,15 @@ def validate_tiptap_document(document: ArticleBody) -> None:
     try:
         root = TiptapNode.model_validate(document)
     except ValidationError as exc:
-        raise ValueError("Article contains malformed or unsupported content nodes or marks") from exc
+        raise ValueError(
+            "Article contains malformed or unsupported content nodes or marks"
+        ) from exc
     if root.type != "doc":
         raise ValueError("Article body must be a TipTap document")
     try:
-        encoded = json.dumps(document, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        encoded = json.dumps(document, ensure_ascii=False, allow_nan=False).encode(
+            "utf-8"
+        )
     except (ValueError, TypeError, UnicodeError, RecursionError) as exc:
         raise ValueError("Article body must contain valid UTF-8 JSON") from exc
     if len(encoded) > MAX_ARTICLE_JSON_BYTES:
@@ -86,7 +110,9 @@ def validate_tiptap_document(document: ArticleBody) -> None:
         children = {child.type for child in node.content}
         if node.type in {"doc", "blockquote", "listItem"}:
             if not node.content or not children.issubset(BLOCK_NODES):
-                raise ValueError("Document, quote, and list item nodes require block content")
+                raise ValueError(
+                    "Document, quote, and list item nodes require block content"
+                )
             if node.type == "listItem" and node.content[0].type != "paragraph":
                 raise ValueError("List items must start with a paragraph")
         elif node.type in {"bulletList", "orderedList"}:
@@ -96,7 +122,9 @@ def validate_tiptap_document(document: ArticleBody) -> None:
             if not children.issubset({"text", "hardBreak"}):
                 raise ValueError("Paragraphs and headings require inline content")
         elif node.type == "codeBlock":
-            if not children.issubset({"text"}) or any(child.marks for child in node.content):
+            if not children.issubset({"text"}) or any(
+                child.marks for child in node.content
+            ):
                 raise ValueError("Code blocks accept unmarked text only")
         elif node.content:
             raise ValueError("Leaf nodes cannot contain child content")

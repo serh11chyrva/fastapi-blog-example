@@ -5,14 +5,20 @@ from beanie import PydanticObjectId
 
 from backend.auth.models import AuthIdentity
 from backend.auth.repository import AuthRepository
-from backend.auth.security import hash_password_async, password_hash_needs_rehash, verify_password_async
+from backend.auth.security import (
+    hash_password_async,
+    password_hash_needs_rehash,
+    verify_password_async,
+)
 from backend.profiles.models import User
 
 
 class PasswordRepository(Protocol):
     async def find_user_by_identifier(self, identifier: str) -> User | None: ...
 
-    async def find_password_identity(self, user_id: PydanticObjectId) -> AuthIdentity | None: ...
+    async def find_password_identity(
+        self, user_id: PydanticObjectId
+    ) -> AuthIdentity | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +44,9 @@ class AuthService:
     def __init__(self, repository: PasswordRepository = AuthRepository()) -> None:
         self.repository = repository
 
-    async def authenticate_password(self, identifier: str, password: str) -> PasswordAuthentication:
+    async def authenticate_password(
+        self, identifier: str, password: str
+    ) -> PasswordAuthentication:
         """Authenticate credentials and prepare an optional password hash upgrade.
 
         When needs_rehash is true, the returned identity contains the new hash.
@@ -53,7 +61,9 @@ class AuthService:
         authenticated = await verify_password_async(password, identity.password_hash)
         if not authenticated:
             return PasswordRejected(user, identity)
-        needs_rehash = authenticated and password_hash_needs_rehash(identity.password_hash)
+        needs_rehash = authenticated and password_hash_needs_rehash(
+            identity.password_hash
+        )
         if needs_rehash:
             identity.password_hash = await hash_password_async(password)
         return PasswordAuthenticated(user, identity, needs_rehash)

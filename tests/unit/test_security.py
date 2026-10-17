@@ -1,7 +1,13 @@
 import base64
 import hashlib
 
-from backend.core.security import hash_password, hash_session_token, new_session_token, password_hash_needs_rehash, verify_password
+from backend.core.security import (
+    hash_password,
+    hash_session_token,
+    new_session_token,
+    password_hash_needs_rehash,
+    verify_password,
+)
 
 
 def test_password_hash_is_salted_and_verified() -> None:

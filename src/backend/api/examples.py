@@ -1,9 +1,8 @@
 """Consistent fictional data used by API schemas and the interactive reference."""
 
-from datetime import UTC, datetime, timedelta
 import base64
 import json
-
+from datetime import UTC, datetime, timedelta
 
 ACCOUNT = {
     "id": "68eb731ab54f7c2a9130e6d8",
@@ -12,7 +11,10 @@ ACCOUNT = {
     "display_name": "Maya Bennett",
 }
 PASSWORD = "Cedar!Notebook73River"
-REGISTER = {key: value for key, value in ACCOUNT.items() if key != "id"} | {"password": PASSWORD, "client_type": "web"}
+REGISTER = {key: value for key, value in ACCOUNT.items() if key != "id"} | {
+    "password": PASSWORD,
+    "client_type": "web",
+}
 LOGIN = {"identifier": ACCOUNT["email"], "password": PASSWORD, "client_type": "web"}
 SESSION = {
     "id": "68eb734d21a0f8956be4c302",
@@ -94,16 +96,36 @@ POST = {
     "updated_at": "2026-10-12T10:03:27Z",
 }
 POST_IMAGE_URL = "/static/images/post-images/74b936dfe1a24c708951c3e628a0fd5b.jpg"
-POST_WITH_IMAGES = POST | {"images": [POST_IMAGE_URL], "updated_at": "2026-10-12T10:06:14Z"}
+POST_WITH_IMAGES = POST | {
+    "images": [POST_IMAGE_URL],
+    "updated_at": "2026-10-12T10:06:14Z",
+}
 ARTICLE_BODY = {
     "type": "doc",
     "content": [
-        {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Make room for ten minutes"}]},
-        {"type": "paragraph", "content": [
-            {"type": "text", "text": "I started leaving a paperback next to the coffee machine. "},
-            {"type": "text", "text": "Ten pages before opening my laptop", "marks": [{"type": "bold"}]},
-            {"type": "text", "text": " turned out to be a habit I could keep, even on busy weekdays."},
-        ]},
+        {
+            "type": "heading",
+            "attrs": {"level": 2},
+            "content": [{"type": "text", "text": "Make room for ten minutes"}],
+        },
+        {
+            "type": "paragraph",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "I started leaving a paperback next to the coffee machine. ",
+                },
+                {
+                    "type": "text",
+                    "text": "Ten pages before opening my laptop",
+                    "marks": [{"type": "bold"}],
+                },
+                {
+                    "type": "text",
+                    "text": " turned out to be a habit I could keep, even on busy weekdays.",
+                },
+            ],
+        },
     ],
 }
 ARTICLE_CREATE = {
@@ -133,25 +155,77 @@ ARTICLE_PUBLISHED = ARTICLE | {
     "updated_at": "2026-10-13T09:26:41Z",
     "published_at": "2026-10-13T09:26:41Z",
 }
-ARTICLE_UPDATED = ARTICLE | ARTICLE_UPDATE | {
-    "share_url": "/@maya_bennett/ten-pages-before-the-first-meeting--c7412d809e364a5bb18762f90d3ea458",
-    "updated_at": "2026-10-12T14:08:33Z",
-}
-PUBLISH_AT = (datetime.now(UTC) + timedelta(days=7)).replace(hour=9, minute=30, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
+ARTICLE_UPDATED = (
+    ARTICLE
+    | ARTICLE_UPDATE
+    | {
+        "share_url": "/@maya_bennett/ten-pages-before-the-first-meeting--c7412d809e364a5bb18762f90d3ea458",
+        "updated_at": "2026-10-12T14:08:33Z",
+    }
+)
+PUBLISH_AT = (
+    (datetime.now(UTC) + timedelta(days=7))
+    .replace(hour=9, minute=30, second=0, microsecond=0)
+    .isoformat()
+    .replace("+00:00", "Z")
+)
 ARTICLE_SCHEDULE = {"publish_at": PUBLISH_AT}
-ARTICLE_SCHEDULED = ARTICLE | {"status": "scheduled", "scheduled_at": PUBLISH_AT, "updated_at": "2026-10-14T07:18:46Z"}
+ARTICLE_SCHEDULED = ARTICLE | {
+    "status": "scheduled",
+    "scheduled_at": PUBLISH_AT,
+    "updated_at": "2026-10-14T07:18:46Z",
+}
 ARTICLE_IMAGE = {
     "url": "/static/images/article-images/e815d392a60b4f78b129c3470dea6952.webp",
     "alt_text": "Paperback and coffee on a wooden desk.webp",
 }
-FEED_ARTICLE = {key: ARTICLE_PUBLISHED[key] for key in (
-    "id", "kind", "share_url", "title", "summary", "thumbnail_url",
-    "author_id", "author_username", "author_display_name", "author_avatar_url", "published_at",
-)} | {"text": None, "images": []}
-FEED_POST = {key: POST[key] for key in (
-    "id", "kind", "share_url", "text", "images", "author_id", "author_username", "author_display_name", "author_avatar_url",
-)} | {"title": None, "summary": None, "thumbnail_url": None, "published_at": POST["created_at"]}
-CURSOR = base64.urlsafe_b64encode(json.dumps({
-    "time": FEED_POST["published_at"], "kind": FEED_POST["kind"], "id": FEED_POST["id"],
-}, separators=(",", ":")).encode()).decode().rstrip("=")
+FEED_ARTICLE = {
+    key: ARTICLE_PUBLISHED[key]
+    for key in (
+        "id",
+        "kind",
+        "share_url",
+        "title",
+        "summary",
+        "thumbnail_url",
+        "author_id",
+        "author_username",
+        "author_display_name",
+        "author_avatar_url",
+        "published_at",
+    )
+} | {"text": None, "images": []}
+FEED_POST = {
+    key: POST[key]
+    for key in (
+        "id",
+        "kind",
+        "share_url",
+        "text",
+        "images",
+        "author_id",
+        "author_username",
+        "author_display_name",
+        "author_avatar_url",
+    )
+} | {
+    "title": None,
+    "summary": None,
+    "thumbnail_url": None,
+    "published_at": POST["created_at"],
+}
+CURSOR = (
+    base64.urlsafe_b64encode(
+        json.dumps(
+            {
+                "time": FEED_POST["published_at"],
+                "kind": FEED_POST["kind"],
+                "id": FEED_POST["id"],
+            },
+            separators=(",", ":"),
+        ).encode()
+    )
+    .decode()
+    .rstrip("=")
+)
 FEED = {"items": [FEED_ARTICLE, FEED_POST], "next_cursor": CURSOR}

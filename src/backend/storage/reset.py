@@ -11,7 +11,11 @@ from backend.storage.s3 import create_s3_client
 def main() -> None:
     settings = get_settings()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--confirm-database", required=True, help="Exact MONGODB_DATABASE name to erase.")
+    parser.add_argument(
+        "--confirm-database",
+        required=True,
+        help="Exact MONGODB_DATABASE name to erase.",
+    )
     args = parser.parse_args()
     if args.confirm_database != settings.mongodb_database:
         parser.error("Confirmation must match MONGODB_DATABASE")

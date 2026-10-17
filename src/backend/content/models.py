@@ -21,10 +21,23 @@ class MicroPost(Document):
     class Settings:
         name = "micro_posts"
         indexes = [
-            IndexModel([("author_id", ASCENDING), ("created_at", DESCENDING)], name="posts_author_time"),
+            IndexModel(
+                [("author_id", ASCENDING), ("created_at", DESCENDING)],
+                name="posts_author_time",
+            ),
             IndexModel([("share_id", ASCENDING)], name="posts_share_id"),
-            IndexModel([("image_keys", ASCENDING), ("deleted_at", ASCENDING)], name="posts_image_attachment"),
-            IndexModel([("deleted_at", ASCENDING), ("created_at", DESCENDING), ("_id", DESCENDING)], name="posts_feed_page"),
+            IndexModel(
+                [("image_keys", ASCENDING), ("deleted_at", ASCENDING)],
+                name="posts_image_attachment",
+            ),
+            IndexModel(
+                [
+                    ("deleted_at", ASCENDING),
+                    ("created_at", DESCENDING),
+                    ("_id", DESCENDING),
+                ],
+                name="posts_feed_page",
+            ),
         ]
 
 
@@ -46,12 +59,43 @@ class Article(Document):
     class Settings:
         name = "articles"
         indexes = [
-            IndexModel([("author_id", ASCENDING), ("created_at", DESCENDING)], name="articles_author_time"),
-            IndexModel([("status", ASCENDING), ("published_at", DESCENDING)], name="articles_public_feed"),
-            IndexModel([("status", ASCENDING), ("scheduled_at", ASCENDING)], name="articles_scheduled_publish"),
+            IndexModel(
+                [("author_id", ASCENDING), ("created_at", DESCENDING)],
+                name="articles_author_time",
+            ),
+            IndexModel(
+                [("status", ASCENDING), ("published_at", DESCENDING)],
+                name="articles_public_feed",
+            ),
+            IndexModel(
+                [("status", ASCENDING), ("scheduled_at", ASCENDING)],
+                name="articles_scheduled_publish",
+            ),
             IndexModel([("share_id", ASCENDING)], name="articles_share_id"),
-            IndexModel([("thumbnail_key", ASCENDING), ("deleted_at", ASCENDING)], name="articles_cover_attachment"),
-            IndexModel([("inline_image_keys", ASCENDING), ("deleted_at", ASCENDING)], name="articles_inline_attachment"),
-            IndexModel([("author_id", ASCENDING), ("deleted_at", ASCENDING), ("updated_at", DESCENDING), ("_id", DESCENDING)], name="articles_owner_page"),
-            IndexModel([("status", ASCENDING), ("deleted_at", ASCENDING), ("published_at", DESCENDING), ("_id", DESCENDING)], name="articles_feed_page"),
+            IndexModel(
+                [("thumbnail_key", ASCENDING), ("deleted_at", ASCENDING)],
+                name="articles_cover_attachment",
+            ),
+            IndexModel(
+                [("inline_image_keys", ASCENDING), ("deleted_at", ASCENDING)],
+                name="articles_inline_attachment",
+            ),
+            IndexModel(
+                [
+                    ("author_id", ASCENDING),
+                    ("deleted_at", ASCENDING),
+                    ("updated_at", DESCENDING),
+                    ("_id", DESCENDING),
+                ],
+                name="articles_owner_page",
+            ),
+            IndexModel(
+                [
+                    ("status", ASCENDING),
+                    ("deleted_at", ASCENDING),
+                    ("published_at", DESCENDING),
+                    ("_id", DESCENDING),
+                ],
+                name="articles_feed_page",
+            ),
         ]

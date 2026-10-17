@@ -4,6 +4,17 @@ from backend.content.models import Article, MicroPost
 from backend.profiles.models import BadgeAssignment, BadgeDefinition, Follow, User
 from backend.storage.models import ImageUpload, ObjectCleanup
 
-DOCUMENT_MODELS = [User, BadgeDefinition, AuthIdentity, AuthSession, AuditEvent, Follow, MicroPost, Article, ImageUpload, ObjectCleanup]
+DOCUMENT_MODELS = [
+    User,
+    BadgeDefinition,
+    AuthIdentity,
+    AuthSession,
+    AuditEvent,
+    Follow,
+    MicroPost,
+    Article,
+    ImageUpload,
+    ObjectCleanup,
+]
 
 __all__ = ["DOCUMENT_MODELS", "BadgeAssignment"]

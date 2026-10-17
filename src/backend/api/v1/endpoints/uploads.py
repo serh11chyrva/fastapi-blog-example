@@ -2,18 +2,29 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
 
+from backend.api.metadata import (
+    ArticleId,
+    Origin,
+    PostId,
+    UploadId,
+    documented_responses,
+)
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser
-from backend.content.schemas import ArticleImageResponse, ArticleResponse, MicroPostResponse
-from backend.api.metadata import documented_responses, Origin, PostId, ArticleId, UploadId
+from backend.content.schemas import (
+    ArticleImageResponse,
+    ArticleResponse,
+    MicroPostResponse,
+)
 from backend.core.resources import Resources
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import OwnProfileResponse
 from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse
 from backend.storage.service import ImageStorageService
 
-
 router = APIRouter()
+
+
 def image_service(resources: Resources, audit: Audit) -> ImageStorageService:
     return ImageStorageService(resources, audit)
 
@@ -27,13 +38,13 @@ Storage = Annotated[ImageStorageService, Depends(image_service)]
     status_code=status.HTTP_201_CREATED,
     summary="Prepare an avatar upload",
     description=(
-        'Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using '
-        'returned headers without application cookies, then confirm. One file is required '
-        'except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB '
-        'for covers. Articles allow 30 inline images. Preparation leaves attachments '
-        'unchanged.'
+        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
+        "returned headers without application cookies, then confirm. One file is required "
+        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
+        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
+        "unchanged."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 409, 413, 503),
 )
 async def prepare_avatar(
@@ -50,15 +61,15 @@ async def prepare_avatar(
     response_model=OwnProfileResponse,
     summary="Confirm an avatar upload",
     description=(
-        'Confirm all files, validate exact size and image signatures, and attach immutable '
-        'final objects. Requires ownership. Replays return the saved typed result without '
-        'attaching again. Galleries replace the existing images; inline article uploads '
-        'append one image. Completion uses a five-minute lease and requires starting before '
-        'upload expiry. Avatar attachment increments revision once. Every HTTP response '
-        'returns the current own profile and revision with private, no-store, including '
-        'replay.'
+        "Confirm all files, validate exact size and image signatures, and attach immutable "
+        "final objects. Requires ownership. Replays return the saved typed result without "
+        "attaching again. Galleries replace the existing images; inline article uploads "
+        "append one image. Completion uses a five-minute lease and requires starting before "
+        "upload expiry. Avatar attachment increments revision once. Every HTTP response "
+        "returns the current own profile and revision with private, no-store, including "
+        "replay."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
 async def complete_avatar(
@@ -79,13 +90,13 @@ async def complete_avatar(
     status_code=status.HTTP_201_CREATED,
     summary="Prepare a post gallery upload",
     description=(
-        'Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using '
-        'returned headers without application cookies, then confirm. One file is required '
-        'except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB '
-        'for covers. Articles allow 30 inline images. Preparation leaves attachments '
-        'unchanged.'
+        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
+        "returned headers without application cookies, then confirm. One file is required "
+        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
+        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
+        "unchanged."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 503),
 )
 async def prepare_post_images(
@@ -103,13 +114,13 @@ async def prepare_post_images(
     response_model=MicroPostResponse,
     summary="Confirm replacement of a post gallery",
     description=(
-        'Confirm all files, validate exact size and image signatures, and attach immutable '
-        'final objects. Requires ownership. Replays return the saved typed result without '
-        'attaching again. Galleries replace the existing images; inline article uploads '
-        'append one image. Completion uses a five-minute lease and requires starting before '
-        'upload expiry.'
+        "Confirm all files, validate exact size and image signatures, and attach immutable "
+        "final objects. Requires ownership. Replays return the saved typed result without "
+        "attaching again. Galleries replace the existing images; inline article uploads "
+        "append one image. Completion uses a five-minute lease and requires starting before "
+        "upload expiry."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
 async def complete_post_images(
@@ -129,13 +140,13 @@ async def complete_post_images(
     status_code=status.HTTP_201_CREATED,
     summary="Prepare an article cover upload",
     description=(
-        'Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using '
-        'returned headers without application cookies, then confirm. One file is required '
-        'except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB '
-        'for covers. Articles allow 30 inline images. Preparation leaves attachments '
-        'unchanged.'
+        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
+        "returned headers without application cookies, then confirm. One file is required "
+        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
+        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
+        "unchanged."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 503),
 )
 async def prepare_cover(
@@ -153,13 +164,13 @@ async def prepare_cover(
     response_model=ArticleResponse,
     summary="Confirm replacement of an article cover",
     description=(
-        'Confirm all files, validate exact size and image signatures, and attach immutable '
-        'final objects. Requires ownership. Replays return the saved typed result without '
-        'attaching again. Galleries replace the existing images; inline article uploads '
-        'append one image. Completion uses a five-minute lease and requires starting before '
-        'upload expiry.'
+        "Confirm all files, validate exact size and image signatures, and attach immutable "
+        "final objects. Requires ownership. Replays return the saved typed result without "
+        "attaching again. Galleries replace the existing images; inline article uploads "
+        "append one image. Completion uses a five-minute lease and requires starting before "
+        "upload expiry."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
 async def complete_cover(
@@ -169,7 +180,9 @@ async def complete_cover(
     service: Storage,
     current_user: CurrentUser,
 ) -> ArticleResponse:
-    result = await service.complete(current_user, "article-covers", article_id, upload_id)
+    result = await service.complete(
+        current_user, "article-covers", article_id, upload_id
+    )
     return ArticleResponse.model_validate(result.model_dump())
 
 
@@ -179,13 +192,13 @@ async def complete_cover(
     status_code=status.HTTP_201_CREATED,
     summary="Prepare an inline article image upload",
     description=(
-        'Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using '
-        'returned headers without application cookies, then confirm. One file is required '
-        'except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB '
-        'for covers. Articles allow 30 inline images. Preparation leaves attachments '
-        'unchanged.'
+        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
+        "returned headers without application cookies, then confirm. One file is required "
+        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
+        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
+        "unchanged."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 503),
 )
 async def prepare_article_image(
@@ -203,13 +216,13 @@ async def prepare_article_image(
     response_model=ArticleImageResponse,
     summary="Confirm an inline article image upload",
     description=(
-        'Confirm all files, validate exact size and image signatures, and attach immutable '
-        'final objects. Requires ownership. Replays return the saved typed result without '
-        'attaching again. Galleries replace the existing images; inline article uploads '
-        'append one image. Completion uses a five-minute lease and requires starting before '
-        'upload expiry.'
+        "Confirm all files, validate exact size and image signatures, and attach immutable "
+        "final objects. Requires ownership. Replays return the saved typed result without "
+        "attaching again. Galleries replace the existing images; inline article uploads "
+        "append one image. Completion uses a five-minute lease and requires starting before "
+        "upload expiry."
     ),
-    tags=['Media'],
+    tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
 )
 async def complete_article_image(
@@ -219,5 +232,7 @@ async def complete_article_image(
     service: Storage,
     current_user: CurrentUser,
 ) -> ArticleImageResponse:
-    result = await service.complete(current_user, "article-images", article_id, upload_id)
+    result = await service.complete(
+        current_user, "article-images", article_id, upload_id
+    )
     return ArticleImageResponse.model_validate(result.model_dump())
