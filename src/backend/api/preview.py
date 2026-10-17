@@ -11,7 +11,10 @@ from backend.main import app as api_app
 
 
 def create_app() -> FastAPI:
-    """Expose only documentation routes; API operations remain schema entries."""
+    """Expose only documentation routes; API operations remain schema entries.
+
+    :return: The configured FastAPI application.
+    """
     app = FastAPI(
         title=api_app.title,
         version=api_app.version,
@@ -21,6 +24,10 @@ def create_app() -> FastAPI:
     )
 
     def preview_openapi() -> dict[str, Any]:
+        """Expose the complete application contract in the reference preview.
+
+        :return: The application OpenAPI document.
+        """
         if app.openapi_schema is None:
             schema = deepcopy(api_app.openapi())
             schema["info"]["description"] = (
@@ -30,6 +37,7 @@ def create_app() -> FastAPI:
                 + schema["info"].get("description", "")
             )
             app.openapi_schema = schema
+
         return app.openapi_schema
 
     app.openapi = preview_openapi
@@ -37,6 +45,10 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
+        """Redirect the standalone preview root to the API reference.
+
+        :return: A redirect response targeting /api/docs.
+        """
         return RedirectResponse(API_REFERENCE_URL)
 
     return app

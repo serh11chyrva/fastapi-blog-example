@@ -13,9 +13,7 @@ from backend.profiles.models import BadgePayload
 class LinkInput(LinkData):
     """A public profile link. Only HTTP and HTTPS URLs are accepted."""
 
-    model_config = ConfigDict(
-        title="Profile link input", json_schema_extra={"examples": [examples.LINK]}
-    )
+    model_config = ConfigDict(title="Profile link input", json_schema_extra={"examples": [examples.LINK]})
 
     id: UUID | None = Field(
         default=None,
@@ -24,14 +22,12 @@ class LinkInput(LinkData):
 
 
 class LinkResponse(BaseModel):
-    model_config = ConfigDict(
-        title="Profile link", json_schema_extra={"examples": [examples.LINK_RESPONSE]}
-    )
+    """Public saved link including platform detection and a stable redirect URL."""
+
+    model_config = ConfigDict(title="Profile link", json_schema_extra={"examples": [examples.LINK_RESPONSE]})
 
     version: Literal[1] = Field(description="Link format version.", examples=[1])
-    id: UUID = Field(
-        description="Stable link UUID; retain it in updates to keep the redirect URL."
-    )
+    id: UUID = Field(description="Stable link UUID; retain it in updates to keep the redirect URL.")
     label: str = Field(description="Short public label for the link.")
     url: str = Field(description="Original absolute HTTP(S) destination URL.")
     platform: LinkPlatform = Field(
@@ -79,77 +75,75 @@ class ProfileUpdate(BaseModel):
     @field_validator("display_name")
     @classmethod
     def trim_display_name(cls, value: str | None) -> str | None:
+        """Trim a public display name and reject blank input.
+
+        :param value: Public display name to trim, or None for an omitted update.
+        :return: The trimmed display name, preserving None for partial updates.
+        """
         if value is None:
             return None
+
         value = value.strip()
+
         if not value:
             raise ValueError("Display name cannot be empty")
+
         return value
 
 
 class BadgeResponse(BaseModel):
     """A badge assigned to a profile in the demo."""
 
-    model_config = ConfigDict(
-        title="Profile badge", json_schema_extra={"examples": [examples.BADGE]}
-    )
+    model_config = ConfigDict(title="Profile badge", json_schema_extra={"examples": [examples.BADGE]})
 
     version: Literal[2] = Field(
         description="Badge format version; version 2 puts all display fields in payload.",
         examples=[2],
     )
-    payload: BadgePayload = Field(
-        description="Public display payload: label, description, colors, and icon."
-    )
+    payload: BadgePayload = Field(description="Public display payload: label, description, colors, and icon.")
 
-    code: str = Field(
-        description="Machine-readable badge code.", examples=[examples.BADGE["code"]]
-    )
+    code: str = Field(description="Machine-readable badge code.", examples=[examples.BADGE["code"]])
 
 
 class BadgePreferences(BaseModel):
+    """Private owner-controlled badge display preferences."""
+
     enabled: bool = Field(description="Owner-selected public visibility.")
 
 
 class BadgePermissions(BaseModel):
-    can_disable: bool = Field(
-        description="Server-enforced permission to hide this badge."
-    )
+    """Catalog policy describing the badge controls available to its owner."""
+
+    can_disable: bool = Field(description="Server-enforced permission to hide this badge.")
 
 
 class OwnerBadgeResponse(BadgeResponse):
+    """Assigned badge including private preferences and allowed controls."""
+
     model_config = ConfigDict(
         title="Own badge assignment",
         json_schema_extra={"examples": [examples.OWNER_BADGE]},
     )
     assigned_at: datetime = Field(description="Private UTC assignment timestamp.")
-    preferences: BadgePreferences = Field(
-        description="Private visibility preferences for this assignment."
-    )
-    permissions: BadgePermissions = Field(
-        description="Private capabilities enforced by the server."
-    )
+    preferences: BadgePreferences = Field(description="Private visibility preferences for this assignment.")
+    permissions: BadgePermissions = Field(description="Private capabilities enforced by the server.")
 
 
 class BadgePreferenceUpdate(BaseModel):
+    """Revision-checked request to change an assigned badge visibility."""
+
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={"examples": [{"revision": 0, "enabled": False}]},
     )
-    revision: int = Field(
-        ge=0, description="Expected own-profile revision; stale updates return 409."
-    )
-    enabled: bool = Field(
-        description="Desired visibility. Disabling a mandatory badge returns 403."
-    )
+    revision: int = Field(ge=0, description="Expected own-profile revision; stale updates return 409.")
+    enabled: bool = Field(description="Desired visibility. Disabling a mandatory badge returns 403.")
 
 
 class ProfileResponse(BaseModel):
     """A public profile, with follow state relative to the requesting viewer."""
 
-    model_config = ConfigDict(
-        title="Public profile", json_schema_extra={"examples": [examples.PROFILE]}
-    )
+    model_config = ConfigDict(title="Public profile", json_schema_extra={"examples": [examples.PROFILE]})
 
     id: str = Field(
         description="Account identifier: a 24-character MongoDB ObjectId.",
@@ -179,12 +173,8 @@ class ProfileResponse(BaseModel):
         description="Only publicly visible badges. Owner settings and assignment timestamps are never included.",
         examples=[[examples.BADGE]],
     )
-    follower_count: int = Field(
-        description="Number of accounts following this profile.", examples=[127]
-    )
-    following_count: int = Field(
-        description="Number of accounts this profile follows.", examples=[43]
-    )
+    follower_count: int = Field(description="Number of accounts following this profile.", examples=[127])
+    following_count: int = Field(description="Number of accounts this profile follows.", examples=[43])
     is_following: bool = Field(
         description="Whether the current viewer follows this profile; false for anonymous viewers.",
         examples=[False],
@@ -192,12 +182,10 @@ class ProfileResponse(BaseModel):
 
 
 class OwnProfileResponse(ProfileResponse):
-    model_config = ConfigDict(
-        title="Own profile", json_schema_extra={"examples": [examples.OWN_PROFILE]}
-    )
-    revision: int = Field(
-        description="Current profile revision to send with profile or badge preference updates."
-    )
+    """Owner profile including private badge controls and the current revision."""
+
+    model_config = ConfigDict(title="Own profile", json_schema_extra={"examples": [examples.OWN_PROFILE]})
+    revision: int = Field(description="Current profile revision to send with profile or badge preference updates.")
     badges: list[OwnerBadgeResponse] = Field(
         description="All your assignments, including hidden badges, with private settings."
     )

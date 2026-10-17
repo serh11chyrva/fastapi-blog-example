@@ -10,6 +10,8 @@ from backend.content.validation import ArticleBody
 
 
 class MicroPost(Document):
+    """Public short-form publication with stable sharing and image attachments."""
+
     author_id: PydanticObjectId
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     text: str
@@ -19,6 +21,8 @@ class MicroPost(Document):
     deleted_at: datetime | None = None
 
     class Settings:
+        """Beanie collection and index configuration for MicroPost."""
+
         name = "micro_posts"
         indexes = [
             IndexModel(
@@ -42,6 +46,8 @@ class MicroPost(Document):
 
 
 class Article(Document):
+    """Long-form publication with a TipTap body and draft or publishing state."""
+
     author_id: PydanticObjectId
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
@@ -57,6 +63,8 @@ class Article(Document):
     deleted_at: datetime | None = None
 
     class Settings:
+        """Beanie collection and index configuration for Article."""
+
         name = "articles"
         indexes = [
             IndexModel(

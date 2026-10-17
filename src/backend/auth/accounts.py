@@ -19,15 +19,30 @@ from backend.profiles.models import User
 
 
 class InvalidCredentials(ApplicationError):
+    """Authentication failure exposed with an unauthorized status."""
+
     status_code = 401
 
 
 class AccountService:
+    """Account registration and password login with audited session creation."""
+
     def __init__(self, resources: AppResources, audit: AuditContext) -> None:
+        """Initialize account workflows with infrastructure and audit metadata.
+
+        :param resources: Application-owned database, cache, and storage clients.
+        :param audit: Request metadata attached to audited operations.
+        :return: None.
+        """
         self.resources = resources
         self.audit = audit
 
     async def register(self, payload: RegisterRequest) -> tuple[User, str]:
+        """Create an account and start its first authenticated session.
+
+        :param payload: Validated request data for the operation.
+        :return: The new user and the plaintext session token.
+        """
         password_hash = await hash_password_async(payload.password)
         now = datetime.now(UTC)
         user = User(
@@ -52,6 +67,7 @@ class AccountService:
             client_type=payload.client_type,
             device_name=payload.device_name,
         )
+
         try:
             async with transaction(self.resources.mongo) as db_session:
                 await user.insert(session=db_session)
@@ -67,12 +83,17 @@ class AccountService:
                 )
         except DuplicateKeyError as exc:
             raise Conflict("Email or username is already in use") from exc
+
         return user, token
 
     async def login(self, payload: LoginRequest) -> tuple[User, str]:
-        authentication = await AuthService().authenticate_password(
-            payload.identifier, payload.password
-        )
+        """Authenticate password credentials and persist a new session.
+
+        :param payload: Validated request data for the operation.
+        :return: The authenticated user and the plaintext session token.
+        """
+        authentication = await AuthService().authenticate_password(payload.identifier, payload.password)
+
         if isinstance(authentication, PasswordRejected):
             user = authentication.user
             identifier = payload.identifier.strip()
@@ -83,16 +104,16 @@ class AccountService:
                 target_type="user" if user else None,
                 target_id=str(user.id) if user else None,
                 metadata={
-                    "identifier_type": "email"
-                    if "@" in identifier and not identifier.startswith("@")
-                    else "username"
+                    "identifier_type": "email" if "@" in identifier and not identifier.startswith("@") else "username"
                 },
             )
             raise InvalidCredentials("Invalid username/email or password")
+
         token = await SessionService(self.resources, self.audit).create(
             authentication.user,
             authentication.identity if authentication.needs_rehash else None,
             client_type=payload.client_type,
             device_name=payload.device_name,
         )
+
         return authentication.user, token

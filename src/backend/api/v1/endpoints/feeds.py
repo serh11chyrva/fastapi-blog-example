@@ -31,6 +31,14 @@ async def public_feed(
         description="Feed page size from 1 to 50; defaults to 20.",
     ),
 ) -> FeedResponse:
+    """Read a cursor-paginated page of public publications.
+
+    :param resources: Application-owned database, cache, and storage clients.
+    :param kind: Publication type filter: micro_post, article, or all when supported.
+    :param cursor: Opaque cursor from the preceding feed page, if any.
+    :param limit: Maximum number of entries to return in this page.
+    :return: The public feed page with an optional next cursor.
+    """
     return await load_public_feed(resources, kind, cursor, limit)
 
 
@@ -54,4 +62,13 @@ async def following_feed(
         description="Feed page size from 1 to 50; defaults to 20.",
     ),
 ) -> FeedResponse:
+    """Read publications by accounts followed by the current user.
+
+    :param resources: Application-owned database, cache, and storage clients.
+    :param current_user: Account resolved from the current session cookie.
+    :param kind: Publication type filter: micro_post, article, or all when supported.
+    :param cursor: Opaque cursor from the preceding feed page, if any.
+    :param limit: Maximum number of entries to return in this page.
+    :return: The following feed page with an optional next cursor.
+    """
     return await load_following_feed(resources, current_user, kind, cursor, limit)

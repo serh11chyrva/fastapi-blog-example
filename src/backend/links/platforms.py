@@ -3,6 +3,8 @@ from urllib.parse import urlsplit
 
 
 class LinkPlatform(StrEnum):
+    """Recognized destination platforms for public profile links."""
+
     WEBSITE = "website"
     GITHUB = "github"
     GITLAB = "gitlab"
@@ -69,41 +71,42 @@ PLATFORM_DOMAINS = {
 
 
 def validate_link_url(value: str) -> str:
-    """Accept absolute HTTP(S) URLs safe to use in a Location header."""
-    if (
-        any(
-            character.isspace() or ord(character) < 32 or ord(character) == 127
-            for character in value
-        )
-        or "\\" in value
-    ):
-        raise ValueError(
-            "Links cannot contain whitespace, control characters, or backslashes"
-        )
+    """Accept absolute HTTP(S) URLs safe to use in a Location header.
+
+    :param value: Absolute HTTP or HTTPS destination without credentials.
+    :return: The validated HTTP or HTTPS destination URL.
+    """
+    if any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in value) or "\\" in value:
+        raise ValueError("Links cannot contain whitespace, control characters, or backslashes")
+
     try:
         parsed = urlsplit(value)
         _ = parsed.port
         hostname = parsed.hostname
     except ValueError as exc:
         raise ValueError("Links must use a valid http or https URL") from exc
+
     if (
         parsed.scheme not in {"https", "http"}
         or not hostname
         or parsed.username is not None
         or parsed.password is not None
     ):
-        raise ValueError(
-            "Links must use an http or https URL with a hostname and no credentials"
-        )
+        raise ValueError("Links must use an http or https URL with a hostname and no credentials")
+
     return value
 
 
 def detect_platform(url: str) -> LinkPlatform:
-    """Match hostnames at domain boundaries, never URL paths or query strings."""
+    """Match hostnames at domain boundaries, never URL paths or query strings.
+
+    :param url: HTTP or HTTPS destination URL to inspect.
+    :return: The recognized link platform or the generic fallback.
+    """
     hostname = (urlsplit(url).hostname or "").lower().rstrip(".")
+
     for platform, domains in PLATFORM_DOMAINS.items():
-        if any(
-            hostname == domain or hostname.endswith(f".{domain}") for domain in domains
-        ):
+        if any(hostname == domain or hostname.endswith(f".{domain}") for domain in domains):
             return platform
+
     return LinkPlatform.WEBSITE

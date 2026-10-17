@@ -32,6 +32,12 @@ router = APIRouter()
 
 
 def get_content_service(resources: Resources, audit: Audit) -> ContentService:
+    """Create the publication service from request-scoped dependencies.
+
+    :param resources: Application-owned database, cache, and storage clients.
+    :param audit: Request metadata attached to audited operations.
+    :return: The configured content service.
+    """
     return ContentService(resources, audit)
 
 
@@ -60,6 +66,14 @@ async def create_micro_post(
     current_user: CurrentUser,
     content: Content,
 ) -> MicroPostResponse:
+    """Publish a micro-post for the authenticated account.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param payload: Validated request data for the operation.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: The created micro-post response.
+    """
     return post_response(await content.create_post(payload, current_user), current_user)
 
 
@@ -72,7 +86,14 @@ async def create_micro_post(
     responses=documented_responses(404, 503),
 )
 async def get_micro_post(post_id: PostId, content: Content) -> MicroPostResponse:
+    """Read a public, undeleted micro-post and its author.
+
+    :param post_id: MongoDB identifier of the micro-post.
+    :param content: Publication application service injected for this request.
+    :return: The public micro-post response.
+    """
     post, author = await content.get_post(post_id)
+
     return post_response(post, author)
 
 
@@ -91,9 +112,16 @@ async def update_micro_post(
     current_user: CurrentUser,
     content: Content,
 ) -> MicroPostResponse:
-    return post_response(
-        await content.edit_post(post_id, payload, current_user), current_user
-    )
+    """Replace the authenticated author's micro-post text.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param post_id: MongoDB identifier of the micro-post.
+    :param payload: Validated request data for the operation.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: The updated micro-post response.
+    """
+    return post_response(await content.edit_post(post_id, payload, current_user), current_user)
 
 
 @router.delete(
@@ -110,7 +138,16 @@ async def delete_micro_post(
     current_user: CurrentUser,
     content: Content,
 ) -> Response:
+    """Soft-delete the authenticated author's micro-post.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param post_id: MongoDB identifier of the micro-post.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: An empty response with status 204.
+    """
     await content.delete(MicroPost, post_id, current_user)
+
     return Response(status_code=204)
 
 
@@ -128,7 +165,16 @@ async def delete_article(
     current_user: CurrentUser,
     content: Content,
 ) -> Response:
+    """Soft-delete the authenticated author's article.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: An empty response with status 204.
+    """
     await content.delete(Article, article_id, current_user)
+
     return Response(status_code=204)
 
 
@@ -137,10 +183,7 @@ async def delete_article(
     response_model=ArticleResponse,
     status_code=201,
     summary="Create an article draft",
-    description=(
-        "Creates a private-to-author draft. The body must follow the supported TipTap JSON "
-        "schema."
-    ),
+    description=("Creates a private-to-author draft. The body must follow the supported TipTap JSON schema."),
     tags=["Articles"],
     responses=documented_responses(
         401,
@@ -157,19 +200,22 @@ async def create_article(
     current_user: CurrentUser,
     content: Content,
 ) -> ArticleResponse:
-    return article_response(
-        await content.create_article(payload, current_user), current_user
-    )
+    """Create an article draft for the authenticated account.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param payload: Validated request data for the operation.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: The created article response.
+    """
+    return article_response(await content.create_article(payload, current_user), current_user)
 
 
 @router.get(
     "/publications/{username}/{share_slug}",
     response_model=MicroPostResponse | ArticleResponse,
     summary="Read a shared publication",
-    description=(
-        "Resolves the UUID-safe slug in /@username/slug--share-id and returns the public post "
-        "or article."
-    ),
+    description=("Resolves the UUID-safe slug in /@username/slug--share-id and returns the public post or article."),
     tags=["Publications"],
     responses=documented_responses(
         404,
@@ -185,7 +231,15 @@ async def get_shared_publication(
     share_slug: ShareSlug,
     content: Content,
 ) -> MicroPostResponse | ArticleResponse:
+    """Resolve a public publication using its author's handle and share slug.
+
+    :param username: Public profile handle, optionally prefixed with @.
+    :param share_slug: Readable share slug ending with the stable publication share ID.
+    :param content: Publication application service injected for this request.
+    :return: The matching micro-post or published article response.
+    """
     publication, author = await content.shared(username, share_slug)
+
     return (
         post_response(publication, author)
         if isinstance(publication, MicroPost)
@@ -209,21 +263,25 @@ async def get_shared_publication(
 async def list_my_articles(
     current_user: CurrentUser,
     content: Content,
-    article_status: Literal["all", "draft", "scheduled", "published"] = Query(
-        default="all", alias="status"
-    ),
+    article_status: Literal["all", "draft", "scheduled", "published"] = Query(default="all", alias="status"),
     offset: int = Query(
         default=0,
         ge=0,
         description="Number of records to skip; refresh from zero after concurrent list changes.",
     ),
-    limit: int = Query(
-        default=20, ge=1, le=100, description="Page size from 1 to 100; defaults to 20."
-    ),
+    limit: int = Query(default=20, ge=1, le=100, description="Page size from 1 to 100; defaults to 20."),
 ) -> list[ArticleResponse]:
-    articles = await content.list_mine(
-        current_user, None if article_status == "all" else article_status, offset, limit
-    )
+    """List the authenticated author's articles with optional status filtering.
+
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :param article_status: Article status filter, including all for every status.
+    :param offset: Number of matching entries to skip before selecting the page.
+    :param limit: Maximum number of entries to return in this page.
+    :return: The requested page of article responses.
+    """
+    articles = await content.list_mine(current_user, None if article_status == "all" else article_status, offset, limit)
+
     return [article_response(article, current_user) for article in articles]
 
 
@@ -240,10 +298,17 @@ async def list_my_articles(
     responses=documented_responses(404, 503),
     openapi_extra={"security": [{}, {"SessionCookie": []}]},
 )
-async def get_article(
-    article_id: ArticleId, current_user: OptionalUser, content: Content
-) -> ArticleResponse:
+async def get_article(article_id: ArticleId, current_user: OptionalUser, content: Content) -> ArticleResponse:
+    """Read a visible article, allowing private drafts only for their author.
+
+    :param article_id: MongoDB identifier of the article.
+    :param current_user: Account resolved from the session cookie, or None for anonymous
+        access.
+    :param content: Publication application service injected for this request.
+    :return: The article response including its body.
+    """
     article, author = await content.get_article(article_id, current_user)
+
     return article_response(article, author)
 
 
@@ -269,9 +334,16 @@ async def update_article(
     current_user: CurrentUser,
     content: Content,
 ) -> ArticleResponse:
-    return article_response(
-        await content.edit_article(article_id, payload, current_user), current_user
-    )
+    """Apply supplied fields to an article owned by the current account.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param payload: Validated request data for the operation.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: The updated article response.
+    """
+    return article_response(await content.edit_article(article_id, payload, current_user), current_user)
 
 
 @router.post(
@@ -304,9 +376,15 @@ async def publish_article(
     current_user: CurrentUser,
     content: Content,
 ) -> ArticleResponse:
-    return article_response(
-        await content.transition(article_id, current_user, "published"), current_user
-    )
+    """Publish an owned article immediately.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: The published article response.
+    """
+    return article_response(await content.transition(article_id, current_user, "published"), current_user)
 
 
 @router.post(
@@ -330,19 +408,22 @@ async def return_article_to_draft(
     current_user: CurrentUser,
     content: Content,
 ) -> ArticleResponse:
-    return article_response(
-        await content.transition(article_id, current_user, "draft"), current_user
-    )
+    """Unpublish an owned article and clear its pending schedule.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: The draft article response.
+    """
+    return article_response(await content.transition(article_id, current_user, "draft"), current_user)
 
 
 @router.post(
     "/articles/{article_id}/schedule",
     response_model=ArticleResponse,
     summary="Schedule an article",
-    description=(
-        "Sets a future timezone-aware publication time; the background worker publishes it "
-        "automatically."
-    ),
+    description=("Sets a future timezone-aware publication time; the background worker publishes it automatically."),
     tags=["Articles"],
     responses=documented_responses(
         401,
@@ -350,9 +431,7 @@ async def return_article_to_draft(
         404,
         409,
         503,
-        examples=[
-            (examples.ARTICLE_SCHEDULED, "Article awaiting scheduled publication")
-        ],
+        examples=[(examples.ARTICLE_SCHEDULED, "Article awaiting scheduled publication")],
     ),
 )
 async def schedule_article(
@@ -362,9 +441,16 @@ async def schedule_article(
     current_user: CurrentUser,
     content: Content,
 ) -> ArticleResponse:
+    """Schedule an owned article for a future publication time.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param payload: Validated request data for the operation.
+    :param current_user: Account resolved from the current session cookie.
+    :param content: Publication application service injected for this request.
+    :return: The scheduled article response.
+    """
     return article_response(
-        await content.transition(
-            article_id, current_user, "scheduled", payload.publish_at
-        ),
+        await content.transition(article_id, current_user, "scheduled", payload.publish_at),
         current_user,
     )

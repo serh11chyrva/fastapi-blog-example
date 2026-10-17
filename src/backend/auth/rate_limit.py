@@ -29,7 +29,15 @@ async def enforce_rate_limit(
     limit: int,
     window_seconds: int,
 ) -> None:
-    """Count both dimensions atomically and repair counters missing an expiry."""
+    """Count both dimensions atomically and repair counters missing an expiry.
+
+    :param request: Incoming HTTP request and its application state.
+    :param namespace: Operation namespace separating rate-limit counters.
+    :param identity: Account identifier included in the rate-limit key.
+    :param limit: Maximum number of attempts permitted in the rate-limit window.
+    :param window_seconds: Rate-limit window duration in seconds.
+    :return: None.
+    """
     ip_address, _ = request_details(request)
     ip_fingerprint = hashlib.sha256((ip_address or "unknown").encode()).hexdigest()
     identity_fingerprint = hashlib.sha256(identity.casefold().encode()).hexdigest()
@@ -38,15 +46,15 @@ async def enforce_rate_limit(
         f"rate:{namespace}:identity:{identity_fingerprint}",
     )
     redis = get_resources(request).redis
+
     try:
-        exceeded = await redis.eval(
-            RATE_LIMIT_SCRIPT, len(keys), *keys, limit, window_seconds
-        )
+        exceeded = await redis.eval(RATE_LIMIT_SCRIPT, len(keys), *keys, limit, window_seconds)
     except RedisError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service is temporarily unavailable",
         ) from exc
+
     if exceeded:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

@@ -9,6 +9,8 @@ ImagePurpose = Literal["avatars", "post-images", "article-covers", "article-imag
 
 
 class UploadFileRecord(BaseModel):
+    """Immutable file metadata and temporary key for a prepared upload."""
+
     filename: str
     content_type: str
     size_bytes: int
@@ -16,6 +18,8 @@ class UploadFileRecord(BaseModel):
 
 
 class ImageUpload(Document):
+    """Upload session tracking immutable targets, confirmation leases, and results."""
+
     owner_id: PydanticObjectId
     target_id: PydanticObjectId
     purpose: ImagePurpose
@@ -29,6 +33,8 @@ class ImageUpload(Document):
     result: dict[str, JsonValue] | None = None
 
     class Settings:
+        """Beanie collection and index configuration for ImageUpload."""
+
         name = "image_uploads"
         indexes = [
             IndexModel(
@@ -40,10 +46,14 @@ class ImageUpload(Document):
 
 
 class ObjectCleanup(Document):
+    """Persistent deletion job for a temporary, replaced, or abandoned image object."""
+
     bucket: str
     key: str
     not_before: datetime
 
     class Settings:
+        """Beanie collection and index configuration for ObjectCleanup."""
+
         name = "object_cleanup"
         indexes = [IndexModel([("not_before", ASCENDING)], name="cleanup_due")]

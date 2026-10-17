@@ -25,9 +25,7 @@ service = LinkService()
                         "description": "Saved absolute HTTP(S) URL.",
                         "schema": {"type": "string"},
                     },
-                    "Cache-Control": {
-                        "schema": {"type": "string", "example": "no-store"}
-                    },
+                    "Cache-Control": {"schema": {"type": "string", "example": "no-store"}},
                 },
             }
         },
@@ -42,12 +40,17 @@ service = LinkService()
     tags=["Links"],
 )
 async def redirect_link(link_id: UUID) -> RedirectResponse:
+    """Resolve a saved link identity to its current destination.
+
+    :param link_id: Stable identity of the saved profile link.
+    :return: A temporary redirect to the saved HTTP or HTTPS URL.
+    """
     destination = await service.destination(str(link_id))
+
     if destination is None:
         raise HTTPException(404, "Link not found")
-    return RedirectResponse(
-        destination, status_code=302, headers={"Cache-Control": "no-store"}
-    )
+
+    return RedirectResponse(destination, status_code=302, headers={"Cache-Control": "no-store"})
 
 
 @router.get(
@@ -60,10 +63,16 @@ async def redirect_link(link_id: UUID) -> RedirectResponse:
     tags=["Links"],
     responses=documented_responses(404, 503),
 )
-async def redirect_legacy_profile_link(
-    username: Username, link_id: UUID
-) -> RedirectResponse:
+async def redirect_legacy_profile_link(username: Username, link_id: UUID) -> RedirectResponse:
+    """Resolve a saved link through its legacy profile-specific route.
+
+    :param username: Public profile handle, optionally prefixed with @.
+    :param link_id: Stable identity of the saved profile link.
+    :return: A temporary redirect to the saved destination.
+    """
     user = await ProfileRepository.find_by_username(username)
+
     if user is None or not any(link.id == str(link_id) for link in user.links):
         raise HTTPException(404, "Link not found")
+
     return await redirect_link(link_id)

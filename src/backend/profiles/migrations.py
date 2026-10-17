@@ -10,6 +10,8 @@ from backend.profiles.models import BadgeAssignment, BadgeDefinition, BadgePaylo
 
 
 class LegacyProfile(BaseModel):
+    """Minimal projection of profile data used during schema migration."""
+
     id: PydanticObjectId = Field(alias="_id")
     username: str
     links: list[dict[str, Any]] = Field(default_factory=list)
@@ -19,16 +21,14 @@ class LegacyProfile(BaseModel):
 
 
 async def ensure_profile_schema() -> None:
-    """Persist link identities and split legacy badge definitions from assignments once."""
-    async for legacy in (
-        User.find({"profile_schema_version": {"$ne": 2}})
-        .sort("_id")
-        .project(LegacyProfile)
-    ):
+    """Persist link identities and split legacy badge definitions from assignments once.
+
+    :return: None.
+    """
+    async for legacy in User.find({"profile_schema_version": {"$ne": 2}}).sort("_id").project(LegacyProfile):
         if legacy.profile_schema_version not in {None, 1}:
-            raise ValueError(
-                f"Unsupported profile storage version: {legacy.profile_schema_version}"
-            )
+            raise ValueError(f"Unsupported profile storage version: {legacy.profile_schema_version}")
+
         links = [
             ProfileLink(
                 **{
@@ -44,24 +44,26 @@ async def ensure_profile_schema() -> None:
             )
             for index, link in enumerate(legacy.links)
         ]
+
         if len(links) > 8:
             raise ValueError("Legacy profile has more than eight links")
+
         User.unique_link_ids(links)
         assignments = []
+
         for badge in legacy.badges:
             if badge.get("version", 1) != 1:
-                raise ValueError(
-                    f"Unsupported legacy badge version: {badge['version']}"
-                )
-            definition = await BadgeDefinition.find_one(
-                BadgeDefinition.code == badge["code"]
-            )
+                raise ValueError(f"Unsupported legacy badge version: {badge['version']}")
+
+            definition = await BadgeDefinition.find_one(BadgeDefinition.code == badge["code"])
+
             if definition is None:
                 payload = {
                     **badge.get("payload", {}),
                     "label": badge["label"],
                     "description": badge.get("description"),
                 }
+
                 try:
                     await BadgeDefinition(
                         code=badge["code"],
@@ -70,6 +72,7 @@ async def ensure_profile_schema() -> None:
                     ).insert()
                 except DuplicateKeyError:
                     pass
+
             assignments.append(
                 BadgeAssignment(
                     code=badge["code"],
@@ -77,10 +80,9 @@ async def ensure_profile_schema() -> None:
                     enabled=badge.get("enabled", True),
                 )
             )
+
         User.unique_badge_codes(assignments)
-        await User.find_one(
-            {"_id": legacy.id, "profile_schema_version": {"$ne": 2}}
-        ).update(
+        await User.find_one({"_id": legacy.id, "profile_schema_version": {"$ne": 2}}).update(
             {
                 "$set": {
                     "links": [link.model_dump(mode="json") for link in links],

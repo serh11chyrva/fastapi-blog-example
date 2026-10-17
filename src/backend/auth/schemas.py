@@ -25,13 +25,19 @@ class SessionClientRequest(BaseModel):
     @field_validator("device_name")
     @classmethod
     def normalize_device_name(cls, value: str | None) -> str | None:
+        """Trim a supplied native device name and reject blank or nonprintable labels.
+
+        :param value: Optional native device label supplied with session credentials.
+        :return: The normalized device name, or None.
+        """
         if value is None:
             return None
+
         value = value.strip()
+
         if not value or any(not character.isprintable() for character in value):
-            raise ValueError(
-                "Device name must contain printable characters and cannot be blank"
-            )
+            raise ValueError("Device name must contain printable characters and cannot be blank")
+
         return value
 
 
@@ -71,33 +77,51 @@ class RegisterRequest(SessionClientRequest):
     @field_validator("username", mode="before")
     @classmethod
     def validate_username(cls, value: object) -> str:
+        """Normalize a username and reject invalid handles.
+
+        :param value: Raw public username, optionally prefixed with @.
+        :return: The normalized public username.
+        """
         if not isinstance(value, str):
             raise ValueError("Username must be a string")
+
         normalized = value.removeprefix("@").lower()
+
         if not re.fullmatch(r"[a-z0-9_]{3,24}", normalized):
             raise ValueError("Username must use 3-24 letters, numbers, or underscores")
+
         return normalized
 
     @field_validator("email")
     @classmethod
     def normalize_email(cls, value: EmailStr) -> str:
+        """Trim and lowercase an account email address.
+
+        :param value: Validated account email address.
+        :return: The normalized email address.
+        """
         return str(value).strip().lower()
 
     @field_validator("display_name")
     @classmethod
     def trim_display_name(cls, value: str) -> str:
+        """Trim a public display name and reject blank input.
+
+        :param value: Public display name supplied during registration.
+        :return: The trimmed nonempty display name.
+        """
         value = value.strip()
+
         if not value:
             raise ValueError("Display name cannot be empty")
+
         return value
 
 
 class LoginRequest(SessionClientRequest):
     """An email address or username and its password."""
 
-    model_config = ConfigDict(
-        title="Login credentials", json_schema_extra={"examples": [examples.LOGIN]}
-    )
+    model_config = ConfigDict(title="Login credentials", json_schema_extra={"examples": [examples.LOGIN]})
 
     identifier: str = Field(
         min_length=3,
@@ -117,9 +141,7 @@ class LoginRequest(SessionClientRequest):
 class SessionResponse(BaseModel):
     """A server-side session; the raw session token is never returned."""
 
-    model_config = ConfigDict(
-        title="Active session", json_schema_extra={"examples": [examples.SESSION]}
-    )
+    model_config = ConfigDict(title="Active session", json_schema_extra={"examples": [examples.SESSION]})
 
     id: str = Field(
         description="Session identifier used to revoke this session; this is not the cookie token.",

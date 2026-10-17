@@ -82,30 +82,30 @@ DEMO_ARTICLE_BODY = {
 
 
 async def seed_demo_data() -> None:
+    """Create or update the demo accounts, publications, and badge catalog.
+
+    :return: None.
+    """
     settings = get_settings()
-    client = AsyncMongoClient(
-        settings.mongodb_url, serverSelectionTimeoutMS=8_000, tz_aware=True
-    )
+    client = AsyncMongoClient(settings.mongodb_url, serverSelectionTimeoutMS=8_000, tz_aware=True)
+
     try:
         await client.admin.command("ping")
-        await init_beanie(
-            database=client[settings.mongodb_database], document_models=DOCUMENT_MODELS
-        )
+        await init_beanie(database=client[settings.mongodb_database], document_models=DOCUMENT_MODELS)
         await ensure_profile_schema()
-        if (
-            await BadgeDefinition.find_one(BadgeDefinition.code == "early-reader")
-            is None
-        ):
+
+        if await BadgeDefinition.find_one(BadgeDefinition.code == "early-reader") is None:
             await BadgeDefinition(
                 code="early-reader",
-                payload=BadgePayload(
-                    label="Early Reader", description="Joined the demo community early."
-                ),
+                payload=BadgePayload(label="Early Reader", description="Joined the demo community early."),
             ).insert()
+
         users: dict[str, User] = {}
         now = datetime.now(UTC)
+
         for email, username, display_name, bio in DEMO_USERS:
             user = await User.find_one(User.username == username)
+
             if user is None:
                 user = User(
                     email=email,
@@ -117,10 +117,10 @@ async def seed_demo_data() -> None:
                 )
                 user.badges = [BadgeAssignment(code="early-reader", assigned_at=now)]
                 await user.insert()
+
             users[username] = user
-            identity = await AuthIdentity.find_one(
-                AuthIdentity.user_id == user.id, AuthIdentity.provider == "password"
-            )
+            identity = await AuthIdentity.find_one(AuthIdentity.user_id == user.id, AuthIdentity.provider == "password")
+
             if identity is None:
                 await AuthIdentity(
                     user_id=user.id,
@@ -182,9 +182,8 @@ async def seed_demo_data() -> None:
                     followee_id=users[followee].id,
                     created_at=now,
                 ).insert()
-        print(
-            "Demo data is ready. Accounts: alice@example.com, ben@example.com, casey@example.com"
-        )
+
+        print("Demo data is ready. Accounts: alice@example.com, ben@example.com, casey@example.com")
         print("Use the local-only password configured by DEMO_PASSWORD in .env.")
     finally:
         await client.close()

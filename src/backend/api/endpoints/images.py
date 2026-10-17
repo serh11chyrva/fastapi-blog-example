@@ -43,11 +43,22 @@ async def read_image(
     request: Request,
     current_user: OptionalUser,
 ) -> Response:
+    """Serve an image after enforcing the attached resource's visibility.
+
+    :param collection: Public image collection used in the API path.
+    :param object_name: Image filename within the requested public collection.
+    :param request: Incoming HTTP request and its application state.
+    :param current_user: Account resolved from the session cookie, or None for anonymous
+        access.
+    :return: The image bytes with their media type and cache headers.
+    """
     if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", object_name):
         raise HTTPException(404, "Image not found")
+
     key = f"{collection}/{object_name}"
     settings = get_settings()
     cache_control = "public, max-age=3600"
+
     if collection == "avatars":
         attached = await User.find_one(User.avatar_key == key)
         bucket = settings.avatar_bucket
@@ -55,27 +66,32 @@ async def read_image(
         attached = await MicroPost.find_one({"image_keys": key, "deleted_at": None})
         bucket = settings.publication_bucket
     else:
-        field = (
-            "thumbnail_key" if collection == "article-covers" else "inline_image_keys"
-        )
+        field = "thumbnail_key" if collection == "article-covers" else "inline_image_keys"
         attached = await Article.find_one({field: key, "deleted_at": None})
+
         if (
             attached is not None
             and attached.status != "published"
             and (current_user is None or current_user.id != attached.author_id)
         ):
             attached = None
+
         cache_control = "private, no-store"
         bucket = settings.publication_bucket
+
     if attached is None:
         raise HTTPException(404, "Image not found")
+
     try:
         result = await get_object(get_resources(request).s3, bucket, key)
     except Exception as exc:
         raise HTTPException(503, "Image storage is unavailable") from exc
+
     if result is None:
         raise HTTPException(404, "Image not found")
+
     data, content_type = result
+
     return Response(
         content=data,
         media_type=content_type,

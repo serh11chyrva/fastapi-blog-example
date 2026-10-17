@@ -10,9 +10,7 @@ from backend.content.validation import ArticleBody, validate_tiptap_document
 class MicroPostCreate(BaseModel):
     """Text for a public micro-post; whitespace-only values are rejected."""
 
-    model_config = ConfigDict(
-        title="Micro-post text", json_schema_extra={"examples": [examples.POST_CREATE]}
-    )
+    model_config = ConfigDict(title="Micro-post text", json_schema_extra={"examples": [examples.POST_CREATE]})
 
     text: str = Field(
         min_length=1,
@@ -24,9 +22,16 @@ class MicroPostCreate(BaseModel):
     @field_validator("text")
     @classmethod
     def validate_text(cls, value: str) -> str:
+        """Trim micro-post text and reject whitespace-only input.
+
+        :param value: Micro-post text to trim and require to be nonblank.
+        :return: The trimmed nonempty micro-post text.
+        """
         value = value.strip()
+
         if not value:
             raise ValueError("Post text cannot be empty")
+
         return value
 
 
@@ -61,9 +66,7 @@ class MicroPostResponse(BaseModel):
         description="Same-origin URLs for attached images, in display order. A post can have up to five images.",
         examples=[[examples.POST_IMAGE_URL]],
     )
-    author_id: str = Field(
-        description="Author account identifier.", examples=[examples.ACCOUNT["id"]]
-    )
+    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
     author_username: str = Field(
         description="Author public handle without @.",
         examples=[examples.ACCOUNT["username"]],
@@ -114,20 +117,38 @@ class ArticleCreate(BaseModel):
     @field_validator("title")
     @classmethod
     def trim_title(cls, value: str) -> str:
+        """Trim an article title and reject an empty supplied value.
+
+        :param value: Article title to trim and require to be nonblank when supplied.
+        :return: The trimmed nonempty article title.
+        """
         value = value.strip()
+
         if not value:
             raise ValueError("Title cannot be empty")
+
         return value
 
     @field_validator("summary")
     @classmethod
     def trim_summary(cls, value: str) -> str:
+        """Trim surrounding whitespace from the article summary.
+
+        :param value: Article summary to trim when supplied.
+        :return: The trimmed article summary.
+        """
         return value.strip()
 
     @field_validator("body")
     @classmethod
     def validate_body(cls, value: ArticleBody) -> ArticleBody:
+        """Validate a supplied TipTap body without replacing its JSON structure.
+
+        :param value: TipTap JSON body supplied when creating the draft.
+        :return: The original validated TipTap document.
+        """
         validate_tiptap_document(value)
+
         return value
 
 
@@ -161,23 +182,42 @@ class ArticleUpdate(BaseModel):
     @field_validator("title")
     @classmethod
     def trim_title(cls, value: str | None) -> str | None:
+        """Trim an article title and reject an empty supplied value.
+
+        :param value: Article title to trim and require to be nonblank when supplied.
+        :return: The trimmed title, preserving None for partial updates.
+        """
         if value is None:
             return None
+
         value = value.strip()
+
         if not value:
             raise ValueError("Title cannot be empty")
+
         return value
 
     @field_validator("summary")
     @classmethod
     def trim_summary(cls, value: str | None) -> str | None:
+        """Trim an article summary while retaining an omitted value.
+
+        :param value: Article summary to trim when supplied.
+        :return: The trimmed summary, or None for an omitted update.
+        """
         return value.strip() if value is not None else None
 
     @field_validator("body")
     @classmethod
     def validate_body(cls, value: ArticleBody | None) -> ArticleBody | None:
+        """Validate a supplied TipTap body without replacing its JSON structure.
+
+        :param value: TipTap JSON body to validate, or None for an omitted update.
+        :return: The original validated document, or None for an omitted update.
+        """
         if value is not None:
             validate_tiptap_document(value)
+
         return value
 
 
@@ -197,11 +237,19 @@ class ArticleScheduleRequest(BaseModel):
     @field_validator("publish_at")
     @classmethod
     def require_future_utc_time(cls, value: datetime) -> datetime:
+        """Reject naive or past publication times and normalize to UTC.
+
+        :param value: Requested publication timestamp including a timezone.
+        :return: The future timezone-aware publication timestamp in UTC.
+        """
         if value.tzinfo is None:
             raise ValueError("Publish time must include a timezone")
+
         value = value.astimezone(UTC)
+
         if value <= datetime.now(UTC):
             raise ValueError("Publish time must be in the future")
+
         return value
 
 
@@ -253,9 +301,7 @@ class ArticleResponse(BaseModel):
         description="Visibility state: draft and scheduled are private to the author; published is public.",
         examples=["published", "draft", "scheduled"],
     )
-    author_id: str = Field(
-        description="Author account identifier.", examples=[examples.ACCOUNT["id"]]
-    )
+    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
     author_username: str = Field(
         description="Author public handle without @.",
         examples=[examples.ACCOUNT["username"]],
@@ -304,9 +350,7 @@ class FeedBase(BaseModel):
         description="Relative URL of the public publication page.",
         examples=[examples.ARTICLE["share_url"]],
     )
-    author_id: str = Field(
-        description="Author account identifier.", examples=[examples.ACCOUNT["id"]]
-    )
+    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
     author_username: str = Field(
         description="Author public handle without @.",
         examples=[examples.ACCOUNT["username"]],
@@ -326,27 +370,27 @@ class FeedBase(BaseModel):
 
 
 class PostFeedItem(FeedBase):
+    """Compact micro-post representation returned in publication feeds."""
+
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_POST]})
 
     kind: Literal["micro_post"] = "micro_post"
     text: str = Field(description="Public micro-post text.")
-    images: list[str] = Field(
-        default_factory=list, description="Post image URLs in display order."
-    )
+    images: list[str] = Field(default_factory=list, description="Post image URLs in display order.")
     title: None = None
     summary: None = None
     thumbnail_url: None = None
 
 
 class ArticleFeedItem(FeedBase):
+    """Compact article representation returned in publication feeds."""
+
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_ARTICLE]})
 
     kind: Literal["article"] = "article"
     title: str = Field(description="Public article title.")
     summary: str = Field(description="Article preview; may be empty.")
-    thumbnail_url: str | None = Field(
-        default=None, description="Article cover URL, if present."
-    )
+    thumbnail_url: str | None = Field(default=None, description="Article cover URL, if present.")
     text: None = None
     images: list[str] = Field(default_factory=list, max_length=0)
 
@@ -357,9 +401,7 @@ FeedItem = Annotated[PostFeedItem | ArticleFeedItem, Field(discriminator="kind")
 class FeedResponse(BaseModel):
     """Chronological page. Pass `next_cursor` back to continue."""
 
-    model_config = ConfigDict(
-        title="Feed page", json_schema_extra={"examples": [examples.FEED]}
-    )
+    model_config = ConfigDict(title="Feed page", json_schema_extra={"examples": [examples.FEED]})
 
     items: list[FeedItem] = Field(
         description="Public publications ordered newest first. May be empty; article bodies are fetched separately.",

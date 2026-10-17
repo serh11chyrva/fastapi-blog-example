@@ -18,6 +18,12 @@ from backend.profiles.presenters import avatar_url
 
 
 def post_response(post: MicroPost, author: User) -> MicroPostResponse:
+    """Present a micro-post using its already loaded author.
+
+    :param post: Micro-post document to present.
+    :param author: Already loaded account that authored the publication.
+    :return: The public micro-post response.
+    """
     return MicroPostResponse(
         id=str(post.id),
         share_url=share_path(author.username, post.text, post.share_id),
@@ -33,6 +39,12 @@ def post_response(post: MicroPost, author: User) -> MicroPostResponse:
 
 
 def article_response(article: Article, author: User) -> ArticleResponse:
+    """Present an article using its already loaded author.
+
+    :param article: Article document to present.
+    :param author: Already loaded account that authored the publication.
+    :return: The article response including body and publication metadata.
+    """
     return ArticleResponse(
         id=str(article.id),
         share_url=share_path(author.username, article.title, article.share_id),
@@ -40,10 +52,7 @@ def article_response(article: Article, author: User) -> ArticleResponse:
         summary=article.summary,
         body=article.body,
         thumbnail_url=article_thumbnail_url(article.thumbnail_key),
-        inline_image_urls=[
-            publication_image_url(key, "article-images")
-            for key in article.inline_image_keys
-        ],
+        inline_image_urls=[publication_image_url(key, "article-images") for key in article.inline_image_keys],
         status=article.status,
         author_id=str(author.id),
         author_username=author.username,
@@ -57,6 +66,12 @@ def article_response(article: Article, author: User) -> ArticleResponse:
 
 
 def feed_item(publication: MicroPost | Article, author: User) -> FeedItem:
+    """Present a publication as the corresponding feed item type.
+
+    :param publication: Micro-post or article document to present.
+    :param author: Already loaded account that authored the publication.
+    :return: The micro-post or article feed item.
+    """
     common = dict(
         id=str(publication.id),
         author_id=str(author.id),
@@ -64,21 +79,19 @@ def feed_item(publication: MicroPost | Article, author: User) -> FeedItem:
         author_display_name=author.display_name,
         author_avatar_url=avatar_url(author),
     )
+
     if isinstance(publication, MicroPost):
         return PostFeedItem(
             **common,
-            share_url=share_path(
-                author.username, publication.text, publication.share_id
-            ),
+            share_url=share_path(author.username, publication.text, publication.share_id),
             text=publication.text,
-            images=[
-                publication_image_url(key, "post-images")
-                for key in publication.image_keys
-            ],
+            images=[publication_image_url(key, "post-images") for key in publication.image_keys],
             published_at=publication.created_at,
         )
+
     if publication.published_at is None:
         raise ValueError("A feed article must have a publication timestamp")
+
     return ArticleFeedItem(
         **common,
         share_url=share_path(author.username, publication.title, publication.share_id),

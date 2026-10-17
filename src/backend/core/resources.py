@@ -13,6 +13,8 @@ from backend.storage.s3 import S3Client
 
 @dataclass(frozen=True, slots=True)
 class AppResources:
+    """Typed container for application-owned infrastructure clients."""
+
     mongo: AsyncMongoClient
     redis: Redis
     s3: S3Client
@@ -21,6 +23,11 @@ class AppResources:
 
 
 def get_resources(request: Request) -> AppResources:
+    """Read the typed infrastructure clients from application state.
+
+    :param request: Incoming HTTP request and its application state.
+    :return: The application resource container.
+    """
     return cast(AppResources, request.app.state.resources)
 
 

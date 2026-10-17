@@ -40,6 +40,4 @@ class HealthResponse(BaseModel):
     )
     database: str = Field(description="MongoDB ping result.", examples=["ok"])
     redis: str = Field(description="Redis ping result.", examples=["ok"])
-    object_storage: str = Field(
-        description="Object storage bucket availability result.", examples=["ok"]
-    )
+    object_storage: str = Field(description="Object storage bucket availability result.", examples=["ok"])

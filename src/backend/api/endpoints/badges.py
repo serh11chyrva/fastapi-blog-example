@@ -15,8 +15,7 @@ ICON_DIRECTORY = Path(__file__).resolve().parents[2] / "profiles" / "icons"
     response_class=FileResponse,
     summary="Read a static badge icon",
     description=(
-        "Returns a bundled public badge icon without authentication or object storage access. "
-        "Unknown icons return 404."
+        "Returns a bundled public badge icon without authentication or object storage access. Unknown icons return 404."
     ),
     tags=["Media"],
     responses={
@@ -34,11 +33,19 @@ ICON_DIRECTORY = Path(__file__).resolve().parents[2] / "profiles" / "icons"
     },
 )
 async def read_badge_icon(icon_name: str) -> FileResponse:
+    """Serve a supported badge icon from the bundled static assets.
+
+    :param icon_name: Allowlisted name of the bundled badge icon.
+    :return: The SVG, PNG, or WebP icon file response.
+    """
     if not re.fullmatch(r"[a-zA-Z0-9_-]+\.(svg|png|webp)", icon_name):
         raise HTTPException(404, "Badge icon not found")
+
     path = ICON_DIRECTORY / icon_name
+
     if not path.is_file():
         raise HTTPException(404, "Badge icon not found")
+
     return FileResponse(
         path,
         headers={

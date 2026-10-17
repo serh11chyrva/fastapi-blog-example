@@ -7,6 +7,8 @@ from backend.auth.client import ClientType
 
 
 class AuthIdentity(Document):
+    """Authentication provider identity and optional password hash for an account."""
+
     user_id: PydanticObjectId
     provider: str = "password"
     subject: str
@@ -14,6 +16,8 @@ class AuthIdentity(Document):
     created_at: datetime
 
     class Settings:
+        """Beanie collection and index configuration for AuthIdentity."""
+
         name = "auth_identities"
         indexes = [
             IndexModel(
@@ -29,6 +33,8 @@ class AuthIdentity(Document):
 
 
 class AuthSession(Document):
+    """Opaque-token session with activity, expiry, and revocation metadata."""
+
     user_id: PydanticObjectId
     token_hash: str
     created_at: datetime
@@ -41,6 +47,8 @@ class AuthSession(Document):
     revoked_at: datetime | None = None
 
     class Settings:
+        """Beanie collection and index configuration for AuthSession."""
+
         name = "auth_sessions"
         indexes = [
             IndexModel(

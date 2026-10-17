@@ -22,18 +22,20 @@ from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import ProfileResponse
 from backend.storage.models import ImagePurpose, ImageUpload
 
-type UploadResult = (
-    ProfileResponse | MicroPostResponse | ArticleResponse | ArticleImageResponse
-)
+type UploadResult = ProfileResponse | MicroPostResponse | ArticleResponse | ArticleImageResponse
 
 
 @dataclass(frozen=True, slots=True)
 class AttachmentResult:
+    """Completed attachment response and the image keys it replaced."""
+
     response: UploadResult
     replaced_keys: list[str]
 
 
 class ImageAttachments:
+    """Ownership checks and transactional changes to image attachment targets."""
+
     async def target(
         self,
         purpose: ImagePurpose,
@@ -42,25 +44,37 @@ class ImageAttachments:
         *,
         session: AsyncClientSession | None = None,
     ) -> User | MicroPost | Article:
+        """Load an upload target and enforce ownership and deletion rules.
+
+        :param purpose: Immutable image purpose selecting target rules and size limits.
+        :param target_id: Identifier of the resource targeted by the operation.
+        :param owner: Authenticated account owning or initiating the operation.
+        :param session: Optional MongoDB session for the operation or caller
+            transaction.
+        :return: The owned user, micro-post, or article document.
+        """
         if not PydanticObjectId.is_valid(target_id):
             raise NotFound("Resource not found")
+
         object_id = PydanticObjectId(target_id)
+
         if purpose == "avatars":
             user = await User.get(object_id, session=session)
+
             if user is None or user.id != owner.id:
                 raise NotFound("Resource not found")
+
             return user
+
         publication = (
             await MicroPost.get(object_id, session=session)
             if purpose == "post-images"
             else await Article.get(object_id, session=session)
         )
-        if (
-            publication is None
-            or publication.deleted_at is not None
-            or publication.author_id != owner.id
-        ):
+
+        if publication is None or publication.deleted_at is not None or publication.author_id != owner.id:
             raise NotFound("Resource not found")
+
         return publication
 
     async def apply(
@@ -71,11 +85,18 @@ class ImageAttachments:
         audit: AuditContext,
         session: AsyncClientSession,
     ) -> AttachmentResult:
-        """Mutate a freshly read target and audit it inside the caller's transaction."""
-        target = await self.target(
-            upload.purpose, str(upload.target_id), owner, session=session
-        )
+        """Mutate a freshly read target and audit it inside the caller's transaction.
+
+        :param upload: Persisted upload session and its immutable file metadata.
+        :param keys: Final object keys corresponding to the upload files in order.
+        :param owner: Authenticated account owning or initiating the operation.
+        :param audit: Request metadata attached to audited operations.
+        :param session: MongoDB session for the caller transaction.
+        :return: The attachment response and the keys of replaced images.
+        """
+        target = await self.target(upload.purpose, str(upload.target_id), owner, session=session)
         old_keys: list[str] = []
+
         if isinstance(target, User):
             old_keys = [target.avatar_key] if target.avatar_key else []
             target.avatar_key = keys[0]
@@ -93,8 +114,10 @@ class ImageAttachments:
         else:
             if len(target.inline_image_keys) >= 30:
                 raise InvalidOperation("An article can contain up to 30 inline images")
+
             target.inline_image_keys.append(keys[0])
             action, target_type = "ARTICLE_IMAGE_ADDED", "article"
+
         target.updated_at = datetime.now(UTC)
         await target.save(session=session)
         await record_audit(
@@ -107,6 +130,7 @@ class ImageAttachments:
             session=session,
         )
         response: UploadResult
+
         if isinstance(target, User):
             response = await ProfileQueries().response(target, owner.id)
         elif isinstance(target, MicroPost):
@@ -118,17 +142,26 @@ class ImageAttachments:
                 url=publication_image_url(keys[0], "article-images"),
                 alt_text=upload.files[0].filename,
             )
+
         return AttachmentResult(response, old_keys)
 
 
 def saved_result(upload: ImageUpload) -> UploadResult:
-    """Validate a completed result according to the immutable upload purpose."""
+    """Validate a completed result according to the immutable upload purpose.
+
+    :param upload: Persisted upload session and its immutable file metadata.
+    :return: The typed response saved by the completed upload.
+    """
     if upload.result is None:
         raise InvalidOperation("Completed upload result is missing")
+
     if upload.purpose == "avatars":
         return ProfileResponse.model_validate(upload.result)
+
     if upload.purpose == "post-images":
         return MicroPostResponse.model_validate(upload.result)
+
     if upload.purpose == "article-covers":
         return ArticleResponse.model_validate(upload.result)
+
     return ArticleImageResponse.model_validate(upload.result)

@@ -19,28 +19,52 @@ from backend.profiles.schemas import (
 
 
 class ProfileQueries:
+    """Read operations assembling public and owner-specific profile responses."""
+
     def __init__(self, repository: ProfileRepository | None = None) -> None:
+        """Initialize profile reads with an optional repository override.
+
+        :param repository: Persistence collaborator used to load domain records.
+        :return: None.
+        """
         self.repository = repository or ProfileRepository()
 
     async def by_username(self, username: str) -> User:
+        """Resolve a public username or raise a profile not-found error.
+
+        :param username: Public profile handle, optionally prefixed with @.
+        :return: The matching user account.
+        """
         user = await self.repository.find_by_username(username)
+
         if user is None:
             raise NotFound("Profile not found")
+
         return user
 
     async def definitions(self, user: User) -> dict[str, BadgeDefinition]:
-        definitions = await self.repository.badge_definitions(
-            [badge.code for badge in user.badges]
-        )
+        """Load all badge definitions required by a user's assignments.
+
+        :param user: User account used by the operation.
+        :return: Badge definitions indexed by code.
+        """
+        definitions = await self.repository.badge_definitions([badge.code for badge in user.badges])
+
         if any(badge.code not in definitions for badge in user.badges):
             raise Unavailable("Badge definition is unavailable")
+
         return definitions
 
-    async def response(
-        self, user: User, viewer_id: PydanticObjectId | None
-    ) -> ProfileResponse:
+    async def response(self, user: User, viewer_id: PydanticObjectId | None) -> ProfileResponse:
+        """Load badge and relationship data for a public profile response.
+
+        :param user: User account used by the operation.
+        :param viewer_id: Current viewer account ID, or None for anonymous access.
+        :return: The profile as visible to the supplied viewer.
+        """
         definitions = await self.definitions(user)
         followers, following = await self.repository.counts(user.id)
+
         return public_profile(
             user,
             definitions,
@@ -50,6 +74,11 @@ class ProfileQueries:
         )
 
     async def own_response(self, user: User) -> OwnProfileResponse:
+        """Assemble a profile including owner-only badge preferences.
+
+        :param user: User account used by the operation.
+        :return: The private owner profile response.
+        """
         definitions = await self.definitions(user)
         followers, following = await self.repository.counts(user.id)
         public = public_profile(
@@ -59,21 +88,35 @@ class ProfileQueries:
             following,
             await self.repository.is_following(user.id, user.id),
         )
+
         return own_profile(user, public, definitions)
 
     async def own_by_id(self, user_id: PydanticObjectId) -> OwnProfileResponse:
+        """Load an account and assemble its private profile response.
+
+        :param user_id: MongoDB identifier of the user account.
+        :return: The owner profile for the supplied account ID.
+        """
         user = await self.repository.get_by_id(user_id)
+
         if user is None:
             raise NotFound("Profile not found")
+
         return await self.own_response(user)
 
-    async def publications(
-        self, username: str, kind: FeedKind, offset: int, limit: int
-    ) -> list[FeedItem]:
+    async def publications(self, username: str, kind: FeedKind, offset: int, limit: int) -> list[FeedItem]:
+        """Load a page of public publications for a profile.
+
+        :param username: Public profile handle, optionally prefixed with @.
+        :param kind: Publication type filter: micro_post, article, or all when
+            supported.
+        :param offset: Number of matching entries to skip before selecting the page.
+        :param limit: Maximum number of entries to return in this page.
+        :return: The profile's feed items ordered newest first.
+        """
         user = await self.by_username(username)
-        entries = await ContentRepository.list_publications(
-            user.id, kind, offset=offset, limit=limit
-        )
+        entries = await ContentRepository.list_publications(user.id, kind, offset=offset, limit=limit)
+
         return [feed_item(entry.publication, user) for entry in entries]
 
     async def network(
@@ -83,8 +126,14 @@ class ProfileQueries:
         offset: int,
         limit: int,
     ) -> list[ProfileUserResponse]:
+        """Load a page of a profile's followers or followed accounts.
+
+        :param username: Public profile handle, optionally prefixed with @.
+        :param kind: Relationship direction: followers or following.
+        :param offset: Number of matching entries to skip before selecting the page.
+        :param limit: Maximum number of entries to return in this page.
+        :return: The requested page of public user cards.
+        """
         user = await self.by_username(username)
-        return [
-            user_card(item)
-            for item in await self.repository.connections(user.id, kind, offset, limit)
-        ]
+
+        return [user_card(item) for item in await self.repository.connections(user.id, kind, offset, limit)]

@@ -9,10 +9,10 @@ from backend.links.models import ProfileLink
 
 
 class BadgePayload(BaseModel):
+    """Versioned public display data shared by assignments of a badge."""
+
     label: str = Field(min_length=1, max_length=64, description="Public badge name.")
-    description: str | None = Field(
-        default=None, max_length=500, description="Public explanation of the badge."
-    )
+    description: str | None = Field(default=None, max_length=500, description="Public explanation of the badge.")
     background_color: str = Field(
         default="#f3f4f6",
         pattern=r"^#[0-9a-fA-F]{6}$",
@@ -36,30 +36,32 @@ class BadgePayload(BaseModel):
 
 
 class BadgeDefinition(Document):
+    """Shared badge catalog entry with display data and visibility policy."""
+
     version: Literal[2] = 2
-    code: str = Field(
-        min_length=1, max_length=64, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
-    )
+    code: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     payload: BadgePayload
     can_disable: bool = True
 
     class Settings:
+        """Beanie collection and index configuration for BadgeDefinition."""
+
         name = "badge_definitions"
-        indexes = [
-            IndexModel([("code", ASCENDING)], unique=True, name="badge_code_unique")
-        ]
+        indexes = [IndexModel([("code", ASCENDING)], unique=True, name="badge_code_unique")]
 
 
 class BadgeAssignment(BaseModel):
+    """Embedded badge assignment with the account owner visibility preference."""
+
     model_config = ConfigDict(extra="forbid")
-    code: str = Field(
-        min_length=1, max_length=64, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
-    )
+    code: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     assigned_at: datetime
     enabled: bool = True
 
 
 class User(Document):
+    """Account profile with versioned links, badge assignments, and edit revision."""
+
     email: str
     username: str
     display_name: str
@@ -76,37 +78,51 @@ class User(Document):
     @field_validator("links")
     @classmethod
     def unique_link_ids(cls, links: list[ProfileLink]) -> list[ProfileLink]:
+        """Reject duplicate embedded link identities within a profile.
+
+        :param links: Embedded profile links to validate.
+        :return: The original list of links with unique IDs.
+        """
         if len({link.id for link in links}) != len(links):
             raise ValueError("Link IDs must be unique within a profile")
+
         return links
 
     @field_validator("badges")
     @classmethod
-    def unique_badge_codes(
-        cls, assignments: list[BadgeAssignment]
-    ) -> list[BadgeAssignment]:
+    def unique_badge_codes(cls, assignments: list[BadgeAssignment]) -> list[BadgeAssignment]:
+        """Reject duplicate badge assignments within a profile.
+
+        :param assignments: Embedded badge assignments to validate.
+        :return: The original list of assignments with unique badge codes.
+        """
         if len({badge.code for badge in assignments}) != len(assignments):
             raise ValueError("Each badge code may be assigned only once per profile")
+
         return assignments
 
     class Settings:
+        """Beanie collection and index configuration for User."""
+
         name = "users"
         indexes = [
             IndexModel([("email", ASCENDING)], unique=True, name="users_email_unique"),
-            IndexModel(
-                [("username", ASCENDING)], unique=True, name="users_username_unique"
-            ),
+            IndexModel([("username", ASCENDING)], unique=True, name="users_username_unique"),
             IndexModel([("links.id", ASCENDING)], name="profile_links_by_id"),
             IndexModel([("avatar_key", ASCENDING)], name="users_avatar_key"),
         ]
 
 
 class Follow(Document):
+    """Directed follower-to-followee relationship between two accounts."""
+
     follower_id: PydanticObjectId
     followee_id: PydanticObjectId
     created_at: datetime
 
     class Settings:
+        """Beanie collection and index configuration for Follow."""
+
         name = "follows"
         indexes = [
             IndexModel(

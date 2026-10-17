@@ -21,6 +21,17 @@ async def record_audit(
     metadata: dict[str, JsonValue] | None = None,
     session: AsyncClientSession | None = None,
 ) -> AuditEvent:
+    """Persist an append-only audit event in the supplied transaction.
+
+    :param context: Actor-independent request metadata for audit and session records.
+    :param action: Audit action identifying the operation being recorded.
+    :param actor_id: Account ID responsible for the event, if known.
+    :param target_type: Domain resource type affected by the event.
+    :param target_id: Identifier of the resource targeted by the operation.
+    :param metadata: Additional structured details stored with the audit event.
+    :param session: Optional MongoDB session for the operation or caller transaction.
+    :return: The persisted audit event.
+    """
     event = AuditEvent(
         actor_id=actor_id,
         action=action,
@@ -31,4 +42,5 @@ async def record_audit(
         user_agent=context.user_agent,
         metadata=metadata or {},
     )
+
     return await AuditRepository.append(event, session=session)

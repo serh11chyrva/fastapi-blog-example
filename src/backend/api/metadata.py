@@ -13,17 +13,11 @@ Origin = Annotated[
     ),
 ]
 
-PostId = Annotated[
-    str, Path(description="Post ObjectId returned by the creation endpoint.")
-]
-ArticleId = Annotated[
-    str, Path(description="Article ObjectId returned when the draft was created.")
-]
+PostId = Annotated[str, Path(description="Post ObjectId returned by the creation endpoint.")]
+ArticleId = Annotated[str, Path(description="Article ObjectId returned when the draft was created.")]
 SessionId = Annotated[
     str,
-    Path(
-        description="Session ObjectId from your active-session list; this is not the cookie token."
-    ),
+    Path(description="Session ObjectId from your active-session list; this is not the cookie token."),
 ]
 UploadId = Annotated[
     str,
@@ -31,15 +25,11 @@ UploadId = Annotated[
 ]
 Username = Annotated[
     str,
-    Path(
-        description="Public handle, matched case-insensitively, optionally prefixed with @."
-    ),
+    Path(description="Public handle, matched case-insensitively, optionally prefixed with @."),
 ]
 ShareSlug = Annotated[
     str,
-    Path(
-        description="Readable title followed by -- and the stable 32-character share ID; take it from share_url."
-    ),
+    Path(description="Readable title followed by -- and the stable 32-character share ID; take it from share_url."),
 ]
 
 ERRORS = {
@@ -85,11 +75,19 @@ def documented_responses(
     examples: list[tuple[Any, str]] | None = None,
     success_status: int = 200,
 ) -> dict[int, dict[str, Any]]:
-    """Declare endpoint errors and examples next to the endpoint itself."""
+    """Declare endpoint errors and examples next to the endpoint itself.
+
+    :param examples: Optional successful response values and their summaries.
+    :param success_status: HTTP status under which successful examples are documented.
+    :param codes: HTTP error status codes to document.
+    :return: OpenAPI response descriptions and examples indexed by HTTP status.
+    """
     responses: dict[int, dict[str, Any]] = {}
+
     for code in codes:
         description, detail = ERRORS[code]
         detail_schema: dict[str, Any] = {"type": "string"}
+
         if code == 422:
             detail_schema = {
                 "anyOf": [
@@ -115,6 +113,7 @@ def documented_responses(
                     },
                 ]
             }
+
         responses[code] = {
             "description": description,
             "content": {
@@ -124,12 +123,11 @@ def documented_responses(
                         "required": ["detail"],
                         "properties": {"detail": detail_schema},
                     },
-                    "examples": {
-                        "error": {"summary": description, "value": {"detail": detail}}
-                    },
+                    "examples": {"error": {"summary": description, "value": {"detail": detail}}},
                 }
             },
         }
+
     if examples:
         responses[success_status] = {
             "content": {
@@ -144,4 +142,5 @@ def documented_responses(
                 }
             }
         }
+
     return responses

@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ImageFileInput(BaseModel):
+    """Client-declared filename, content type, and size for one image upload."""
+
     filename: str = Field(
         min_length=1,
         max_length=255,
@@ -23,6 +25,8 @@ class ImageFileInput(BaseModel):
 
 
 class ImageUploadRequest(BaseModel):
+    """Batch of image metadata used to prepare a direct upload session."""
+
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
@@ -46,6 +50,8 @@ class ImageUploadRequest(BaseModel):
 
 
 class PresignedImageFile(BaseModel):
+    """Temporary PUT URL, required headers, and per-file size limit."""
+
     upload_url: str = Field(
         description="Temporary presigned Garage URL. Send raw file bytes without application cookies."
     )
@@ -54,12 +60,12 @@ class PresignedImageFile(BaseModel):
         description="Required headers to send unchanged with the PUT request.",
         examples=[{"Content-Type": "image/png"}],
     )
-    max_size_bytes: int = Field(
-        description="Maximum accepted size: 5 MiB, or 10 MiB for article covers."
-    )
+    max_size_bytes: int = Field(description="Maximum accepted size: 5 MiB, or 10 MiB for article covers.")
 
 
 class ImageUploadResponse(BaseModel):
+    """Prepared upload session with its expiry and direct PUT instructions."""
+
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
@@ -78,12 +84,8 @@ class ImageUploadResponse(BaseModel):
             ]
         }
     )
-    upload_id: str = Field(
-        description="Upload session ObjectId, used only at the matching completion endpoint."
-    )
+    upload_id: str = Field(description="Upload session ObjectId, used only at the matching completion endpoint.")
     expires_at: datetime = Field(
         description="UTC deadline for uploading and starting confirmation; URLs last ten minutes."
     )
-    files: list[PresignedImageFile] = Field(
-        description="Upload instructions in the same order as the requested files."
-    )
+    files: list[PresignedImageFile] = Field(description="Upload instructions in the same order as the requested files.")

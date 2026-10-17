@@ -26,6 +26,12 @@ router = APIRouter()
 
 
 def image_service(resources: Resources, audit: Audit) -> ImageStorageService:
+    """Create the upload service from request-scoped dependencies.
+
+    :param resources: Application-owned database, cache, and storage clients.
+    :param audit: Request metadata attached to audited operations.
+    :return: The configured image storage service.
+    """
     return ImageStorageService(resources, audit)
 
 
@@ -53,6 +59,14 @@ async def prepare_avatar(
     service: Storage,
     current_user: CurrentUser,
 ) -> ImageUploadResponse:
+    """Prepare a direct upload for the current account's avatar.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param payload: Validated request data for the operation.
+    :param service: Image upload service injected for this request.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The upload session and presigned PUT instructions.
+    """
     return await service.create(current_user, "avatars", str(current_user.id), payload)
 
 
@@ -79,8 +93,18 @@ async def complete_avatar(
     response: Response,
     current_user: CurrentUser,
 ) -> OwnProfileResponse:
+    """Confirm an avatar upload and reload current owner profile settings.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param upload_id: Upload session identifier returned by upload preparation.
+    :param service: Image upload service injected for this request.
+    :param response: HTTP response whose headers, cookies, or status may be updated.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The current owner profile response.
+    """
     await service.complete(current_user, "avatars", str(current_user.id), upload_id)
     response.headers["Cache-Control"] = "private, no-store"
+
     return await ProfileQueries().own_by_id(current_user.id)
 
 
@@ -106,6 +130,15 @@ async def prepare_post_images(
     service: Storage,
     current_user: CurrentUser,
 ) -> ImageUploadResponse:
+    """Prepare direct uploads for an owned micro-post's images.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param post_id: MongoDB identifier of the micro-post.
+    :param payload: Validated request data for the operation.
+    :param service: Image upload service injected for this request.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The upload session and presigned PUT instructions.
+    """
     return await service.create(current_user, "post-images", post_id, payload)
 
 
@@ -130,7 +163,17 @@ async def complete_post_images(
     service: Storage,
     current_user: CurrentUser,
 ) -> MicroPostResponse:
+    """Confirm uploaded images and replace an owned micro-post's attachments.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param post_id: MongoDB identifier of the micro-post.
+    :param upload_id: Upload session identifier returned by upload preparation.
+    :param service: Image upload service injected for this request.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The updated micro-post response.
+    """
     result = await service.complete(current_user, "post-images", post_id, upload_id)
+
     return MicroPostResponse.model_validate(result.model_dump())
 
 
@@ -156,6 +199,15 @@ async def prepare_cover(
     service: Storage,
     current_user: CurrentUser,
 ) -> ImageUploadResponse:
+    """Prepare a direct upload for an owned article's cover.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param payload: Validated request data for the operation.
+    :param service: Image upload service injected for this request.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The upload session and presigned PUT instructions.
+    """
     return await service.create(current_user, "article-covers", article_id, payload)
 
 
@@ -180,9 +232,17 @@ async def complete_cover(
     service: Storage,
     current_user: CurrentUser,
 ) -> ArticleResponse:
-    result = await service.complete(
-        current_user, "article-covers", article_id, upload_id
-    )
+    """Confirm a cover upload and attach it to the owned article.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param upload_id: Upload session identifier returned by upload preparation.
+    :param service: Image upload service injected for this request.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The updated article response.
+    """
+    result = await service.complete(current_user, "article-covers", article_id, upload_id)
+
     return ArticleResponse.model_validate(result.model_dump())
 
 
@@ -208,6 +268,15 @@ async def prepare_article_image(
     service: Storage,
     current_user: CurrentUser,
 ) -> ImageUploadResponse:
+    """Prepare a direct upload for an owned article's inline image.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param payload: Validated request data for the operation.
+    :param service: Image upload service injected for this request.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The upload session and presigned PUT instructions.
+    """
     return await service.create(current_user, "article-images", article_id, payload)
 
 
@@ -232,7 +301,15 @@ async def complete_article_image(
     service: Storage,
     current_user: CurrentUser,
 ) -> ArticleImageResponse:
-    result = await service.complete(
-        current_user, "article-images", article_id, upload_id
-    )
+    """Confirm and attach an inline image to the owned article.
+
+    :param _origin: Validated Origin header required by mutating API operations.
+    :param article_id: MongoDB identifier of the article.
+    :param upload_id: Upload session identifier returned by upload preparation.
+    :param service: Image upload service injected for this request.
+    :param current_user: Account resolved from the current session cookie.
+    :return: The inline image URL and alternate text.
+    """
+    result = await service.complete(current_user, "article-images", article_id, upload_id)
+
     return ArticleImageResponse.model_validate(result.model_dump())

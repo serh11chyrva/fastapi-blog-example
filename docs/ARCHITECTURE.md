@@ -6,6 +6,12 @@ does not own feature policy.
 
 ## Backend responsibilities
 
+Backend classes, functions, and methods use English docstrings. Callable parameters
+and return values use reStructuredText fields (`:param name:` and `:return:`).
+Ruff uses a target line width of 120 characters, configured in `pyproject.toml`.
+Apply backend lint fixes with `uv run --locked ruff check --fix src/backend` and
+formatting with `uv run --locked ruff format src/backend`.
+
 - Routers adapt HTTP parameters, cookies, headers, and responses. Endpoint summaries,
   errors, examples, and tags are declared beside each route.
 - Application services perform complete mutations with explicit ownership and

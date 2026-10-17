@@ -26,6 +26,10 @@ router = APIRouter()
     ),
 )
 async def root() -> ApplicationStatusResponse:
+    """Return the application identifier without checking dependencies.
+
+    :return: The application status response.
+    """
     return ApplicationStatusResponse(message="FastAPI Microblog Demo")
 
 
@@ -34,10 +38,7 @@ async def root() -> ApplicationStatusResponse:
     tags=["System"],
     response_model=HealthResponse,
     summary="Check dependency health",
-    description=(
-        "Pings MongoDB and Redis and checks object storage; returns 503 if a dependency is "
-        "unavailable."
-    ),
+    description=("Pings MongoDB and Redis and checks object storage; returns 503 if a dependency is unavailable."),
     responses=documented_responses(
         503,
         examples=[
@@ -54,6 +55,12 @@ async def root() -> ApplicationStatusResponse:
     ),
 )
 async def health(request: Request) -> HealthResponse:
+    """Check MongoDB, Redis, and the required object storage buckets.
+
+    :param request: Incoming HTTP request and its application state.
+    :return: A status response reporting that all dependencies are available.
+    :raises HTTPException: If a dependency check fails, with HTTP status 503.
+    """
     try:
         await get_resources(request).mongo.admin.command("ping")
         await get_resources(request).redis.ping()
@@ -63,4 +70,5 @@ async def health(request: Request) -> HealthResponse:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="A required service is unavailable",
         ) from exc
+
     return HealthResponse(status="ok", database="ok", redis="ok", object_storage="ok")

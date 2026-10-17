@@ -93,7 +93,13 @@ OPENAPI_TAGS = [
 
 
 def add_api_reference(app: FastAPI, *, documentation_only: bool = False) -> None:
-    """Use the same reference presentation for the API and standalone preview."""
+    """Use the same reference presentation for the API and standalone preview.
+
+    :param app: FastAPI application receiving configuration or lifecycle resources.
+    :param documentation_only: Whether to hide live request controls in the reference
+        preview.
+    :return: None.
+    """
     add_scalar_reference(
         app,
         route=API_REFERENCE_URL,
@@ -110,24 +116,32 @@ def add_api_reference(app: FastAPI, *, documentation_only: bool = False) -> None
 
 
 def _schema_examples(node: dict[str, Any], schemas: dict[str, Any]) -> list[Any]:
-    """Read Pydantic examples, preserving alternatives and list response shapes."""
+    """Read Pydantic examples, preserving alternatives and list response shapes.
+
+    :param node: Schema node or document fragment to process.
+    :param schemas: OpenAPI component schemas indexed by their model names.
+    :return: Example values matching the resolved schema shape.
+    """
     if "$ref" in node:
-        return _schema_examples(
-            schemas.get(node["$ref"].rsplit("/", 1)[-1], {}), schemas
-        )
+        return _schema_examples(schemas.get(node["$ref"].rsplit("/", 1)[-1], {}), schemas)
+
     if node.get("examples"):
         return node["examples"]
+
     if node.get("type") == "array":
         items = _schema_examples(node.get("items", {}), schemas)
+
         return [[items[0]]] if items else []
-    return [
-        value
-        for option in node.get("anyOf", node.get("oneOf", []))
-        for value in _schema_examples(option, schemas)
-    ]
+
+    return [value for option in node.get("anyOf", node.get("oneOf", [])) for value in _schema_examples(option, schemas)]
 
 
 def _named_examples(values: list[tuple[Any, str]]) -> dict[str, Any]:
+    """Copy example values into named OpenAPI example entries.
+
+    :param values: Example values paired with their display summaries.
+    :return: Example entries keyed by their one-based index.
+    """
     return {
         f"example_{index}": {
             "summary": f"{value['status'].capitalize()} article"
@@ -143,16 +157,22 @@ def _named_examples(values: list[tuple[Any, str]]) -> dict[str, Any]:
 
 
 def _order_example(value: Any, node: dict[str, Any], schemas: dict[str, Any]) -> Any:
-    """Restore schema field order after Pydantic sorts example dictionaries."""
+    """Restore schema field order after Pydantic sorts example dictionaries.
+
+    :param value: Example data whose fields should follow the schema order.
+    :param node: Schema node or document fragment to process.
+    :param schemas: OpenAPI component schemas indexed by their model names.
+    :return: Example data with object fields ordered like the schema.
+    """
     if "$ref" in node:
         node = schemas.get(node["$ref"].rsplit("/", 1)[-1], {})
+
     alternatives = node.get("oneOf", node.get("anyOf", []))
+
     if alternatives:
         if isinstance(value, dict):
             candidates = [
-                schemas.get(option["$ref"].rsplit("/", 1)[-1], {})
-                if "$ref" in option
-                else option
+                schemas.get(option["$ref"].rsplit("/", 1)[-1], {}) if "$ref" in option else option
                 for option in alternatives
             ]
             candidates = [
@@ -165,63 +185,75 @@ def _order_example(value: Any, node: dict[str, Any], schemas: dict[str, Any]) ->
                     if key in value and "const" in field
                 )
             ]
+
             if candidates:
                 node = max(
                     candidates,
-                    key=lambda option: len(
-                        value.keys() & option.get("properties", {}).keys()
-                    ),
+                    key=lambda option: len(value.keys() & option.get("properties", {}).keys()),
                 )
         elif isinstance(value, list):
-            node = next(
-                (option for option in alternatives if option.get("type") == "array"), {}
-            )
+            node = next((option for option in alternatives if option.get("type") == "array"), {})
+
     if isinstance(value, list):
         return [_order_example(item, node.get("items", {}), schemas) for item in value]
+
     if isinstance(value, dict):
         properties = node.get("properties", {})
         additional = node.get("additionalProperties", {})
         additional = additional if isinstance(additional, dict) else {}
         keys = [key for key in properties if key in value]
         keys.extend(key for key in value if key not in properties)
-        return {
-            key: _order_example(value[key], properties.get(key, additional), schemas)
-            for key in keys
-        }
+
+        return {key: _order_example(value[key], properties.get(key, additional), schemas) for key in keys}
+
     return value
 
 
 def _order_document_examples(node: Any, schemas: dict[str, Any]) -> None:
-    """Align schema, parameter, and media examples without traversing example data."""
+    """Align schema, parameter, and media examples without traversing example data.
+
+    :param node: Schema node or document fragment to process.
+    :param schemas: OpenAPI component schemas indexed by their model names.
+    :return: None.
+    """
     if isinstance(node, list):
         for item in node:
             _order_document_examples(item, schemas)
     elif isinstance(node, dict):
         example_schema = node.get("schema", node)
+
         if "example" in node:
             node["example"] = _order_example(node["example"], example_schema, schemas)
+
         examples = node.get("examples")
+
         if isinstance(examples, list):
-            node["examples"] = [
-                _order_example(value, example_schema, schemas) for value in examples
-            ]
+            node["examples"] = [_order_example(value, example_schema, schemas) for value in examples]
         elif isinstance(examples, dict):
             for example in examples.values():
                 if isinstance(example, dict) and "value" in example:
-                    example["value"] = _order_example(
-                        example["value"], example_schema, schemas
-                    )
+                    example["value"] = _order_example(example["value"], example_schema, schemas)
+
         for key, child in node.items():
             if key not in {"example", "examples", "default", "enum", "const"}:
                 _order_document_examples(child, schemas)
 
 
 def configure_openapi(app: FastAPI) -> None:
-    """Add schema-derived examples and align their fields with the schema order."""
+    """Add schema-derived examples and align their fields with the schema order.
+
+    :param app: FastAPI application receiving configuration or lifecycle resources.
+    :return: None.
+    """
 
     def custom_openapi() -> dict[str, Any]:
+        """Build and cache the application schema with ordered examples.
+
+        :return: The cached or newly generated OpenAPI document.
+        """
         if app.openapi_schema is not None:
             return app.openapi_schema
+
         schema = get_openapi(
             title=app.title,
             version=app.version,
@@ -231,6 +263,7 @@ def configure_openapi(app: FastAPI) -> None:
             tags=app.openapi_tags,
         )
         schemas = schema.get("components", {}).get("schemas", {})
+
         for path_item in schema.get("paths", {}).values():
             for method, operation in path_item.items():
                 if method not in {
@@ -243,40 +276,41 @@ def configure_openapi(app: FastAPI) -> None:
                     "options",
                 }:
                     continue
-                request = (
-                    operation.get("requestBody", {})
-                    .get("content", {})
-                    .get("application/json")
-                )
+
+                request = operation.get("requestBody", {}).get("content", {}).get("application/json")
+
                 if request is not None:
                     values = _schema_examples(request.get("schema", {}), schemas)
+
                     if values:
                         request.setdefault(
                             "examples",
-                            _named_examples(
-                                [(value, "Example request") for value in values]
-                            ),
+                            _named_examples([(value, "Example request") for value in values]),
                         )
+
                 for code, response in operation.get("responses", {}).items():
                     if code == "204":
-                        response["description"] = (
-                            "Completed successfully; no response body."
-                        )
+                        response["description"] = "Completed successfully; no response body."
+
                     if not code.startswith("2") or code == "204":
                         continue
+
                     content = response.get("content", {}).get("application/json")
+
                     if content is None:
                         continue
+
                     values = _schema_examples(content.get("schema", {}), schemas)
+
                     if values:
                         content.setdefault(
                             "examples",
-                            _named_examples(
-                                [(value, "Example response") for value in values]
-                            ),
+                            _named_examples([(value, "Example response") for value in values]),
                         )
+
         _order_document_examples(schema, schemas)
         app.openapi_schema = schema
+
         return schema
 
     app.openapi = custom_openapi

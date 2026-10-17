@@ -24,24 +24,23 @@ async def get_current_user(request: Request, token: SessionToken) -> User:
 
     Absolute and idle deadlines must both remain valid at the activity update.
     The refreshed session and account are available on request.state afterwards.
+
+    :param request: Incoming HTTP request and its application state.
+    :param token: Plaintext session token supplied by the client.
+    :return: The authenticated user account.
     """
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
     now = datetime.now(UTC)
-    auth_session = await AuthSession.find_one(
-        AuthSession.token_hash == hash_session_token(token)
-    )
+    auth_session = await AuthSession.find_one(AuthSession.token_hash == hash_session_token(token))
+
     if auth_session is None or auth_session.revoked_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid")
+
     if (
         auth_session.expires_at <= now
-        or auth_session.last_seen_at + timedelta(days=get_settings().session_idle_days)
-        <= now
+        or auth_session.last_seen_at + timedelta(days=get_settings().session_idle_days) <= now
     ):
         await AuthSession.find_one(
             {
@@ -49,37 +48,25 @@ async def get_current_user(request: Request, token: SessionToken) -> User:
                 "revoked_at": None,
                 "$or": [
                     {"expires_at": {"$lte": now}},
-                    {
-                        "last_seen_at": {
-                            "$lte": now
-                            - timedelta(days=get_settings().session_idle_days)
-                        }
-                    },
+                    {"last_seen_at": {"$lte": now - timedelta(days=get_settings().session_idle_days)}},
                 ],
             }
         ).update({"$set": {"revoked_at": now}})
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired")
 
     user = await User.get(auth_session.user_id)
+
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is unavailable"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is unavailable")
 
     now = datetime.now(UTC)
-    ip_address = request.headers.get("x-real-ip") or (
-        request.client.host if request.client else None
-    )
+    ip_address = request.headers.get("x-real-ip") or (request.client.host if request.client else None)
     auth_session = await AuthSession.find_one(
         {
             "_id": auth_session.id,
             "revoked_at": None,
             "expires_at": {"$gt": now},
-            "last_seen_at": {
-                "$gt": now - timedelta(days=get_settings().session_idle_days)
-            },
+            "last_seen_at": {"$gt": now - timedelta(days=get_settings().session_idle_days)},
         }
     ).update(
         {
@@ -91,12 +78,13 @@ async def get_current_user(request: Request, token: SessionToken) -> User:
         },
         response_type=UpdateResponse.NEW_DOCUMENT,
     )
+
     if auth_session is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid")
+
     request.state.auth_session = auth_session
     request.state.current_user = user
+
     return user
 
 
@@ -104,13 +92,21 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 async def get_optional_user(request: Request, token: SessionToken) -> User | None:
+    """Resolve the current user when a session cookie is present.
+
+    :param request: Incoming HTTP request and its application state.
+    :param token: Plaintext session token supplied by the client.
+    :return: The authenticated user, or None for an absent or invalid session.
+    """
     if not token:
         return None
+
     try:
         return await get_current_user(request, token)
     except HTTPException as exc:
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
             return None
+
         raise
 
 
@@ -118,5 +114,9 @@ OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 
 
 def get_session(request: Request) -> AuthSession:
-    """Read the typed session populated by the cached CurrentUser dependency."""
+    """Read the typed session populated by the cached CurrentUser dependency.
+
+    :param request: Incoming HTTP request and its application state.
+    :return: The resolved authentication session.
+    """
     return cast(AuthSession, request.state.auth_session)

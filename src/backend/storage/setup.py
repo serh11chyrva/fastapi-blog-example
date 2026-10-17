@@ -5,8 +5,13 @@ from backend.storage.s3 import create_s3_client
 
 
 def main() -> None:
+    """Apply browser upload CORS rules to both provisioned image buckets.
+
+    :return: None.
+    """
     settings = get_settings()
     client = create_s3_client(settings)
+
     try:
         for bucket in (settings.avatar_bucket, settings.publication_bucket):
             client.head_bucket(Bucket=bucket)

@@ -14,14 +14,20 @@ from backend.profiles.schemas import (
 
 
 def avatar_url(user: User) -> str | None:
-    return (
-        f"/static/images/avatars/{user.avatar_key.rsplit('/', 1)[-1]}"
-        if user.avatar_key
-        else None
-    )
+    """Build the API image URL for a user's optional avatar.
+
+    :param user: User account used by the operation.
+    :return: The relative avatar URL, or None when no avatar exists.
+    """
+    return f"/static/images/avatars/{user.avatar_key.rsplit('/', 1)[-1]}" if user.avatar_key else None
 
 
 def link_response(link: ProfileLink) -> LinkResponse:
+    """Present a saved link with its detected platform and redirect URL.
+
+    :param link: Saved profile link to present.
+    :return: The versioned public link response.
+    """
     return LinkResponse(
         **link.model_dump(),
         platform=detect_platform(link.url),
@@ -30,6 +36,11 @@ def link_response(link: ProfileLink) -> LinkResponse:
 
 
 def user_card(user: User) -> ProfileUserResponse:
+    """Present an account as a compact public profile card.
+
+    :param user: User account used by the operation.
+    :return: The public user card without private account fields.
+    """
     return ProfileUserResponse(
         id=str(user.id),
         username=user.username,
@@ -45,6 +56,15 @@ def public_profile(
     following_count: int,
     is_following: bool,
 ) -> ProfileResponse:
+    """Assemble public profile fields and visible badge assignments.
+
+    :param user: User account used by the operation.
+    :param definitions: Shared badge definitions indexed by badge code.
+    :param follower_count: Number of accounts following the profile.
+    :param following_count: Number of accounts followed by the profile.
+    :param is_following: Whether the current viewer follows this profile.
+    :return: The public profile with follow counts and viewer relationship.
+    """
     return ProfileResponse(
         id=str(user.id),
         username=user.username,
@@ -72,6 +92,13 @@ def own_profile(
     public: ProfileResponse,
     definitions: dict[str, BadgeDefinition],
 ) -> OwnProfileResponse:
+    """Extend a public profile with revision and private badge preferences.
+
+    :param user: User account used by the operation.
+    :param public: Already assembled public portion of the owner profile.
+    :param definitions: Shared badge definitions indexed by badge code.
+    :return: The owner's profile response.
+    """
     return OwnProfileResponse(
         **public.model_dump(exclude={"badges"}),
         revision=user.revision,

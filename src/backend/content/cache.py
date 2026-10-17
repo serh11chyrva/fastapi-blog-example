@@ -6,6 +6,11 @@ from redis.exceptions import RedisError
 
 
 async def invalidate_public_feed(redis: Redis) -> None:
+    """Advance the public feed cache version when Redis is available.
+
+    :param redis: Redis client used for public feed cache versioning.
+    :return: None.
+    """
     try:
         await redis.incr("feed:public:version")
     except RedisError:
