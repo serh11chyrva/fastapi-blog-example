@@ -59,6 +59,19 @@ class BadgeAssignment(BaseModel):
     enabled: bool = True
 
 
+class AvatarImage(BaseModel):
+    """Storage metadata for one avatar image variant."""
+
+    key: str
+    content_type: str
+
+
+class AvatarVariants(BaseModel):
+    """Stored avatar variants, currently limited to the optional original image."""
+
+    original: AvatarImage | None = None
+
+
 class User(Document):
     """Account profile with versioned links, badge assignments, and edit revision."""
 
@@ -67,8 +80,7 @@ class User(Document):
     display_name: str
     bio: str = ""
     links: list[ProfileLink] = Field(default_factory=list, max_length=8)
-    avatar_key: str | None = None
-    avatar_content_type: str | None = None
+    avatars: AvatarVariants = Field(default_factory=AvatarVariants)
     badges: list[BadgeAssignment] = Field(default_factory=list)
     revision: int = Field(default=0, ge=0)
     profile_schema_version: Literal[2] = 2
@@ -109,7 +121,7 @@ class User(Document):
             IndexModel([("email", ASCENDING)], unique=True, name="users_email_unique"),
             IndexModel([("username", ASCENDING)], unique=True, name="users_username_unique"),
             IndexModel([("links.id", ASCENDING)], name="profile_links_by_id"),
-            IndexModel([("avatar_key", ASCENDING)], name="users_avatar_key"),
+            IndexModel([("avatars.original.key", ASCENDING)], name="users_avatar_original_key"),
         ]
 
 

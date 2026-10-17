@@ -129,7 +129,7 @@ async def seed_demo_data() -> None:
             for index, (username, text) in enumerate(DEMO_POSTS):
                 created_at = now - timedelta(minutes=(3 - index) * 30)
                 await MicroPost(
-                    author_id=users[username].id,
+                    owner_id=users[username].id,
                     text=text,
                     created_at=created_at,
                     updated_at=created_at,
@@ -149,7 +149,7 @@ async def seed_demo_data() -> None:
                 ),
             ]:
                 await Article(
-                    author_id=users[username].id,
+                    owner_id=users[username].id,
                     title=title,
                     summary=summary,
                     body=DEMO_ARTICLE_BODY,

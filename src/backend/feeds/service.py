@@ -13,6 +13,7 @@ from backend.feeds.presenters import feed_item
 from backend.feeds.repository import FeedEntry, FeedKind, FeedRepository, PublicationKind
 from backend.feeds.schemas import FeedResponse
 from backend.profiles.models import Follow, User
+from backend.profiles.repository import ProfileRepository
 
 
 async def make_feed(
@@ -59,21 +60,24 @@ async def make_feed(
             if not authors:
                 continue
 
-            conditions["author_id"] = {"$in": authors}
+            conditions["$or"] = [
+                {"owner_id": {"$in": authors}},
+                {"featured_author_ids": {"$in": authors}},
+            ]
 
         if cursor:
-            conditions.update(cursor.conditions(item_kind, date_field))
+            conditions = {"$and": [conditions, cursor.conditions(item_kind, date_field)]}
 
         entries.extend(await FeedRepository.load_feed_type(item_kind, conditions, limit))
 
     entries.sort(key=lambda entry: entry.sort_key, reverse=True)
     page = entries[:limit]
-    ids = list({entry.publication.author_id for entry in page})
-    by_id = {author.id: author for author in await User.find({"_id": {"$in": ids}}).to_list()} if ids else {}
+    ids = list({author_id for entry in page for author_id in entry.publication.author_ids})
+    by_id = {author.id: author for author in await ProfileRepository.users_by_ids(ids)} if ids else {}
     items = [
-        feed_item(entry.publication, by_id[entry.publication.author_id])
+        feed_item(entry.publication, [by_id[author_id] for author_id in entry.publication.author_ids])
         for entry in page
-        if entry.publication.author_id in by_id
+        if all(author_id in by_id for author_id in entry.publication.author_ids)
     ]
     next_cursor = None
 

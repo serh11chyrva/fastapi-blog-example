@@ -2,17 +2,17 @@ from datetime import datetime
 from typing import Literal
 from uuid import uuid4
 
-from beanie import Document, PydanticObjectId
+from beanie import Document
 from pydantic import Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from backend.articles.validation import ArticleBody
+from backend.publications.models import PublicationAuthors
 
 
-class Article(Document):
-    """Long-form publication with a TipTap body and draft or publishing state."""
+class Article(Document, PublicationAuthors):
+    """Long-form publication with ordered authors, a TipTap body, and publication state."""
 
-    author_id: PydanticObjectId
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
     summary: str = ""
@@ -32,8 +32,8 @@ class Article(Document):
         name = "articles"
         indexes = [
             IndexModel(
-                [("author_id", ASCENDING), ("created_at", DESCENDING)],
-                name="articles_author_time",
+                [("owner_id", ASCENDING), ("created_at", DESCENDING)],
+                name="articles_owner_time",
             ),
             IndexModel(
                 [("status", ASCENDING), ("published_at", DESCENDING)],
@@ -42,6 +42,10 @@ class Article(Document):
             IndexModel(
                 [("status", ASCENDING), ("scheduled_at", ASCENDING)],
                 name="articles_scheduled_publish",
+            ),
+            IndexModel(
+                [("featured_author_ids", ASCENDING), ("created_at", DESCENDING)],
+                name="articles_featured_authors_time",
             ),
             IndexModel([("share_id", ASCENDING)], name="articles_share_id"),
             IndexModel(
@@ -54,7 +58,7 @@ class Article(Document):
             ),
             IndexModel(
                 [
-                    ("author_id", ASCENDING),
+                    ("owner_id", ASCENDING),
                     ("deleted_at", ASCENDING),
                     ("updated_at", DESCENDING),
                     ("_id", DESCENDING),

@@ -12,6 +12,7 @@ from backend.core.resources import Resources
 from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostCreate, MicroPostResponse
 from backend.posts.service import PostService
+from backend.publications.queries import load_authors
 
 router = APIRouter()
 
@@ -59,7 +60,7 @@ async def create_micro_post(
     :param posts: Posts application service injected for this request.
     :return: The created micro-post response.
     """
-    return post_response(await posts.create_post(payload, current_user), current_user)
+    return post_response(await posts.create_post(payload, current_user), [current_user])
 
 
 @router.get(
@@ -71,22 +72,22 @@ async def create_micro_post(
     responses=documented_responses(404, 503),
 )
 async def get_micro_post(post_id: PostId, posts: Posts) -> MicroPostResponse:
-    """Read a public, undeleted micro-post and its author.
+    """Read a public, undeleted micro-post and its authors.
 
     :param post_id: MongoDB identifier of the micro-post.
     :param posts: Posts application service injected for this request.
     :return: The public micro-post response.
     """
-    post, author = await posts.get_post(post_id)
+    post, authors = await posts.get_post(post_id)
 
-    return post_response(post, author)
+    return post_response(post, authors)
 
 
 @router.patch(
     "/posts/{post_id}",
     response_model=MicroPostResponse,
     summary="Edit your micro-post",
-    description="Only the author may edit a post. The complete text field is required.",
+    description="Only the owner may edit a post. The complete text field is required.",
     tags=["Micro-posts"],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
@@ -106,14 +107,16 @@ async def update_micro_post(
     :param posts: Posts application service injected for this request.
     :return: The updated micro-post response.
     """
-    return post_response(await posts.edit_post(post_id, payload, current_user), current_user)
+    post = await posts.edit_post(post_id, payload, current_user)
+
+    return post_response(post, await load_authors(post.author_ids))
 
 
 @router.delete(
     "/posts/{post_id}",
     status_code=204,
     summary="Delete your micro-post",
-    description="Soft-deletes the post; only the author may delete it.",
+    description="Soft-deletes the post; only the owner may delete it.",
     tags=["Micro-posts"],
     responses=documented_responses(401, 403, 404, 409, 503),
 )

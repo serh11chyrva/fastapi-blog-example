@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api import examples
 from backend.articles.validation import ArticleBody, validate_tiptap_document
+from backend.profiles.schemas import ProfileUserResponse
 
 
 class ArticleCreate(BaseModel):
@@ -172,11 +173,11 @@ class ArticleScheduleRequest(BaseModel):
 
 
 class ArticleResponse(BaseModel):
-    """Full article data. Drafts and scheduled articles are visible only to their author."""
+    """Full article data. Drafts and scheduled articles are visible only to their owner."""
 
     model_config = ConfigDict(
         title="Article",
-        json_schema_extra={"examples": [examples.ARTICLE_PUBLISHED, examples.ARTICLE]},
+        json_schema_extra={"examples": [examples.ARTICLE_PUBLISHED, examples.ARTICLE, examples.ARTICLE_WITH_FEATURED_AUTHORS]},
     )
 
     id: str = Field(
@@ -207,7 +208,7 @@ class ArticleResponse(BaseModel):
     )
     thumbnail_url: str | None = Field(
         default=None,
-        description="Same-origin cover image URL, or null when absent. Unpublished media requires the author's session.",
+        description="Same-origin cover image URL, or null when absent. Unpublished media requires the owner's session.",
         examples=[examples.THUMBNAIL_URL],
     )
     inline_image_urls: list[str] = Field(
@@ -216,21 +217,20 @@ class ArticleResponse(BaseModel):
         examples=[[examples.ARTICLE_IMAGE["url"]]],
     )
     status: Literal["draft", "scheduled", "published"] = Field(
-        description="Visibility state: draft and scheduled are private to the author; published is public.",
+        description="Visibility state: draft and scheduled are private to the owner; published is public.",
         examples=["published", "draft", "scheduled"],
     )
-    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
-    author_username: str = Field(
-        description="Author public handle without @.",
-        examples=[examples.ACCOUNT["username"]],
+    owner_id: str = Field(
+        description="Account owning the publication and controlling edits, uploads, and private visibility.",
+        examples=[examples.ACCOUNT["id"]],
     )
-    author_display_name: str = Field(
-        description="Author public display name.",
-        examples=[examples.ACCOUNT["display_name"]],
-    )
-    author_avatar_url: str | None = Field(
-        description="Author avatar URL, or null when absent.",
-        examples=[examples.AVATAR_URL],
+    authors: list[ProfileUserResponse] = Field(
+        min_length=1,
+        description=(
+            "Public author cards: owner first, then featured authors in stored order. "
+            "Featured authors receive no ownership or private-access rights."
+        ),
+        examples=[[examples.AUTHOR]],
     )
     created_at: datetime = Field(
         description="UTC time when the draft was created.",

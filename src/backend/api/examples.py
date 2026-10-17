@@ -64,7 +64,7 @@ PROFILE = {
     "username": ACCOUNT["username"],
     **{key: value for key, value in PROFILE_UPDATE.items() if key != "revision"},
     "links": [LINK_RESPONSE],
-    "avatar_url": AVATAR_URL,
+    "avatars": {"original": AVATAR_URL},
     "badges": [BADGE],
     "follower_count": 127,
     "following_count": 43,
@@ -75,13 +75,13 @@ PROFILE_USER = {
     "id": "68eb7491d37a2f06b8ce9540",
     "username": "elliot_gray",
     "display_name": "Elliot Gray",
-    "avatar_url": "/static/images/avatars/d10c7629ab3e4f85a79160b2f8c4e035.jpg",
+    "avatars": {"original": "/static/images/avatars/d10c7629ab3e4f85a79160b2f8c4e035.jpg"},
 }
 AUTHOR = {
-    "author_id": ACCOUNT["id"],
-    "author_username": ACCOUNT["username"],
-    "author_display_name": ACCOUNT["display_name"],
-    "author_avatar_url": AVATAR_URL,
+    "id": ACCOUNT["id"],
+    "username": ACCOUNT["username"],
+    "display_name": ACCOUNT["display_name"],
+    "avatars": {"original": AVATAR_URL},
 }
 POST_TEXT = "Finished a 24 km ride along the river before breakfast. The best debugging ideas always seem to arrive away from the keyboard."
 POST_CREATE = {"text": POST_TEXT}
@@ -91,10 +91,12 @@ POST = {
     "share_url": "/@maya_bennett/finished-a-24-km-ride-along-the-river-before-breakfast-the-best--a98f7c1326e44b6a8c5d39e27104bf60",
     "text": POST_TEXT,
     "images": [],
-    **AUTHOR,
+    "owner_id": ACCOUNT["id"],
+    "authors": [AUTHOR],
     "created_at": "2026-10-12T10:03:27Z",
     "updated_at": "2026-10-12T10:03:27Z",
 }
+POST_WITH_FEATURED_AUTHORS = POST | {"authors": [AUTHOR, PROFILE_USER]}
 POST_IMAGE_URL = "/static/images/post-images/74b936dfe1a24c708951c3e628a0fd5b.jpg"
 POST_WITH_IMAGES = POST | {
     "images": [POST_IMAGE_URL],
@@ -142,12 +144,14 @@ ARTICLE = {
     "thumbnail_url": None,
     "inline_image_urls": [],
     "status": "draft",
-    **AUTHOR,
+    "owner_id": ACCOUNT["id"],
+    "authors": [AUTHOR],
     "created_at": "2026-10-12T13:14:08Z",
     "updated_at": "2026-10-12T13:14:08Z",
     "scheduled_at": None,
     "published_at": None,
 }
+ARTICLE_WITH_FEATURED_AUTHORS = ARTICLE | {"authors": [AUTHOR, PROFILE_USER]}
 THUMBNAIL_URL = "/static/images/article-covers/65c924eb1f8d4a36b2907d83ef6a015c.jpg"
 ARTICLE_PUBLISHED = ARTICLE | {
     "status": "published",
@@ -188,10 +192,8 @@ FEED_ARTICLE = {
         "title",
         "summary",
         "thumbnail_url",
-        "author_id",
-        "author_username",
-        "author_display_name",
-        "author_avatar_url",
+        "owner_id",
+        "authors",
         "published_at",
     )
 } | {"text": None, "images": []}
@@ -203,10 +205,8 @@ FEED_POST = {
         "share_url",
         "text",
         "images",
-        "author_id",
-        "author_username",
-        "author_display_name",
-        "author_avatar_url",
+        "owner_id",
+        "authors",
     )
 } | {
     "title": None,

@@ -32,6 +32,12 @@ Article bodies use TipTap JSON. Upload inline images to the article before refer
 their returned URLs in its body. Request upload URLs with JSON metadata, PUT raw bytes
 to Garage without application cookies, then confirm the upload. URLs last ten minutes.
 Image downloads use `/static/images/` and retain article access checks.
+Publication responses and feed items expose a nonempty `authors` array of public profile cards,
+with the owner first, followed by featured authors in stored order. Responses also expose `owner_id`.
+Only the owner controls edits and private access; featured authors are display credits. Creation leaves
+featured authors empty. Featured-author management and collaboration permissions are not implemented.
+Profiles and author cards expose `avatars: {"original": URL-or-null}`. The object is always present;
+only the original uploaded image is available today. These replace flat author fields and avatar URLs.
 
 ### Pagination and conventions
 Feeds return newest-first pages. Pass `next_cursor` unchanged as the next request's
@@ -71,11 +77,11 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Articles",
-        "description": "Write TipTap articles as private drafts, add a cover and inline images, then publish or schedule them. Drafts and scheduled articles, including their media, are accessible only to their author.",
+        "description": "Write TipTap articles as private drafts, add a cover and inline images, then publish or schedule them. Drafts and scheduled articles, including their media, are accessible only to their owner.",
     },
     {
         "name": "Publications",
-        "description": "Resolve a public publication from its author handle and readable share slug with a stable UUID. Responses can contain either a micro-post or a published article.",
+        "description": "Resolve a public publication from its owner handle and readable share slug with a stable UUID. Responses can contain either a micro-post or a published article.",
     },
     {
         "name": "Feeds",
@@ -83,7 +89,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Media",
-        "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and post images are public; unpublished article media requires the author's session.",
+        "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and post images are public; unpublished article media requires the owner's session.",
     },
     {
         "name": "System",

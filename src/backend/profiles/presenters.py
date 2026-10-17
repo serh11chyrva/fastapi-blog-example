@@ -4,6 +4,7 @@ from backend.links.models import ProfileLink
 from backend.links.platforms import detect_platform
 from backend.profiles.models import BadgeDefinition, User
 from backend.profiles.schemas import (
+    AvatarResponse,
     BadgeResponse,
     LinkResponse,
     OwnerBadgeResponse,
@@ -13,13 +14,16 @@ from backend.profiles.schemas import (
 )
 
 
-def avatar_url(user: User) -> str | None:
-    """Build the API image URL for a user's optional avatar.
+def avatars(user: User) -> AvatarResponse:
+    """Present available variants of a user's optional avatar.
 
     :param user: User account used by the operation.
-    :return: The relative avatar URL, or None when no avatar exists.
+    :return: Avatar variants with a relative original URL, or a null original when absent.
     """
-    return f"/static/images/avatars/{user.avatar_key.rsplit('/', 1)[-1]}" if user.avatar_key else None
+    image = user.avatars.original
+    original = f"/static/images/avatars/{image.key.rsplit('/', 1)[-1]}" if image else None
+
+    return AvatarResponse(original=original)
 
 
 def link_response(link: ProfileLink) -> LinkResponse:
@@ -45,7 +49,7 @@ def user_card(user: User) -> ProfileUserResponse:
         id=str(user.id),
         username=user.username,
         display_name=user.display_name,
-        avatar_url=avatar_url(user),
+        avatars=avatars(user),
     )
 
 
@@ -71,7 +75,7 @@ def public_profile(
         display_name=user.display_name,
         bio=user.bio,
         links=[link_response(link) for link in user.links],
-        avatar_url=avatar_url(user),
+        avatars=avatars(user),
         badges=[
             BadgeResponse(
                 version=definitions[badge.code].version,

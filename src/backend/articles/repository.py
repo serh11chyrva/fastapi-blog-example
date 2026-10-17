@@ -29,21 +29,21 @@ class ArticleRepository:
 
     @staticmethod
     async def list_articles(
-        author_id: PydanticObjectId,
+        owner_id: PydanticObjectId,
         status: ArticleStatus | None = None,
         *,
         offset: int = 0,
         limit: int = 20,
     ) -> list[Article]:
-        """List an author's undeleted articles with optional status filtering.
+        """List an owner's undeleted articles with optional status filtering.
 
-        :param author_id: MongoDB identifier of the publication author.
+        :param owner_id: MongoDB identifier of the publication owner.
         :param status: Optional article publication status filter.
         :param offset: Number of matching entries to skip before selecting the page.
         :param limit: Maximum number of entries to return in this page.
         :return: The requested page ordered by update time and ID descending.
         """
-        conditions: dict[str, Any] = {"author_id": author_id, "deleted_at": None}
+        conditions: dict[str, Any] = {"owner_id": owner_id, "deleted_at": None}
 
         if status is not None:
             conditions["status"] = status
@@ -61,13 +61,13 @@ class ArticleRepository:
         return await Article.find(conditions).sort(("published_at", -1), ("_id", -1)).limit(limit + 1).to_list()
 
     @staticmethod
-    async def find_shared(author_id: PydanticObjectId, share_id: str) -> Article | None:
-        """Find an undeleted public publication by its author's stable share identity.
+    async def find_shared(owner_id: PydanticObjectId, share_id: str) -> Article | None:
+        """Find an undeleted public publication by its owner's stable share identity.
 
-        :param author_id: Account owning the publication.
+        :param owner_id: Account owning the publication.
         :param share_id: Persisted stable share identity.
         :return: The public publication, or None when absent or private.
         """
         return await Article.find_one(
-            {"author_id": author_id, "share_id": share_id, "deleted_at": None, "status": "published"}
+            {"owner_id": owner_id, "share_id": share_id, "deleted_at": None, "status": "published"}
         )

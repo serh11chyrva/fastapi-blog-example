@@ -113,7 +113,14 @@ class ProfileQueries:
         user = await self.by_username(username)
         entries = await FeedRepository.list_publications(user.id, kind, offset=offset, limit=limit)
 
-        return [feed_item(entry.publication, user) for entry in entries]
+        ids = list({author_id for entry in entries for author_id in entry.publication.author_ids})
+        by_id = {author.id: author for author in await self.repository.users_by_ids(ids)}
+
+        return [
+            feed_item(entry.publication, [by_id[author_id] for author_id in entry.publication.author_ids])
+            for entry in entries
+            if all(author_id in by_id for author_id in entry.publication.author_ids)
+        ]
 
     async def network(
         self,

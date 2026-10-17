@@ -33,11 +33,11 @@ class PostRepository:
         return await MicroPost.find(conditions).sort(("created_at", -1), ("_id", -1)).limit(limit + 1).to_list()
 
     @staticmethod
-    async def find_shared(author_id: PydanticObjectId, share_id: str) -> MicroPost | None:
-        """Find an undeleted public publication by its author's stable share identity.
+    async def find_shared(owner_id: PydanticObjectId, share_id: str) -> MicroPost | None:
+        """Find an undeleted public publication by its owner's stable share identity.
 
-        :param author_id: Account owning the publication.
+        :param owner_id: Account owning the publication.
         :param share_id: Persisted stable share identity.
         :return: The public publication, or None when absent or private.
         """
-        return await MicroPost.find_one({"author_id": author_id, "share_id": share_id, "deleted_at": None})
+        return await MicroPost.find_one({"owner_id": owner_id, "share_id": share_id, "deleted_at": None})

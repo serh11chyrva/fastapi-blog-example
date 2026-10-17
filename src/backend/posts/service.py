@@ -16,6 +16,7 @@ from backend.posts.models import MicroPost
 from backend.posts.repository import PostRepository
 from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
+from backend.publications.queries import load_authors
 from backend.storage.cleanup import queue_deletion
 
 
@@ -60,7 +61,7 @@ class PostService:
         """
         item = await self.repository.get_post(publication_id(resource_id), session=session)
 
-        if item is None or item.deleted_at is not None or item.author_id != owner.id:
+        if item is None or item.deleted_at is not None or item.owner_id != owner.id:
             raise NotFound("Publication not found")
 
         return item
@@ -73,7 +74,7 @@ class PostService:
         :return: The persisted micro-post.
         """
         now = datetime.now(UTC)
-        post = MicroPost(author_id=owner.id, text=payload.text, created_at=now, updated_at=now)
+        post = MicroPost(owner_id=owner.id, text=payload.text, created_at=now, updated_at=now)
 
         async with transaction(self.resources.mongo) as session:
             await post.insert(session=session)
@@ -116,18 +117,18 @@ class PostService:
 
         return post
 
-    async def get_post(self, resource_id: str) -> tuple[MicroPost, User]:
-        """Load a public undeleted micro-post and its author.
+    async def get_post(self, resource_id: str) -> tuple[MicroPost, list[User]]:
+        """Load a public undeleted micro-post and its authors in stored order.
 
         :param resource_id: String identifier of the publication to load or mutate.
-        :return: The micro-post and its author account.
+        :return: The micro-post and its author accounts in stored order.
         """
         post = await self.repository.get_post(publication_id(resource_id))
 
         if post is None or post.deleted_at is not None:
             raise NotFound("Post not found")
 
-        return post, await self.author(post.author_id)
+        return post, await load_authors(post.author_ids)
 
     async def delete(self, resource_id: str, owner: User) -> None:
         """Soft-delete an owned publication and queue its images for cleanup.
@@ -156,16 +157,3 @@ class PostService:
             )
 
         await invalidate_public_feed(self.resources.redis)
-
-    async def author(self, author_id: PydanticObjectId) -> User:
-        """Load a publication author or raise a not-found error.
-
-        :param author_id: MongoDB identifier of the publication author.
-        :return: The author account.
-        """
-        author = await User.get(author_id)
-
-        if author is None:
-            raise NotFound("Author not found")
-
-        return author

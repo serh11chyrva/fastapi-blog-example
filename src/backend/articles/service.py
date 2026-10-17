@@ -17,6 +17,8 @@ from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.feeds.cache import invalidate_public_feed
 from backend.profiles.models import User
+from backend.profiles.repository import ProfileRepository
+from backend.publications.queries import load_authors
 from backend.storage.cleanup import queue_deletion
 
 
@@ -61,7 +63,7 @@ class ArticleService:
         """
         item = await self.repository.get_article(publication_id(resource_id), session=session)
 
-        if item is None or item.deleted_at is not None or item.author_id != owner.id:
+        if item is None or item.deleted_at is not None or item.owner_id != owner.id:
             raise NotFound("Publication not found")
 
         return item
@@ -78,7 +80,7 @@ class ArticleService:
 
         now = datetime.now(UTC)
         article = Article(
-            author_id=owner.id,
+            owner_id=owner.id,
             title=payload.title,
             summary=payload.summary,
             body=payload.body,
@@ -195,34 +197,47 @@ class ArticleService:
 
         return article
 
-    async def get_article(self, resource_id: str, viewer: User | None) -> tuple[Article, User]:
+    async def get_article(self, resource_id: str, viewer: User | None) -> tuple[Article, list[User]]:
         """Load an article after enforcing publication visibility.
 
         :param resource_id: String identifier of the publication to load or mutate.
         :param viewer: Current account, or None for an anonymous reader.
-        :return: The visible article and its author account.
+        :return: The visible article and its author accounts in stored order.
         """
         article = await self.repository.get_article(publication_id(resource_id))
 
         if (
             article is None
             or article.deleted_at is not None
-            or (article.status != "published" and (viewer is None or viewer.id != article.author_id))
+            or (article.status != "published" and (viewer is None or viewer.id != article.owner_id))
         ):
             raise NotFound("Article not found")
 
-        return article, await self.author(article.author_id)
+        return article, await load_authors(article.author_ids)
 
-    async def list_mine(self, owner: User, status: ArticleStatus | None, offset: int, limit: int) -> list[Article]:
+    async def list_mine(
+        self,
+        owner: User,
+        status: ArticleStatus | None,
+        offset: int,
+        limit: int,
+    ) -> list[tuple[Article, list[User]]]:
         """List the owner's articles with status and offset pagination.
 
         :param owner: Authenticated account owning or initiating the operation.
         :param status: Optional article publication status filter.
         :param offset: Number of matching entries to skip before selecting the page.
         :param limit: Maximum number of entries to return in this page.
-        :return: The requested page of the owner's articles.
+        :return: Owned articles paired with all their author accounts in stored order.
         """
-        return await self.repository.list_articles(owner.id, status, offset=offset, limit=limit)
+        articles = await self.repository.list_articles(owner.id, status, offset=offset, limit=limit)
+        ids = list({author_id for article in articles for author_id in article.author_ids})
+        by_id = {author.id: author for author in await ProfileRepository.users_by_ids(ids)}
+
+        if any(author_id not in by_id for article in articles for author_id in article.author_ids):
+            raise NotFound("Author not found")
+
+        return [(article, [by_id[author_id] for author_id in article.author_ids]) for article in articles]
 
     async def delete(self, resource_id: str, owner: User) -> None:
         """Soft-delete an owned publication and queue its images for cleanup.
@@ -251,16 +266,3 @@ class ArticleService:
             )
 
         await invalidate_public_feed(self.resources.redis)
-
-    async def author(self, author_id: PydanticObjectId) -> User:
-        """Load a publication author or raise a not-found error.
-
-        :param author_id: MongoDB identifier of the publication author.
-        :return: The author account.
-        """
-        author = await User.get(author_id)
-
-        if author is None:
-            raise NotFound("Author not found")
-
-        return author

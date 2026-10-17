@@ -140,6 +140,15 @@ class BadgePreferenceUpdate(BaseModel):
     enabled: bool = Field(description="Desired visibility. Disabling a mandatory badge returns 403.")
 
 
+class AvatarResponse(BaseModel):
+    """Available avatar variants, currently limited to the original uploaded image."""
+
+    original: str | None = Field(
+        description="Same-origin original avatar URL, or null when no avatar is set.",
+        examples=[examples.AVATAR_URL, None],
+    )
+
+
 class ProfileResponse(BaseModel):
     """A public profile, with follow state relative to the requesting viewer."""
 
@@ -165,9 +174,9 @@ class ProfileResponse(BaseModel):
         description="Versioned public links in the order chosen by the profile owner; open redirect_url for navigation.",
         examples=[[examples.LINK_RESPONSE]],
     )
-    avatar_url: str | None = Field(
-        description="Same-origin avatar URL, or null when no avatar is set.",
-        examples=[examples.AVATAR_URL],
+    avatars: AvatarResponse = Field(
+        description="Available avatar variants; original is null when no avatar is set.",
+        examples=[{"original": examples.AVATAR_URL}],
     )
     badges: list[BadgeResponse] = Field(
         description="Only publicly visible badges. Owner settings and assignment timestamps are never included.",
@@ -192,7 +201,7 @@ class OwnProfileResponse(ProfileResponse):
 
 
 class ProfileUserResponse(BaseModel):
-    """Compact profile card used by follower and following lists."""
+    """Compact public profile card used by authors, follower lists, and following lists."""
 
     model_config = ConfigDict(
         title="Public profile card",
@@ -211,7 +220,7 @@ class ProfileUserResponse(BaseModel):
         description="Public name displayed on the profile card.",
         examples=[examples.PROFILE_USER["display_name"]],
     )
-    avatar_url: str | None = Field(
-        description="Same-origin avatar URL, or null when no avatar is set.",
-        examples=[examples.PROFILE_USER["avatar_url"]],
+    avatars: AvatarResponse = Field(
+        description="Available avatar variants; original is null when no avatar is set.",
+        examples=[{"original": examples.AVATAR_URL}],
     )

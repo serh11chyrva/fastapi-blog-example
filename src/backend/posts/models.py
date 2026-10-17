@@ -1,15 +1,16 @@
 from datetime import datetime
 from uuid import uuid4
 
-from beanie import Document, PydanticObjectId
+from beanie import Document
 from pydantic import Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
+from backend.publications.models import PublicationAuthors
 
-class MicroPost(Document):
-    """Public short-form publication with stable sharing and image attachments."""
 
-    author_id: PydanticObjectId
+class MicroPost(Document, PublicationAuthors):
+    """Public short-form publication with ordered authors, stable sharing, and image attachments."""
+
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     text: str
     image_keys: list[str] = Field(default_factory=list)
@@ -23,8 +24,12 @@ class MicroPost(Document):
         name = "micro_posts"
         indexes = [
             IndexModel(
-                [("author_id", ASCENDING), ("created_at", DESCENDING)],
-                name="posts_author_time",
+                [("owner_id", ASCENDING), ("created_at", DESCENDING)],
+                name="posts_owner_time",
+            ),
+            IndexModel(
+                [("featured_author_ids", ASCENDING), ("created_at", DESCENDING)],
+                name="posts_featured_authors_time",
             ),
             IndexModel([("share_id", ASCENDING)], name="posts_share_id"),
             IndexModel(

@@ -33,16 +33,16 @@ async def get_shared_publication(
     username: Username,
     share_slug: ShareSlug,
 ) -> MicroPostResponse | ArticleResponse:
-    """Resolve a public publication using its author's handle and share slug.
+    """Resolve a public publication using its owner's handle and share slug.
 
     :param username: Public profile handle, optionally prefixed with @.
     :param share_slug: Readable share slug ending with the stable publication share ID.
     :return: The matching micro-post or published article response.
     """
-    publication, author = await shared(username, share_slug)
+    publication, authors = await shared(username, share_slug)
 
     return (
-        post_response(publication, author)
+        post_response(publication, authors)
         if isinstance(publication, MicroPost)
-        else article_response(publication, author)
+        else article_response(publication, authors)
     )

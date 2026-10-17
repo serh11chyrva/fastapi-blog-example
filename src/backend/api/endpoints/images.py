@@ -20,7 +20,7 @@ router = APIRouter()
     summary="Read an attached image",
     description=(
         "Avatars and post images are public. Article images require a published article or "
-        "its author's session. Unattached or inaccessible objects return 404."
+        "its owner's session. Unattached or inaccessible objects return 404."
     ),
     tags=["Media"],
     responses={
@@ -61,7 +61,7 @@ async def read_image(
     cache_control = "public, max-age=3600"
 
     if collection == "avatars":
-        attached = await User.find_one(User.avatar_key == key)
+        attached = await User.find_one({"avatars.original.key": key})
         bucket = settings.avatar_bucket
     elif collection == "post-images":
         attached = await MicroPost.find_one({"image_keys": key, "deleted_at": None})
@@ -73,7 +73,7 @@ async def read_image(
         if (
             attached is not None
             and attached.status != "published"
-            and (current_user is None or current_user.id != attached.author_id)
+            and (current_user is None or current_user.id != attached.owner_id)
         ):
             attached = None
 

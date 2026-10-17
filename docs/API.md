@@ -198,7 +198,7 @@ Public profile example:
   "display_name": "Avery R.",
   "bio": "Writing about books and software.",
   "links": [{"version":1,"id":"da3861fe-4336-411f-8e34-e32d37c2ebad","label":"Website","url":"https://example.com","platform":"website","redirect_url":"/api/v1/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect"}],
-  "avatar_url": "/static/images/avatars/0123456789abcdef0123456789abcdef.png",
+  "avatars": {"original": "/static/images/avatars/0123456789abcdef0123456789abcdef.png"},
   "badges": [{"version":2,"code":"early-reader","payload":{"label":"Early Reader","description":"Joined the demo community early.","background_color":"#f3f4f6","text_color":"#374151","icon_url":"/static/images/badges/star.svg","icon_color":"#374151"}}],
   "follower_count": 3,
   "following_count": 5,
@@ -331,6 +331,31 @@ Only attached images are served. Missing, deleted, or inaccessible images return
 
 Following yourself returns `400`. Repeated follow/unfollow requests are safe and return `204`.
 
+## Publication authors and avatar variants
+
+Micro-posts, full articles, all feed items, profile publication lists, and shared-publication responses
+return `authors`, a nonempty array of public profile cards in display order. Each card contains only
+`id`, `username`, `display_name`, and `avatars`. Responses also expose `owner_id` separately.
+The array contains the owner first, followed by `featured_author_ids` in stored order. Featured authors
+are display credits and receive no editing, upload, or private-read rights; those depend only on `owner_id`.
+Creation sets the caller as owner and leaves featured authors empty. Adding/removing featured authors
+and collaboration permissions are not implemented. Public profile lists and following feeds match the
+owner or a featured author; `/me/articles` lists only owned articles. Shared URLs use the owner's handle.
+
+Public profiles, own profiles (including avatar confirmation), follower/following cards, and publication
+authors return `avatars: {"original": "/static/images/avatars/..."}`. The `avatars` object is always
+present; `original` is null when no avatar is set. Only the original variant is currently available;
+automatic resizing is not implemented. Clients should allow additional variant keys in future responses.
+
+This replaces the previous flat publication author fields and profile avatar URL field. Clients must
+read `authors` and `avatars.original`; the old response fields are no longer emitted. Request payloads
+are unchanged. Publication documents require `owner_id` and store an ordered `featured_author_ids`
+list (empty by default). Featured IDs must be unique and cannot contain the owner. The combined
+`author_ids` list is an internal computed property, not a stored field. Profiles store image metadata
+under `avatars.original` (`key` and `content_type`), or null when absent. No migrations or
+legacy-response adapters are included; existing data, saved upload results, and indexes require a
+separate migration before use with this schema.
+
 ## Feeds
 
 | Method | Path | Access | Purpose |
@@ -351,10 +376,8 @@ Feed items are a discriminated union: `micro_post` requires text, while `article
       "title": null,
       "text": "A small idea worth sharing.",
       "summary": null,
-      "author_id": "65f0c2a1b2c3d4e5f6071829",
-      "author_username": "reader_one",
-      "author_display_name": "Avery R.",
-      "author_avatar_url": null,
+      "owner_id": "65f0c2a1b2c3d4e5f6071829",
+      "authors": [{"id":"65f0c2a1b2c3d4e5f6071829","username":"reader_one","display_name":"Avery R.","avatars":{"original":null}}],
       "published_at": "2026-10-12T09:34:15Z"
     },
     {
@@ -363,10 +386,8 @@ Feed items are a discriminated union: `micro_post` requires text, while `article
       "title": "Notes on reading",
       "text": null,
       "summary": "A few practical ideas.",
-      "author_id": "65f0c2a1b2c3d4e5f6071829",
-      "author_username": "reader_one",
-      "author_display_name": "Avery R.",
-      "author_avatar_url": null,
+      "owner_id": "65f0c2a1b2c3d4e5f6071829",
+      "authors": [{"id":"65f0c2a1b2c3d4e5f6071829","username":"reader_one","display_name":"Avery R.","avatars":{"original":null}}],
       "published_at": "2026-10-12T09:30:00Z"
     }
   ],
@@ -380,8 +401,8 @@ Feed items are a discriminated union: `micro_post` requires text, while `article
 | --- | --- | --- | --- |
 | POST | `/posts` | Session | Publish immediately |
 | GET | `/posts/{post_id}` | Public | Read post |
-| PATCH | `/posts/{post_id}` | Author | Replace post text |
-| DELETE | `/posts/{post_id}` | Author | Soft-delete post |
+| PATCH | `/posts/{post_id}` | Owner | Replace post text |
+| DELETE | `/posts/{post_id}` | Owner | Soft-delete post |
 | GET | `/publications/{username}/{share_slug}` | Public | Resolve a shared `@username/slug--share-id` link |
 
 Create request and representative response:
@@ -395,10 +416,8 @@ Create request and representative response:
   "id":"65f0c2a1b2c3d4e5f6071831",
   "kind":"micro_post",
   "text":"A small idea worth sharing with the community.",
-  "author_id":"65f0c2a1b2c3d4e5f6071829",
-  "author_username":"reader_one",
-  "author_display_name":"Avery R.",
-  "author_avatar_url":null,
+  "owner_id":"65f0c2a1b2c3d4e5f6071829",
+  "authors": [{"id":"65f0c2a1b2c3d4e5f6071829","username":"reader_one","display_name":"Avery R.","avatars":{"original":null}}],
   "created_at":"2026-10-12T09:34:15Z",
   "updated_at":"2026-10-12T09:34:15Z"
 }
@@ -412,12 +431,12 @@ Text must contain 1–280 non-whitespace characters. `PATCH` accepts the same co
 | --- | --- | --- | --- |
 | POST | `/articles` | Session | Create a draft |
 | GET | `/me/articles?status=all` | Session | List own articles |
-| GET | `/articles/{article_id}` | Public / author for draft | Read article |
-| PATCH | `/articles/{article_id}` | Author | Partially update article |
-| POST | `/articles/{article_id}/publish` | Author | Publish draft |
-| POST | `/articles/{article_id}/schedule` | Author | Schedule a future publication |
-| POST | `/articles/{article_id}/draft` | Author | Return an article to draft |
-| DELETE | `/articles/{article_id}` | Author | Soft-delete article |
+| GET | `/articles/{article_id}` | Public / owner for draft | Read article |
+| PATCH | `/articles/{article_id}` | Owner | Partially update article |
+| POST | `/articles/{article_id}/publish` | Owner | Publish draft |
+| POST | `/articles/{article_id}/schedule` | Owner | Schedule a future publication |
+| POST | `/articles/{article_id}/draft` | Owner | Return an article to draft |
+| DELETE | `/articles/{article_id}` | Owner | Soft-delete article |
 
 Create an article as a draft, then edit or publish it. `status` for the author list is `all`, `draft`, `scheduled`, or `published`. The author list accepts `offset` (default 0) and `limit` (default 20, maximum 100), ordered by updated time and ID descending. Request the next offset until fewer than limit entries are returned; there is no silent 100-article cutoff. Profile publication lists accept offset and limit too (default/maximum 50). Offset pagination can shift when publications are added or edited; refresh from offset 0 when reconciling changes. A draft request body uses TipTap JSON, not HTML. Supported nodes/marks are document, paragraph, heading levels 1–3, text, hard break, horizontal rule, bullet/ordered list, list item, blockquote, code block, bold, italic, strike, code, and HTTP(S) links. The JSON document is limited to 1,000,000 UTF-8 encoded bytes, 64 nesting levels, and 10,000 content nodes. The node budget is checked before enqueueing child nodes, so a wide tree is rejected without expanding an unbounded traversal queue. Every node, attribute object, mark list, and child array is validated. Null child/mark arrays, unsupported nodes, and invalid parent-child structures return 422. Documents and blockquotes require block content; lists require list items; list items start with a paragraph.
 
@@ -444,7 +463,7 @@ The scheduler checks every 15 seconds. Returning to draft clears a pending sched
 }
 ```
 
-Article response adds `id`, `kind: "article"`, `status`, author fields, `created_at`, `updated_at`, and nullable `published_at`. `PATCH` accepts any subset of `title`, `summary`, and `body`. Published articles are publicly readable. Draft reads by anyone except the author return `404`.
+Article response adds `id`, `kind: "article"`, `status`, `owner_id`, `authors`, `created_at`, `updated_at`, and nullable `published_at`. `PATCH` accepts any subset of `title`, `summary`, and `body`. Published articles are publicly readable. Draft reads by anyone except the owner return `404`.
 
 ## Health and error envelope
 

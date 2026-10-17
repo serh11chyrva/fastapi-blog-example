@@ -52,7 +52,7 @@ async def publish_due_articles(mongo_client: AsyncMongoClient) -> int:
             await record_audit(
                 AuditContext(),
                 "ARTICLE_PUBLISHED",
-                actor_id=current.author_id,
+                actor_id=current.owner_id,
                 target_type="article",
                 target_id=str(current.id),
                 metadata={"source": "scheduled_publication"},

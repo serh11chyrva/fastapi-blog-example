@@ -70,7 +70,7 @@ class FeedRepository:
     ) -> list[FeedEntry]:
         """Merge an author's public posts and articles into an offset page.
 
-        :param author_id: MongoDB identifier of the publication author.
+        :param author_id: Account credited as the owner or a featured author.
         :param kind: Publication type filter: micro_post, article, or all when
             supported.
         :param offset: Number of matching entries to skip before selecting the page.
@@ -83,7 +83,7 @@ class FeedRepository:
             entries.extend(
                 await FeedRepository.load_feed_type(
                     "micro_post",
-                    {"author_id": author_id, "deleted_at": None},
+                    {"$or": [{"owner_id": author_id}, {"featured_author_ids": author_id}], "deleted_at": None},
                     offset + limit,
                 )
             )
@@ -93,7 +93,7 @@ class FeedRepository:
                 await FeedRepository.load_feed_type(
                     "article",
                     {
-                        "author_id": author_id,
+                        "$or": [{"owner_id": author_id}, {"featured_author_ids": author_id}],
                         "deleted_at": None,
                         "status": "published",
                         "published_at": {"$ne": None},

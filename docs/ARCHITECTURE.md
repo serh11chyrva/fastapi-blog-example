@@ -152,3 +152,18 @@ from successfully loaded empty lists.
 Cookie security is generated from authentication dependencies. Optional-session
 reads explicitly allow anonymous access in OpenAPI. Shared schema generation only
 adds examples; it does not infer authentication or response policy from URL text.
+
+Publication documents store `owner_id` independently of the ordered `featured_author_ids` list.
+Featured author IDs are unique, exclude the owner, and default to an empty list. A computed `author_ids`
+property combines the owner and featured authors for response assembly without persisting a second list.
+Only `owner_id` determines editing, upload, private-read rights, scheduler attribution, and owned lists.
+Creation sets the caller as owner; featured-author management and collaboration permissions are not implemented.
+Owner indexes and featured-author multikey indexes support public profile and following-feed queries.
+Shared URLs resolve by the owner's handle. Cursor and author-membership filters are combined with `$and`
+to preserve both disjunctions. Presenters receive owner and featured accounts in display order; list
+reads load accounts in batches. Responses expose `owner_id` and compact public cards in `authors`.
+
+Profiles store avatar metadata in `avatars.original` as `key` and `content_type`, or null when absent.
+An index on `avatars.original.key` supports attachment reads and cleanup. Presenters expose only the
+nullable original URL. Resizing, legacy-response adapters, and data/index migrations are not included.
+The frontend still uses the previous API contract and requires a separate update.

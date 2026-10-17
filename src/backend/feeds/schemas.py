@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.api import examples
+from backend.profiles.schemas import ProfileUserResponse
 
 
 class FeedBase(BaseModel):
@@ -23,18 +24,17 @@ class FeedBase(BaseModel):
         description="Relative URL of the public publication page.",
         examples=[examples.ARTICLE["share_url"]],
     )
-    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
-    author_username: str = Field(
-        description="Author public handle without @.",
-        examples=[examples.ACCOUNT["username"]],
+    owner_id: str = Field(
+        description="Account owning the publication and controlling edits, uploads, and private visibility.",
+        examples=[examples.ACCOUNT["id"]],
     )
-    author_display_name: str = Field(
-        description="Author public display name.",
-        examples=[examples.ACCOUNT["display_name"]],
-    )
-    author_avatar_url: str | None = Field(
-        description="Author avatar URL, or null when absent.",
-        examples=[examples.AVATAR_URL],
+    authors: list[ProfileUserResponse] = Field(
+        min_length=1,
+        description=(
+            "Public author cards: owner first, then featured authors in stored order. "
+            "Featured authors receive no ownership or private-access rights."
+        ),
+        examples=[[examples.AUTHOR]],
     )
     published_at: datetime = Field(
         description="UTC publication time used for feed ordering; creation time for micro-posts.",

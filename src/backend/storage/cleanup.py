@@ -39,7 +39,7 @@ async def is_attached(key: str) -> bool:
     :return: True when an attachment exists; otherwise False.
     """
     if key.startswith("avatars/"):
-        return await User.find_one(User.avatar_key == key) is not None
+        return await User.find_one({"avatars.original.key": key}) is not None
 
     if key.startswith("post-images/"):
         return await MicroPost.find_one({"image_keys": key, "deleted_at": None}) is not None

@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api import examples
+from backend.profiles.schemas import ProfileUserResponse
 
 
 class MicroPostCreate(BaseModel):
@@ -35,11 +36,11 @@ class MicroPostCreate(BaseModel):
 
 
 class MicroPostResponse(BaseModel):
-    """Published micro-post with its public author card."""
+    """Published micro-post with its ordered public author cards."""
 
     model_config = ConfigDict(
         title="Published micro-post",
-        json_schema_extra={"examples": [examples.POST_WITH_IMAGES]},
+        json_schema_extra={"examples": [examples.POST_WITH_IMAGES, examples.POST_WITH_FEATURED_AUTHORS]},
     )
 
     id: str = Field(
@@ -65,18 +66,17 @@ class MicroPostResponse(BaseModel):
         description="Same-origin URLs for attached images, in display order. A post can have up to five images.",
         examples=[[examples.POST_IMAGE_URL]],
     )
-    author_id: str = Field(description="Author account identifier.", examples=[examples.ACCOUNT["id"]])
-    author_username: str = Field(
-        description="Author public handle without @.",
-        examples=[examples.ACCOUNT["username"]],
+    owner_id: str = Field(
+        description="Account owning the publication and controlling edits, uploads, and private visibility.",
+        examples=[examples.ACCOUNT["id"]],
     )
-    author_display_name: str = Field(
-        description="Author public display name.",
-        examples=[examples.ACCOUNT["display_name"]],
-    )
-    author_avatar_url: str | None = Field(
-        description="Author avatar URL, or null when absent.",
-        examples=[examples.AVATAR_URL],
+    authors: list[ProfileUserResponse] = Field(
+        min_length=1,
+        description=(
+            "Public author cards: owner first, then featured authors in stored order. "
+            "Featured authors receive no ownership or private-access rights."
+        ),
+        examples=[[examples.AUTHOR]],
     )
     created_at: datetime = Field(
         description="UTC creation time; micro-posts become public immediately.",

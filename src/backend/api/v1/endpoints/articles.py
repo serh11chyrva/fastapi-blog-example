@@ -12,6 +12,7 @@ from backend.articles.service import ArticleService
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.resources import Resources
+from backend.publications.queries import load_authors
 
 router = APIRouter()
 
@@ -61,7 +62,7 @@ async def delete_article(
     response_model=ArticleResponse,
     status_code=201,
     summary="Create an article draft",
-    description=("Creates a private-to-author draft. The body must follow the supported TipTap JSON schema."),
+    description=("Creates a private-to-owner draft. The body must follow the supported TipTap JSON schema."),
     tags=["Articles"],
     responses=documented_responses(
         401,
@@ -86,7 +87,7 @@ async def create_article(
     :param articles: Articles application service injected for this request.
     :return: The created article response.
     """
-    return article_response(await articles.create_article(payload, current_user), current_user)
+    return article_response(await articles.create_article(payload, current_user), [current_user])
 
 
 @router.get(
@@ -95,7 +96,7 @@ async def create_article(
     summary="List your articles",
     description=(
         "Returns your articles. Filter status by all, draft, scheduled, or published; "
-        "defaults to all. Unpublished articles are visible only to their author. Offset "
+        "defaults to all. Unpublished articles are visible only to their owner. Offset "
         "defaults to 0; limit defaults to 20 and is capped at 100. Ordering is updated_at and "
         "ID descending."
     ),
@@ -122,9 +123,9 @@ async def list_my_articles(
     :param limit: Maximum number of entries to return in this page.
     :return: The requested page of article responses.
     """
-    articles = await articles.list_mine(current_user, None if article_status == "all" else article_status, offset, limit)
+    items = await articles.list_mine(current_user, None if article_status == "all" else article_status, offset, limit)
 
-    return [article_response(article, current_user) for article in articles]
+    return [article_response(article, authors) for article, authors in items]
 
 
 @router.get(
@@ -133,7 +134,7 @@ async def list_my_articles(
     summary="Get an article",
     description=(
         "Returns the full TipTap body and media URLs. Published articles are public; drafts "
-        "and scheduled articles require their author's session. Missing, deleted, "
+        "and scheduled articles require their owner's session. Missing, deleted, "
         "inaccessible, and malformed IDs return 404."
     ),
     tags=["Articles"],
@@ -141,7 +142,7 @@ async def list_my_articles(
     openapi_extra={"security": [{}, {"SessionCookie": []}]},
 )
 async def get_article(article_id: ArticleId, current_user: OptionalUser, articles: Articles) -> ArticleResponse:
-    """Read a visible article, allowing private drafts only for their author.
+    """Read a visible article, allowing private drafts only for their owner.
 
     :param article_id: MongoDB identifier of the article.
     :param current_user: Account resolved from the session cookie, or None for anonymous
@@ -149,16 +150,16 @@ async def get_article(article_id: ArticleId, current_user: OptionalUser, article
     :param articles: Articles application service injected for this request.
     :return: The article response including its body.
     """
-    article, author = await articles.get_article(article_id, current_user)
+    article, authors = await articles.get_article(article_id, current_user)
 
-    return article_response(article, author)
+    return article_response(article, authors)
 
 
 @router.patch(
     "/articles/{article_id}",
     response_model=ArticleResponse,
     summary="Edit your article",
-    description="Partial update of title, summary, or TipTap JSON body; only the author may edit.",
+    description="Partial update of title, summary, or TipTap JSON body; only the owner may edit.",
     tags=["Articles"],
     responses=documented_responses(
         401,
@@ -185,7 +186,9 @@ async def update_article(
     :param articles: Articles application service injected for this request.
     :return: The updated article response.
     """
-    return article_response(await articles.edit_article(article_id, payload, current_user), current_user)
+    article = await articles.edit_article(article_id, payload, current_user)
+
+    return article_response(article, await load_authors(article.author_ids))
 
 
 @router.post(
@@ -226,7 +229,9 @@ async def publish_article(
     :param articles: Articles application service injected for this request.
     :return: The published article response.
     """
-    return article_response(await articles.transition(article_id, current_user, "published"), current_user)
+    article = await articles.transition(article_id, current_user, "published")
+
+    return article_response(article, await load_authors(article.author_ids))
 
 
 @router.post(
@@ -258,7 +263,9 @@ async def return_article_to_draft(
     :param articles: Articles application service injected for this request.
     :return: The draft article response.
     """
-    return article_response(await articles.transition(article_id, current_user, "draft"), current_user)
+    article = await articles.transition(article_id, current_user, "draft")
+
+    return article_response(article, await load_authors(article.author_ids))
 
 
 @router.post(
@@ -292,7 +299,6 @@ async def schedule_article(
     :param articles: Articles application service injected for this request.
     :return: The scheduled article response.
     """
-    return article_response(
-        await articles.transition(article_id, current_user, "scheduled", payload.publish_at),
-        current_user,
-    )
+    article = await articles.transition(article_id, current_user, "scheduled", payload.publish_at)
+
+    return article_response(article, await load_authors(article.author_ids))

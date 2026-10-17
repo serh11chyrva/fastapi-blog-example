@@ -15,9 +15,10 @@ from backend.core.errors import InvalidOperation, NotFound
 from backend.posts.models import MicroPost
 from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostResponse
-from backend.profiles.models import User
+from backend.profiles.models import AvatarImage, User
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import ProfileResponse
+from backend.publications.queries import load_authors
 from backend.storage.models import ImagePurpose, ImageUpload
 from backend.storage.urls import publication_image_url
 
@@ -71,7 +72,7 @@ class ImageAttachments:
             else await Article.get(object_id, session=session)
         )
 
-        if publication is None or publication.deleted_at is not None or publication.author_id != owner.id:
+        if publication is None or publication.deleted_at is not None or publication.owner_id != owner.id:
             raise NotFound("Resource not found")
 
         return publication
@@ -97,9 +98,8 @@ class ImageAttachments:
         old_keys: list[str] = []
 
         if isinstance(target, User):
-            old_keys = [target.avatar_key] if target.avatar_key else []
-            target.avatar_key = keys[0]
-            target.avatar_content_type = upload.files[0].content_type
+            old_keys = [target.avatars.original.key] if target.avatars.original else []
+            target.avatars.original = AvatarImage(key=keys[0], content_type=upload.files[0].content_type)
             target.revision += 1
             action, target_type = "AVATAR_CHANGED", "user"
         elif isinstance(target, MicroPost):
@@ -133,9 +133,9 @@ class ImageAttachments:
         if isinstance(target, User):
             response = await ProfileQueries().response(target, owner.id)
         elif isinstance(target, MicroPost):
-            response = post_response(target, owner)
+            response = post_response(target, await load_authors(target.author_ids))
         elif upload.purpose == "article-covers":
-            response = article_response(target, owner)
+            response = article_response(target, await load_authors(target.author_ids))
         else:
             response = ArticleImageResponse(
                 url=publication_image_url(keys[0], "article-images"),
