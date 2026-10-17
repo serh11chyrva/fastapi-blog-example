@@ -19,6 +19,7 @@ class Settings(BaseModel):
     redis_url: str = Field(default_factory=lambda: environ.get("REDIS_URL", "redis://localhost:6379/0"))
     app_origin: str = Field(default_factory=lambda: environ.get("APP_ORIGIN", "http://localhost:8080").rstrip("/"))
     session_cookie_name: str = Field(default_factory=session_cookie_name)
+    geoip_city_db_path: str = Field(default_factory=lambda: environ.get("GEOIP_CITY_DB_PATH", "data/GeoLite2-City.mmdb"), description="Path to the local MaxMind GeoLite2 City database; relative paths resolve from the working directory.")
     session_cookie_secure: bool = Field(default_factory=lambda: environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true")
     session_idle_days: int = Field(default_factory=lambda: int(environ.get("SESSION_IDLE_DAYS", "7")))
     session_absolute_days: int = Field(default_factory=lambda: int(environ.get("SESSION_ABSOLUTE_DAYS", "30")))

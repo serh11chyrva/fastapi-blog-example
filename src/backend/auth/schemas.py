@@ -3,10 +3,28 @@ import re
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from backend.auth.client import ClientType
 from backend.core import api_examples as examples
 
 
-class RegisterRequest(BaseModel):
+class SessionClientRequest(BaseModel):
+    """Display metadata supplied when creating a session; never used for authorization."""
+
+    client_type: ClientType = Field(default=ClientType.WEB, description="Client creating this session: web, mobile, or desktop. Fixed for the session lifetime.")
+    device_name: str | None = Field(default=None, min_length=1, max_length=128, description="Optional device label for mobile or desktop apps, such as iPhone 16 or Work laptop. Ignored for web, which uses the parsed browser and OS.", examples=["iPhone 16"])
+
+    @field_validator("device_name")
+    @classmethod
+    def normalize_device_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value or any(not character.isprintable() for character in value):
+            raise ValueError("Device name must contain printable characters and cannot be blank")
+        return value
+
+
+class RegisterRequest(SessionClientRequest):
     """Credentials and public identity for creating an account."""
 
     model_config = ConfigDict(title="Account registration", json_schema_extra={"examples": [examples.REGISTER]})
@@ -40,7 +58,7 @@ class RegisterRequest(BaseModel):
         return value
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(SessionClientRequest):
     """An email address or username and its password."""
 
     model_config = ConfigDict(title="Login credentials", json_schema_extra={"examples": [examples.LOGIN]})
@@ -58,8 +76,9 @@ class SessionResponse(BaseModel):
     created_at: datetime = Field(description="UTC time when the session was created.", examples=[examples.SESSION["created_at"]])
     last_seen_at: datetime = Field(description="UTC time of the most recent recorded authenticated activity.", examples=[examples.SESSION["last_seen_at"]])
     expires_at: datetime = Field(description="Absolute UTC expiry. An idle session may expire earlier.", examples=[examples.SESSION["expires_at"]])
-    ip_address: str | None = Field(description="IP address of the most recent recorded authenticated request, or null when unavailable.", examples=[examples.SESSION["ip_address"]])
-    user_agent: str | None = Field(description="User-Agent of the most recent recorded authenticated request, truncated to 512 characters; null when unavailable.", examples=[examples.SESSION["user_agent"]])
+    client_type: ClientType = Field(description="Client category saved at registration or login. Older sessions default to web.", examples=["web"])
+    location: str = Field(description="Approximate location of the latest recorded IP, formatted as city, region, country in English, omitting missing or duplicate parts. Unknown location when unavailable. Raw IP addresses are never returned.", examples=[examples.SESSION["location"]])
+    device: str = Field(description="Browser and OS for web; supplied device label with parsed OS, or parsed device/OS for mobile and desktop. Unknown browser/device when unavailable. Raw User-Agent is never returned.", examples=[examples.SESSION["device"]])
     current: bool = Field(description="Whether this is the session used for the current request.", examples=[True])
 
 

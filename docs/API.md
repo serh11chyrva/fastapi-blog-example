@@ -24,7 +24,7 @@ For command-line examples below, set `BASE=http://localhost:8080` and use a cook
 | POST | `/auth/register` | Public | Create account and session |
 | POST | `/auth/login` | Public | Log in by email or username |
 | GET | `/auth/me` | Session | Get current account |
-| GET | `/auth/sessions` | Session | List active sessions with IP and User-Agent |
+| GET | `/auth/sessions` | Session | List active sessions with client type, location, and device |
 | DELETE | `/auth/sessions/{session_id}` | Session | Revoke one of your sessions |
 | POST | `/auth/sessions/logout-others` | Session | Revoke every session except current |
 | POST | `/auth/logout` | Session | Revoke current session and clear cookie |
@@ -36,7 +36,8 @@ Registration request:
   "email": "reader@example.com",
   "username": "reader_one",
   "display_name": "Avery Reader",
-  "password": "Correct-Horse-Battery-42"
+  "password": "Correct-Horse-Battery-42",
+  "client_type": "web"
 }
 ```
 
@@ -77,6 +78,16 @@ curl -i -c cookies.txt -H "Origin: $BASE" -H "Content-Type: application/json" \
   "$BASE/api/v1/auth/login"
 ```
 
+Both registration and login accept `client_type`: `web` (default), `mobile`, or `desktop`. It is saved at creation and cannot change during the session. Mobile and desktop apps can also send `device_name`, a printable, nonblank label of at most 128 characters (surrounding whitespace is trimmed). Web sessions ignore this label and derive the browser and OS from User-Agent. These client-supplied labels are display metadata, not proof of device identity or an authorization mechanism. Existing sessions without a client type are treated as `web`.
+
+Example mobile login:
+
+```json
+{"identifier":"reader@example.com","password":"Correct-Horse-Battery-42","client_type":"mobile","device_name":"iPhone 16"}
+```
+
+All client types currently use the same cookie-based authentication and must supply the configured `Origin` on mutations, including registration and login. Native apps must retain and send the session cookie.
+
 Session list response:
 
 ```json
@@ -86,12 +97,15 @@ Session list response:
     "created_at": "2026-10-12T09:30:00Z",
     "last_seen_at": "2026-10-12T09:34:15Z",
     "expires_at": "2026-11-11T09:30:00Z",
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 Example Browser",
+    "client_type": "web",
+    "location": "Kyiv, Ukraine",
+    "device": "Chrome 141.0.0 on Windows 10",
     "current": true
   }
 ]
 ```
+
+`location` is an approximate English `city, region, country` label from the latest recorded IP, omitting missing and duplicate parts. It is computed locally with GeoLite2 City. Private, invalid, and unknown IPs, missing records, or an unavailable database produce `Unknown location`; no raw IP fallback is returned. `device` uses the latest recorded User-Agent: browser and OS for web, or the saved device name and parsed OS for mobile/desktop (falling back to parsed device/OS). Unrecognized User-Agents yield `Unknown browser` or `Unknown device`. Raw `ip_address` and `user_agent` are retained internally for session activity and auditing but are no longer fields in this response.
 
 The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other users' session IDs are concealed as `404`. `/auth/sessions/logout-others` and `/auth/logout` return `204`.
 

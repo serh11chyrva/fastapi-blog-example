@@ -12,15 +12,16 @@ ACCOUNT = {
     "display_name": "Maya Bennett",
 }
 PASSWORD = "Cedar!Notebook73River"
-REGISTER = {key: value for key, value in ACCOUNT.items() if key != "id"} | {"password": PASSWORD}
-LOGIN = {"identifier": ACCOUNT["email"], "password": PASSWORD}
+REGISTER = {key: value for key, value in ACCOUNT.items() if key != "id"} | {"password": PASSWORD, "client_type": "web"}
+LOGIN = {"identifier": ACCOUNT["email"], "password": PASSWORD, "client_type": "web"}
 SESSION = {
     "id": "68eb734d21a0f8956be4c302",
     "created_at": "2026-10-12T08:42:19Z",
     "last_seen_at": "2026-10-14T07:18:46Z",
     "expires_at": "2026-11-11T08:42:19Z",
-    "ip_address": "192.0.2.47",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "client_type": "web",
+    "location": "Kyiv, Ukraine",
+    "device": "Chrome 141.0.0 on Windows 10",
     "current": True,
 }
 LINK = {"label": "Reading journal", "url": "https://maya.example.com/journal"}

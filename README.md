@@ -36,6 +36,8 @@ The idempotent script starts Garage, ensures `blog-avatars` and `blog-publicatio
 
 The upload CORS rule allows the lower-case header name `content-type`, matching browser preflight requests. Garage compares allowed header names literally; using `Content-Type` here causes browser uploads to be rejected before PUT. The provisioning script runs the current workspace CORS setup code inside the API image, so repeating setup also applies CORS fixes without an image rebuild.
 
+Place a MaxMind GeoLite2 City database at `data/GeoLite2-City.mmdb` before starting the API with Compose. Compose mounts this file read-only at `/data/GeoLite2-City.mmdb`; it is not bundled into the image. Replace the file with an updated database and restart the API to reopen it. Outside Docker, the default path is `data/GeoLite2-City.mmdb` relative to the working directory; `GEOIP_CITY_DB_PATH` can override it. If the backend cannot open or query the database, session locations display `Unknown location` and authentication remains available. Compose requires the host file to exist for its bind mount.
+
 Start the remaining services:
 
 ```sh
@@ -108,7 +110,7 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 ## Features
 
 - Email or `@username` registration and login with opaque, server-side sessions.
-- A session settings page with IP, User-Agent, last activity, individual revocation, and logout from other sessions.
+- A session settings page with web/mobile/desktop client types, approximate GeoLite2 locations, readable browser/device labels, last activity, individual revocation, and logout from other sessions.
 - Append-only audit events for security, profile, follow, and publication actions.
 - Public profiles with bios, versioned links with domain detection and independent redirects, shared badge definitions with versioned display payloads, and uploaded JPEG, PNG, or WebP avatars.
 - Own-profile API and settings with private badge preferences, server-enforced visibility, and revision checks that reject stale profile edits.
@@ -134,6 +136,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module responsibilities, tr
 - Passwords use Argon2id. Existing scrypt hashes are checked and upgraded after a successful login. API hashing and verification run in a dedicated pool limited to four concurrent operations per process, keeping the event loop available.
 - Account registration/login and session persistence/revocation are application services. Authentication routers retain HTTP cookies, request metadata, and rate-limit enforcement.
 - Session activity uses conditional field updates and a monotonic last-seen timestamp. Concurrent activity cannot clear revocation or extend the absolute session deadline.
+- Session client type and optional native-app device name are saved at registration/login; older sessions default to web. IP and User-Agent stay internal. `auth/presentation.py` formats public location and device labels, using an application-owned GeoLite2 reader and User-Agent parsing off the event loop.
 - Protected frontend routes wait for session restoration before redirecting. Public profile contracts exclude account email and private badge settings; publication pages cancel stale requests when their address changes.
 - Frontend source lives under `src/frontend/`. `app/` owns a single route tree, layouts, and explicit authentication states; `features/` owns pages and editor workflows, including session settings under `features/profiles/sessions/`; `shared/` owns API contracts, transport, upload handling, pagination hooks, and common UI. Article editing logic lives in a dedicated hook. Lists expose load-more controls, cancel stale requests, and distinguish loading failures from empty results. API errors retain their HTTP status and details. Docker uses a Node.js build stage with cached npm dependencies, Vite production minification and separate React/editor chunks, then copies only static output into Nginx.
 - `docker-compose.dev.yml` mounts API and frontend source for reload/HMR during development; the default Compose setup continues to serve the production frontend from Nginx.

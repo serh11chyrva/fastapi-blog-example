@@ -110,7 +110,8 @@ export type Session = {
   created_at: string;
   last_seen_at: string;
   expires_at: string;
-  ip_address: string | null;
-  user_agent: string | null;
+  client_type: "web" | "mobile" | "desktop";
+  location: string;
+  device: string;
   current: boolean;
 };

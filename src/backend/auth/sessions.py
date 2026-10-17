@@ -6,6 +6,7 @@ from beanie import PydanticObjectId
 
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
+from backend.auth.client import ClientType
 from backend.auth.models import AuthIdentity, AuthSession
 from backend.auth.security import hash_session_token, new_session_token
 from backend.core.config import get_settings
@@ -15,12 +16,16 @@ from backend.core.transactions import transaction
 from backend.profiles.models import User
 
 
-def prepare_session(user: User, context: AuditContext, now: datetime) -> tuple[str, AuthSession]:
+def prepare_session(
+    user: User, context: AuditContext, now: datetime, *,
+    client_type: ClientType = ClientType.WEB, device_name: str | None = None,
+) -> tuple[str, AuthSession]:
     token = new_session_token()
     return token, AuthSession(
         user_id=user.id, token_hash=hash_session_token(token), created_at=now,
         last_seen_at=now, expires_at=now + timedelta(days=get_settings().session_absolute_days),
         ip_address=context.ip_address, user_agent=context.user_agent,
+        client_type=client_type, device_name=device_name if client_type != ClientType.WEB else None,
     )
 
 
@@ -29,9 +34,12 @@ class SessionService:
         self.resources = resources
         self.audit = audit
 
-    async def create(self, user: User, identity_to_upgrade: AuthIdentity | None = None) -> str:
+    async def create(
+        self, user: User, identity_to_upgrade: AuthIdentity | None = None, *,
+        client_type: ClientType = ClientType.WEB, device_name: str | None = None,
+    ) -> str:
         """Persist the session, optional password upgrade, and audit atomically."""
-        token, session = prepare_session(user, self.audit, datetime.now(UTC))
+        token, session = prepare_session(user, self.audit, datetime.now(UTC), client_type=client_type, device_name=device_name)
         async with transaction(self.resources.mongo) as db_session:
             await session.insert(session=db_session)
             if identity_to_upgrade is not None:

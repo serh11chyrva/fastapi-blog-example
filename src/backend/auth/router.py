@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Request, Response, status
+from starlette.concurrency import run_in_threadpool
 
 from backend.audit.dependencies import audit_context
 from backend.auth.accounts import AccountService
 from backend.auth.dependencies import CurrentUser, get_session
+from backend.auth.presentation import present_sessions
 from backend.auth.rate_limit import enforce_rate_limit
 from backend.auth.schemas import AuthResponse, LoginRequest, RegisterRequest, SessionResponse
 from backend.auth.sessions import SessionService
@@ -59,7 +61,8 @@ def _clear_session_cookie(response: Response) -> None:
     description=(
         'Creates an account with a unique email and public username, then starts a session '
         'and sets the HttpOnly cookie. Returns 409 if the email or username is already taken. '
-        'Limited to five attempts per hour per IP address and email.'
+        'Accepts client_type (web by default, mobile, or desktop) and an optional device_name '
+        'for apps. Limited to five attempts per hour per IP address and email.'
     ),
     tags=['Authentication'],
     responses=documented_responses(403, 409, 429, 503),
@@ -83,7 +86,8 @@ async def register(
     description=(
         'Accepts an email address or username, optionally prefixed with @. Successful login '
         'sets the HttpOnly session cookie and returns the account. Limited to eight attempts '
-        'per ten minutes per IP address and identifier.'
+        'per ten minutes per IP address and identifier. Accepts client_type (web by default, '
+        'mobile, or desktop) and an optional device_name for apps.'
     ),
     tags=['Authentication'],
     responses=documented_responses(401, 403, 409, 429, 503),
@@ -117,8 +121,9 @@ async def logout(_origin: Origin, request: Request, response: Response, current_
     summary='List active sessions',
     description=(
         'Returns your unrevoked, unexpired sessions, most recently active first. Includes the '
-        'latest recorded IP address and User-Agent, absolute expiry, and a flag identifying '
-        'the current session.'
+        'client category, approximate location of the latest recorded IP, formatted device '
+        '(browser and OS for web), absolute expiry, and a flag identifying the current session. '
+        'Raw IP addresses and User-Agents are not returned.'
     ),
     tags=['Sessions'],
     responses=documented_responses(401, 503),
@@ -126,11 +131,7 @@ async def logout(_origin: Origin, request: Request, response: Response, current_
 async def list_sessions(request: Request, current_user: CurrentUser) -> list[SessionResponse]:
     sessions = await SessionService(get_resources(request), audit_context(request)).active(current_user)
     current_id = get_session(request).id
-    return [SessionResponse(
-        id=str(item.id), created_at=item.created_at, last_seen_at=item.last_seen_at,
-        expires_at=item.expires_at, ip_address=item.ip_address, user_agent=item.user_agent,
-        current=item.id == current_id,
-    ) for item in sessions]
+    return await run_in_threadpool(present_sessions, sessions, str(current_id), get_resources(request).geoip)
 
 
 @router.delete(

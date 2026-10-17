@@ -9,6 +9,7 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_IDLE_DAYS: ${SESSION_IDLE_DAYS:-7}
       SESSION_ABSOLUTE_DAYS: ${SESSION_ABSOLUTE_DAYS:-30}
+      GEOIP_CITY_DB_PATH: /data/GeoLite2-City.mmdb
       S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://garage:3900}
       S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:3900}
       STORAGE_CORS_ORIGINS: ${STORAGE_CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
@@ -16,6 +17,13 @@ services:
       GARAGE_ACCESS_KEY: ${GARAGE_ACCESS_KEY:?Set GARAGE_ACCESS_KEY in .env}
       GARAGE_SECRET_KEY: ${GARAGE_SECRET_KEY:?Set GARAGE_SECRET_KEY in .env}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-DemoPassword123!}
+    volumes:
+      - type: bind
+        source: ./data/GeoLite2-City.mmdb
+        target: /data/GeoLite2-City.mmdb
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       redis:
         condition: service_healthy

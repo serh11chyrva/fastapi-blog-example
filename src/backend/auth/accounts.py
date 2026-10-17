@@ -32,7 +32,7 @@ class AccountService:
         now = datetime.now(UTC)
         user = User(id=PydanticObjectId(), email=str(payload.email).lower(), username=payload.username, display_name=payload.display_name, created_at=now, updated_at=now)
         identity = AuthIdentity(user_id=user.id, provider="password", subject=str(user.id), password_hash=password_hash, created_at=now)
-        token, session = prepare_session(user, self.audit, now)
+        token, session = prepare_session(user, self.audit, now, client_type=payload.client_type, device_name=payload.device_name)
         try:
             async with transaction(self.resources.mongo) as db_session:
                 await user.insert(session=db_session)
@@ -54,5 +54,8 @@ class AccountService:
                 metadata={"identifier_type": "email" if "@" in identifier and not identifier.startswith("@") else "username"},
             )
             raise InvalidCredentials("Invalid username/email or password")
-        token = await SessionService(self.resources, self.audit).create(authentication.user, authentication.identity if authentication.needs_rehash else None)
+        token = await SessionService(self.resources, self.audit).create(
+            authentication.user, authentication.identity if authentication.needs_rehash else None,
+            client_type=payload.client_type, device_name=payload.device_name,
+        )
         return authentication.user, token

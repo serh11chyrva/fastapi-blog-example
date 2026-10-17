@@ -36,6 +36,15 @@ active, and advances `last_seen_at` monotonically. Revocation never depends on
 saving a previously read complete session document. Password operations use a
 dedicated pool with four worker threads per process.
 
+Session creation saves a validated client type (`web`, `mobile`, or `desktop`) and
+an optional native-app device name. Older documents default to `web` without a
+migration. Activity refreshes IP and User-Agent without changing the client type
+or device name. These raw fields remain internal: `auth/presentation.py` returns
+approximate English location labels and parsed browser/device descriptions.
+The application owns a GeoLite2 City reader in `AppResources` and closes it at
+shutdown. Session presentation runs off the event loop; missing databases and
+unresolvable addresses yield `Unknown location` without preventing authentication.
+
 Audited mutations use one MongoDB transaction for the data change and audit event.
 Write conflicts become 409 responses. Transaction bodies are not replayed
 automatically: callers reload and reconcile before retrying. A dependency failure

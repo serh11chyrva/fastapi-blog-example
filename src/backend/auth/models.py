@@ -3,6 +3,8 @@ from datetime import datetime
 from beanie import Document, PydanticObjectId
 from pymongo import ASCENDING, IndexModel
 
+from backend.auth.client import ClientType
+
 
 class AuthIdentity(Document):
     user_id: PydanticObjectId
@@ -27,6 +29,8 @@ class AuthSession(Document):
     expires_at: datetime
     ip_address: str | None = None
     user_agent: str | None = None
+    client_type: ClientType = ClientType.WEB
+    device_name: str | None = None
     revoked_at: datetime | None = None
 
     class Settings:

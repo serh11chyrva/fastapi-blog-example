@@ -12,6 +12,7 @@ from scalar_fastapi import AgentScalarConfig, Theme, add_scalar_reference
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
+from backend.auth.presentation import open_geoip_database
 from backend.auth.router import router as auth_router
 from backend.content.feed_router import router as feed_router
 from backend.content.migrations import ensure_public_share_ids
@@ -41,7 +42,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis_client = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=3)
     s3_client = create_s3_client(settings)
     s3_public_client = create_s3_client(settings, public=True)
-    app.state.resources = AppResources(mongo_client, redis_client, s3_client, s3_public_client)
+    geoip_reader = open_geoip_database(settings.geoip_city_db_path)
+    app.state.resources = AppResources(mongo_client, redis_client, s3_client, s3_public_client, geoip_reader)
     scheduler_task: asyncio.Task[None] | None = None
     cleanup_task: asyncio.Task[None] | None = None
     try:
@@ -71,6 +73,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             except asyncio.CancelledError:
                 pass
         await redis_client.aclose()
+        if geoip_reader is not None:
+            geoip_reader.close()
         s3_client.close()
         s3_public_client.close()
         await mongo_client.close()

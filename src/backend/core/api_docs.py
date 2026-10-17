@@ -15,6 +15,9 @@ on subsequent same-origin requests; API clients must retain it in a cookie jar.
 Protected operations show the **SessionCookie** security requirement.
 Every POST, PUT, PATCH, and DELETE request under `/api/v1` must include an `Origin`
 header matching the configured application origin (`http://localhost:8080` by default).
+Registration and login accept `client_type`: `web` (default), `mobile`, or `desktop`.
+Native apps may supply a `device_name` and must also retain the cookie and send `Origin`.
+Session lists return readable location and browser/device labels instead of raw IP and User-Agent.
 
 ### Publications and media
 Micro-posts are public immediately. Articles start as private drafts and can be
@@ -42,7 +45,7 @@ using their IDs in live requests, and choose a future time when scheduling an ar
 OPENAPI_TAGS = [
     {"name": "Links", "description": "Open saved HTTP(S) links through temporary redirects independent of profile handles. Query parameters are not forwarded; analytics is not implemented yet."},
     {"name": "Authentication", "description": "Create an account, sign in with an email or username, read your account, and sign out. Registration and login set the HttpOnly session cookie; logout revokes it."},
-    {"name": "Sessions", "description": "Inspect your active browser sessions and their last activity. Revoke a selected session or sign out every other device while retaining the current session."},
+    {"name": "Sessions", "description": "Inspect active web, mobile, and desktop sessions with approximate locations, readable browser/device labels, and last activity. Revoke a selected session or sign out every other device while retaining the current session."},
     {"name": "Profiles", "description": "Browse public profiles and their publications, followers, and followed writers. Update your own biography, links, and avatar, or manage follow relationships."},
     {"name": "Micro-posts", "description": "Publish public notes of up to 280 characters. Authors can edit or delete their notes and replace their attachments with up to five images."},
     {"name": "Articles", "description": "Write TipTap articles as private drafts, add a cover and inline images, then publish or schedule them. Drafts and scheduled articles, including their media, are accessible only to their author."},

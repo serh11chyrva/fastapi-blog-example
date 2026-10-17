@@ -77,13 +77,14 @@ export function SessionsPage() {
     <div className="space-y-3">
       {sessions.map((session) => <div key={session.id} className="surface flex flex-wrap items-center justify-between gap-4 p-5">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-slate-900">
-              {session.user_agent || "Unknown device"}
+              {session.device}
             </p>
+            <span className="badge">{{ web: "Web", mobile: "Mobile app", desktop: "Desktop app" }[session.client_type]}</span>
             {session.current && <span className="badge">Current session</span>}
           </div>
-          <p className="mt-1 text-sm text-slate-500">IP {session.ip_address || "Unavailable"} · Last active {new Date(session.last_seen_at).toLocaleString()}</p>
+          <p className="mt-1 text-sm text-slate-500">{session.location} · Last active {new Date(session.last_seen_at).toLocaleString()}</p>
           <p className="mt-1 text-xs text-slate-400">Expires {new Date(session.expires_at).toLocaleDateString()}</p>
         </div>
         <button className="button-quiet text-slate-700 hover:bg-slate-50" onClick={() => revoke(session.id)}>Revoke</button>
