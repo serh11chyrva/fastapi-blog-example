@@ -363,7 +363,7 @@ separate migration before use with this schema.
 | GET | `/feeds/public?kind=all&limit=20` | Public | Chronological mixed feed |
 | GET | `/feeds/following?kind=all&limit=20` | Session | Chronological feed from followed accounts |
 
-Feed items are a discriminated union: `micro_post` requires text, while `article` requires title and summary. The unused alternative fields remain null or empty for compatibility.
+Feed items are a discriminated union: `micro_post` requires text, `article` requires title and summary, and `repost` wraps an original `post` with `reposted_by`, its own event ID, and repost `published_at`. Original-publication variants retain unused alternative fields as null. `kind=all` and `kind=micro_post` include post reposts; `kind=article` excludes them. In following feeds, reposts are selected by followed reposters rather than the original post author. Originals and repost events are not deduplicated. See [reposts in feeds](INTERACTIONS.md#reposts-in-feeds) for the new event shape.
 
 `kind` is `all`, `micro_post`, or `article`. `limit` is 1–50 (default 20). When `next_cursor` is non-null, pass it unchanged as the next `cursor` query parameter. Do not construct or edit cursors.
 
@@ -566,6 +566,27 @@ nodes continue to require images uploaded to the containing article. Reference a
 checked on content writes, not continuously or during scheduled publication. Only IDs remain
 when referenced resources later disappear. The OpenAPI union, rich request/response examples,
 and these rules are exposed in the Scalar reference at `/api/docs`.
+
+## Likes, saves, reposts, and discussions
+
+The backend now provides likes and private saves for public posts and published articles,
+public unquoted post reposts in feeds, nested post replies, and flat article comments.
+See [the interaction and discussion reference](INTERACTIONS.md) for endpoint tables,
+request/response examples, cursor rules, privacy, ownership, tombstones, and concurrency guarantees.
+Scalar at `/api/docs` includes the new Interactions and Comments endpoint groups.
+
+- PUT/DELETE `/posts/{post_id}/like`, `/save`, and `/repost` set the current account's state.
+- PUT/DELETE `/articles/{article_id}/like` and `/save` set article state; articles cannot be reposted.
+- GET the matching `/interactions` endpoint for public counts and optional private viewer flags.
+- GET `/me/saved` for only your saved publications; GET `/profiles/{username}/reposts` for public reposts.
+- `/posts/{post_id}/replies` supports roots and direct children via `parent_id`.
+- `/articles/{article_id}/comments` remains flat and rejects parent fields in create/update bodies.
+
+All mutations require a session and Origin. Only public originals can receive interactions or
+comments; interaction removal also works after the original becomes unavailable. Comment authors
+can edit/delete only their own content. Deleted comments retain null-text, null-author tombstones
+and preserve descendants. Viewer state and saved lists are never publicly cached. Existing
+publication response shapes stay unchanged; feeds add a `kind: "repost"` variant.
 
 ## Health and error envelope
 

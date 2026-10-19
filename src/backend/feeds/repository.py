@@ -8,35 +8,48 @@ from beanie import PydanticObjectId
 
 from backend.articles.models import Article
 from backend.articles.repository import ArticleRepository
+from backend.interactions.models import PublicationInteraction
 from backend.posts.models import MicroPost
 from backend.posts.repository import PostRepository
 
-type PublicationKind = Literal["micro_post", "article"]
+type PublicationKind = Literal["micro_post", "article", "repost"]
 type FeedKind = Literal["all", "micro_post", "article"]
 
 
 @dataclass(frozen=True, slots=True)
 class FeedEntry:
-    """Publication paired with the timestamp used for merged feed ordering."""
+    """Original publication paired with its own event time or a separate repost edge."""
 
     publication: MicroPost | Article
     published_at: datetime
+    repost: PublicationInteraction | None = None
 
     @property
     def kind(self) -> PublicationKind:
-        """Identify the publication type represented by this feed entry.
+        """Identify the original or repost event represented by this feed entry.
 
-        :return: The micro_post or article discriminator.
+        :return: The micro_post, article, or repost event discriminator.
         """
+        if self.repost is not None:
+            return "repost"
+
         return "micro_post" if isinstance(self.publication, MicroPost) else "article"
+
+    @property
+    def object_id(self) -> PydanticObjectId:
+        """Read the event identity used to paginate originals and reposts independently.
+
+        :return: Repost relationship ID for reposts, otherwise the original publication ID.
+        """
+        return self.repost.id if self.repost is not None else self.publication.id
 
     @property
     def sort_key(self) -> tuple[datetime, str, str]:
         """Build the deterministic ordering key for a merged feed.
 
-        :return: The publication time, type, and string document ID.
+        :return: The event time, event kind, and original or repost document ID.
         """
-        return self.published_at, self.kind, str(self.publication.id)
+        return self.published_at, self.kind, str(self.object_id)
 
 
 class FeedRepository:
@@ -46,11 +59,31 @@ class FeedRepository:
     async def load_feed_type(kind: PublicationKind, conditions: dict[str, Any], limit: int) -> list[FeedEntry]:
         """Load one publication type with an extra item for cursor pagination.
 
-        :param kind: Publication type to load: micro_post or article.
+        :param kind: Event type to load: micro_post, article, or repost.
         :param conditions: MongoDB filters applied before ordering and pagination.
         :param limit: Maximum number of entries to return in this page.
         :return: Feed entries ordered newest first, up to limit plus one.
         """
+        if kind == "repost":
+            rows = await PublicationInteraction.aggregate([
+                {"$match": {"$and": [{"action": "repost", "publication_kind": "micro_post"}, conditions]}},
+                {"$sort": {"created_at": -1, "_id": -1}},
+                {"$lookup": {
+                    "from": "micro_posts", "localField": "publication_id", "foreignField": "_id", "as": "original",
+                }},
+                {"$unwind": "$original"},
+                {"$match": {"original.deleted_at": None}},
+                {"$limit": limit + 1},
+            ]).to_list()
+
+            return [
+                FeedEntry(
+                    MicroPost.model_validate(row["original"]), row["created_at"],
+                    PublicationInteraction.model_validate({key: value for key, value in row.items() if key != "original"}),
+                )
+                for row in rows
+            ]
+
         if kind == "micro_post":
             posts = await PostRepository.load_feed(conditions, limit)
 

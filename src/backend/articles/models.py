@@ -15,6 +15,7 @@ class Article(Document, PublicationAuthors):
     """Long-form publication with ordered authors, a TipTap body, and publication state."""
 
     attachments: PublicationAttachments = Field(default_factory=list)
+    interaction_revision: int = 0
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
     summary: str = ""

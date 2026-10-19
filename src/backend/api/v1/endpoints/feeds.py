@@ -16,7 +16,10 @@ router = APIRouter(prefix="/feeds")
     "/public",
     response_model=FeedResponse,
     summary="Read the public feed",
-    description="Chronological mixed feed of public micro-posts and published articles.",
+    description=(
+        "Chronological mixed feed of public posts, published articles, and post repost events. "
+        "kind=micro_post includes reposts; kind=article excludes them. Reposts retain their original post and author."
+    ),
     tags=["Feeds"],
     responses=documented_responses(503),
 )
@@ -46,7 +49,11 @@ async def public_feed(
     "/following",
     response_model=FeedResponse,
     summary="Read the following feed",
-    description="Chronological mixed feed from followed authors; requires a session cookie.",
+    description=(
+        "Chronological public publications by followed authors and reposts by followed accounts. "
+        "A repost can introduce a post by an unfollowed author. kind=micro_post includes reposts. "
+        "Requires a session cookie."
+    ),
     tags=["Feeds"],
     responses=documented_responses(401, 503),
 )

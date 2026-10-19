@@ -1,4 +1,4 @@
-"""Opaque feed cursors ordered by timestamp, publication kind, and ObjectId."""
+"""Opaque feed cursors ordered by event time, original/repost kind, and event ObjectId."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from backend.feeds.repository import PublicationKind
 
 
 class CursorPayload(BaseModel):
-    """Validated serialized position used to resume a merged publication feed."""
+    """Validated position supporting original publications and independent repost events."""
 
     time: AwareDatetime
     kind: PublicationKind
@@ -24,7 +24,7 @@ class CursorPayload(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class FeedCursor:
-    """Stable feed position ordered by publication time, type, and document ID."""
+    """Stable feed position ordered by event time, event kind, and original or repost ID."""
 
     published_at: datetime
     kind: PublicationKind
@@ -61,8 +61,8 @@ class FeedCursor:
     def conditions(self, kind: PublicationKind, date_field: str) -> dict[str, Any]:
         """Continue descending order across collections, including equal timestamps.
 
-        :param kind: Publication type whose cursor boundary is being computed.
-        :param date_field: MongoDB timestamp field used to order this publication type.
+        :param kind: Original publication or repost event kind whose boundary is being computed.
+        :param date_field: MongoDB timestamp field used to order this original collection or repost edge.
         :return: MongoDB filters selecting entries strictly after this cursor.
         """
         if kind < self.kind:

@@ -1,8 +1,11 @@
 """Map publications to the mixed feed contract."""
 
+from typing import cast
+
 from backend.articles.models import Article
 from backend.articles.urls import article_thumbnail_url
-from backend.feeds.schemas import ArticleFeedItem, FeedItem, PostFeedItem
+from backend.feeds.schemas import ArticleFeedItem, FeedItem, PostFeedItem, RepostFeedItem
+from backend.interactions.models import PublicationInteraction
 from backend.posts.models import MicroPost
 from backend.profiles.models import User
 from backend.profiles.presenters import user_card
@@ -48,4 +51,21 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> FeedItem
         summary=publication.summary,
         thumbnail_url=article_thumbnail_url(publication.thumbnail_key),
         published_at=publication.published_at,
+    )
+
+
+def repost_item(
+    post: MicroPost, authors: list[User], repost: PublicationInteraction, reposter: User,
+) -> RepostFeedItem:
+    """Wrap an original post without replacing its owner or featured-author attribution.
+
+    :param post: Currently public original micro-post.
+    :param authors: Original post authors in display order.
+    :param repost: Public repost edge supplying event identity and timestamp.
+    :param reposter: Account that reposted the original.
+    :return: The repost event with a compact original-post representation.
+    """
+    return RepostFeedItem(
+        id=str(repost.id), reposted_by=user_card(reposter), published_at=repost.created_at,
+        post=cast(PostFeedItem, feed_item(post, authors)),
     )

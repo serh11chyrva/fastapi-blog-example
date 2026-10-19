@@ -41,12 +41,31 @@ must be published at write time. Article bodies also support inline mention/hash
 attachment nodes with a complete descriptor in attrs (up to 30 descriptors per body).
 OG metadata is caller-supplied; external URLs are not fetched. Embed descriptors accept HTTPS URLs for
 SoundCloud, Spotify, YouTube, and Twitch, without HTML or automatic player integration.
-Publication responses and feed items expose a nonempty `authors` array of public profile cards,
+Original publication responses and feed items expose a nonempty `authors` array of public profile cards,
 with the owner first, followed by featured authors in stored order. Responses also expose `owner_id`.
 Only the owner controls edits and private access; featured authors are display credits. Creation leaves
 featured authors empty. Featured-author management and collaboration permissions are not implemented.
 Profiles and author cards expose `avatars: {"original": URL-or-null}`. The object is always present;
 only the original uploaded image is available today. These replace flat author fields and avatar URLs.
+
+### Interactions and discussions
+Use PUT or DELETE on a publication's `/like` or `/save` endpoint to set an idempotent account state.
+Post-only `/repost` endpoints create or remove public repost events without quotation text.
+Reposts appear in public/following feeds as `kind: repost`, with `reposted_by`, repost `published_at`,
+and an original `post` object. Following feeds select reposts by the followed reposter, even when
+the original author is not followed. kind=micro_post includes reposts; kind=article excludes them.
+GET `/posts/{id}/interactions` or `/articles/{id}/interactions` returns live counts and optional
+viewer flags. Save totals and other accounts' saves are private; GET `/me/saved` returns only yours.
+Viewer-state and saved-list responses use Cache-Control: private, no-store and never enter public feed caches.
+GET `/profiles/{username}/reposts` returns public repost history. Unavailable originals are filtered.
+Post discussions use `/posts/{id}/replies`, with optional parent_id and immutable root_id/depth.
+Read roots first, then request each parent's direct children with bounded pagination at any depth.
+Article `/articles/{id}/comments` are flat and reject parent_id. Both accept trimmed plain text up
+to 5,000 characters. Only the comment author may edit or delete. Deleted entries retain a tombstone
+with null text/author, preserving children. New replies require a live parent in the same post.
+Interactions and discussion reads/creates require public originals; drafts and scheduled articles
+return 404 even to their owner. Interaction removal remains available for inaccessible originals.
+All mutations require a session and Origin and commit audit events in the same transaction.
 
 ### Pagination and conventions
 Feeds return newest-first pages. Pass `next_cursor` unchanged as the next request's
@@ -99,6 +118,20 @@ OPENAPI_TAGS = [
     {
         "name": "Media",
         "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and post images are public; unpublished article media requires the owner's session.",
+    },
+    {
+        "name": "Interactions",
+        "description": (
+            "Like or privately save posts and published articles. Repost posts into public and following feeds. "
+            "Read public counts, your private flags, your saved list, and public account repost histories."
+        ),
+    },
+    {
+        "name": "Comments",
+        "description": (
+            "Discuss posts through threaded replies loaded one level at a time, or articles through flat comments. "
+            "Authors may edit and erase their own text; deleted entries retain navigation tombstones."
+        ),
     },
     {
         "name": "System",

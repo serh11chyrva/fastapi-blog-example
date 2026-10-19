@@ -70,7 +70,28 @@ class ArticleFeedItem(FeedBase):
     text: None = None
 
 
-FeedItem = Annotated[PostFeedItem | ArticleFeedItem, Field(discriminator="kind")]
+class RepostFeedItem(BaseModel):
+    """A public repost event retaining the original post and its original author credits."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_REPOST]})
+
+    id: str = Field(description="Repost relationship identifier, distinct from the original post ID.")
+    kind: Literal["repost"] = "repost"
+    reposted_by: ProfileUserResponse
+    published_at: datetime = Field(description="UTC repost time used to position this event in feeds.")
+    post: PostFeedItem = Field(description="Currently public original post, with its own ID, authors, and attachments.")
+
+
+class RepostPage(BaseModel):
+    """An account's public repost history, ordered by relationship ID descending."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.REPOST_PAGE]})
+
+    items: list[RepostFeedItem]
+    next_cursor: str | None
+
+
+FeedItem = Annotated[PostFeedItem | ArticleFeedItem | RepostFeedItem, Field(discriminator="kind")]
 
 
 class FeedResponse(BaseModel):
@@ -79,8 +100,8 @@ class FeedResponse(BaseModel):
     model_config = ConfigDict(title="Feed page", json_schema_extra={"examples": [examples.FEED]})
 
     items: list[FeedItem] = Field(
-        description="Public publications ordered newest first. May be empty; article bodies are fetched separately.",
-        examples=[[examples.FEED_ARTICLE, examples.FEED_POST]],
+        description="Public original publications and repost events, newest first. Article bodies are fetched separately.",
+        examples=[[examples.FEED_REPOST, examples.FEED_ARTICLE, examples.FEED_POST]],
     )
     next_cursor: str | None = Field(
         description="Opaque pagination cursor. Pass unchanged as cursor with the same kind filter; null means there are no more results.",

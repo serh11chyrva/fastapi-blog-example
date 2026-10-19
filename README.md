@@ -142,7 +142,9 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 - Editorial black-and-white UI with separate Posts and Articles profile tabs; article editing and reading use a full-screen writing and reading layout.
 - Responsive English UI; published content and profiles are readable without signing in.
 
-Likes, reposts, threaded micro-post replies, flat article comments, email delivery, OAuth/OIDC, and MFA are planned follow-up features.
+Backend likes and private saves are available for posts and published articles. Unquoted post reposts appear in public and following feeds. Post replies support nested threads loaded one level at a time; article comments remain flat. These APIs do not yet have frontend controls. See [interactions and discussions](docs/INTERACTIONS.md).
+
+Email delivery, OAuth/OIDC, and MFA are planned follow-up features.
 
 ## Architecture
 

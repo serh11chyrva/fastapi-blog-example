@@ -258,6 +258,13 @@ FEED_POST = {
     "thumbnail_url": None,
     "published_at": POST["created_at"],
 }
+FEED_REPOST = {
+    "id": "68ebd31ff2b7a8c901234560",
+    "kind": "repost",
+    "reposted_by": PROFILE_USER,
+    "published_at": "2026-10-14T10:00:00Z",
+    "post": FEED_POST,
+}
 CURSOR = (
     base64.urlsafe_b64encode(
         json.dumps(
@@ -272,4 +279,50 @@ CURSOR = (
     .decode()
     .rstrip("=")
 )
-FEED = {"items": [FEED_ARTICLE, FEED_POST], "next_cursor": CURSOR}
+FEED = {"items": [FEED_REPOST, FEED_ARTICLE, FEED_POST], "next_cursor": CURSOR}
+REPOST_PAGE = {"items": [FEED_REPOST], "next_cursor": None}
+POST_INTERACTIONS = {
+    "likes_count": 12, "comments_count": 3, "reposts_count": 1,
+    "liked": True, "saved": False, "reposted": False,
+}
+ARTICLE_INTERACTIONS = {
+    "likes_count": 8, "comments_count": 2, "reposts_count": None,
+    "liked": False, "saved": True, "reposted": None,
+}
+COMMENT_CREATE = {"text": "This is a useful way to think about it."}
+POST_REPLY_CREATE = COMMENT_CREATE | {"parent_id": None}
+POST_REPLY = {
+    "id": "68ebd420f2b7a8c901234561",
+    "author": PROFILE_USER,
+    "text": COMMENT_CREATE["text"],
+    "created_at": "2026-10-14T10:05:00Z",
+    "updated_at": "2026-10-14T10:05:00Z",
+    "deleted": False,
+    "post_id": POST["id"],
+    "parent_id": None,
+    "root_id": "68ebd420f2b7a8c901234561",
+    "depth": 0,
+    "replies_count": 1,
+}
+POST_REPLY_CHILD = POST_REPLY | {
+    "id": "68ebd421f2b7a8c901234562", "text": "Agreed, especially the practical example.",
+    "parent_id": POST_REPLY["id"], "depth": 1, "replies_count": 0,
+}
+POST_REPLY_DELETED = POST_REPLY | {"author": None, "text": None, "deleted": True}
+ARTICLE_COMMENT = {
+    "id": "68ebd422f2b7a8c901234563",
+    "author": PROFILE_USER,
+    "text": COMMENT_CREATE["text"],
+    "created_at": "2026-10-14T10:05:00Z",
+    "updated_at": "2026-10-14T10:05:00Z",
+    "deleted": False,
+    "article_id": ARTICLE["id"],
+}
+POST_REPLY_PAGE = {"items": [POST_REPLY], "next_cursor": None}
+ARTICLE_COMMENT_PAGE = {"items": [ARTICLE_COMMENT], "next_cursor": None}
+SAVED_PAGE = {
+    "items": [{
+        "id": "68ebd423f2b7a8c901234564", "saved_at": "2026-10-14T10:10:00Z", "publication": FEED_ARTICLE,
+    }],
+    "next_cursor": None,
+}

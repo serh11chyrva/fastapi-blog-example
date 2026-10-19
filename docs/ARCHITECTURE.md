@@ -31,6 +31,8 @@ formatting with `uv run --locked ruff format src/backend`.
 | `posts/` | Micro-post documents, request/response schemas, repository, service, presenters, and share-ID backfill |
 | `feeds/` | Mixed publication reads, response schemas, presenters, deterministic cursors, and public feed cache invalidation |
 | `publications/` | Public share-link resolution, shared readable URLs, typed attachment contracts, image descriptor presentation, and transactional reference validation |
+| `interactions/` | Unique likes, private saves, public repost edges, live summary queries, and batched relationship-list hydration |
+| `comments/` | Separate post reply trees and flat article comments, bounded reads, batched presenters, and audited mutations |
 | `storage/` | Upload preparation, confirmation leases, immutable copies, attachment adapters, object storage access, and cleanup |
 | `audit/` | Transport-independent request metadata and transactional audit event writes |
 | `core/` | Configuration, typed clients, transaction conflict policy, and application errors |
@@ -113,7 +115,7 @@ for attachments before deletion.
 
 ## Read contracts
 
-Mixed feeds use separate post/article response types discriminated by `kind`.
+Mixed feeds use post, article, and repost-event response types discriminated by `kind`.
 They batch author reads and order by timestamp, publication kind, and ObjectId
 descending. Opaque cursors preserve that ordering across collections. Public feed
 caching is best effort and expires after 20 seconds; application writes advance its
@@ -193,3 +195,41 @@ Profiles store avatar metadata in `avatars.original` as `key` and `content_type`
 An index on `avatars.original.key` supports attachment reads and cleanup. Presenters expose only the
 nullable original URL. Resizing, legacy-response adapters, and data/index migrations are not included.
 The frontend still uses the previous API contract and requires a separate update.
+
+
+## Interactions and discussions
+
+`interactions/` stores one `PublicationInteraction` document per publication type, publication ID,
+action, and account, protected by a unique index. Like/repost totals are queried from edges;
+private save totals are never public. Viewer flags and `/me/saved` use uncached private responses,
+so shared feed cache entries contain no account-specific interaction state. State endpoints use
+idempotent PUT/DELETE, with audit events only for actual edge changes. Removal remains possible
+after the original is deleted or unpublished. Indexes support account lists and repost feed scans.
+
+`publications/access.py` owns the public-original guard reused by discussions and interactions.
+During creation or comment mutation it writes `interaction_revision` in the original's transaction,
+forcing concurrent deletion/unpublishing to conflict rather than accepting a stale public read.
+The revision defaults to zero on legacy documents and is internal; public content timestamps and
+feed positions do not change. User interaction changes and their audits commit together. No
+transaction body retries are introduced.
+
+`comments/` persists `PostReply` and `ArticleComment` in different collections. Reply positions
+store immutable `post_id`, `parent_id`, `root_id`, and integer `depth`; flat comments store only
+`article_id` and common content metadata. HTTP bodies forbid extra fields, so article comments
+cannot acquire nesting fields. A post parent is checked inside the same transaction and guarded
+against concurrent deletion. Replies have no fixed nesting-depth limit; reads fetch only roots
+or direct children with ObjectId keyset pagination. Author cards and child counts are batched.
+Deletion erases text, hides the author, and retains a tombstone so descendants stay navigable.
+
+Repost edges reference originals rather than copying them. Feed repository aggregation joins
+public originals before applying the final page limit; deleted posts cannot surface through a
+repost. Feed entries carry either the original's ID/time or the repost edge's ID/time. Cursors
+include the event kind, so repeated original IDs do not collapse independently ordered reposts.
+Following filters apply to original publication authors or to the reposting account, respectively.
+Repost changes invalidate the public feed cache. Profile authored-publication lists stay separate
+from public repost history. Saved/repost lists scan bounded relationship pages, hydrate originals
+and authors in batches, and return the last scanned ID even when unavailable originals empty a
+visible page. Existing collections require no data backfill; Beanie registers the three new
+collections and indexes at startup. No new dependency or background worker is required.
+
+See [INTERACTIONS.md](INTERACTIONS.md) for concrete routes, response examples, and access policy.

@@ -13,6 +13,7 @@ class MicroPost(Document, PublicationAuthors):
     """Public short-form publication with ordered authors, stable sharing, and typed content attachments."""
 
     attachments: PublicationAttachments = Field(default_factory=list)
+    interaction_revision: int = 0
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     text: str
     image_keys: list[str] = Field(default_factory=list)
