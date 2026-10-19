@@ -29,5 +29,5 @@ export function ArticlePage() {
     return <EmptyState title="Article unavailable" body={error} />;
   if (!article)
     return <div className="surface p-8 text-center text-sm text-slate-500">Loading article…</div>;
-  return <ArticlePresentation article={article} owner={user?.id === article.author_id} />;
+  return <ArticlePresentation key={article.id} article={article} owner={user?.id === article.owner_id} />;
 }

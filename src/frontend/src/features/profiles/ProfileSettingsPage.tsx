@@ -75,7 +75,7 @@ export function ProfileSettingsPage() {
     setNotice("");
     try {
       const updated = await uploadImages<OwnProfile>("/me/avatar", [file]);
-      setProfile(updated.revision === profile.revision + 1 ? updated : { ...profile, avatar_url: updated.avatar_url });
+      setProfile(updated.revision === profile.revision + 1 ? updated : { ...profile, avatars: updated.avatars });
       setNotice("Your avatar has been updated.");
     }
     catch (reason) {
@@ -94,7 +94,7 @@ export function ProfileSettingsPage() {
     <form onSubmit={save} className="surface space-y-5 p-5 sm:p-7">
       <fieldset className="contents" disabled={saving || uploading}>
         <div className="flex items-center gap-4">
-          <Avatar src={profile?.avatar_url} name={displayName || user.display_name} size="lg" />
+          <Avatar src={profile?.avatars.original} name={displayName || user.display_name} size="lg" />
           <label className="button-secondary cursor-pointer">
             {uploading ? "Uploading…" : "Upload avatar"}
             <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} disabled={uploading} />

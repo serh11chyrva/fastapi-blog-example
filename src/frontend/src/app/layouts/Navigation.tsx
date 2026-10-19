@@ -58,6 +58,7 @@ export function MobileNav() {
     <Link className="pill shrink-0" to="/following">Following</Link>
     {user && <>
       <Link className="pill shrink-0" to="/write">Write</Link>
+      <Link className="pill shrink-0" to="/saved">Saved</Link>
       <Link className="pill shrink-0" to="/my-articles">My articles</Link>
       <Link className="pill shrink-0" to="/settings/sessions">Sessions</Link>
     </>}
@@ -76,6 +77,7 @@ export function Sidebar() {
       {user && <>
         <div className="my-5 border-t border-slate-200" />
         <SideLink to={`/@${user.username}`} label="My profile" icon="◎" />
+        <SideLink to="/saved" label="Saved" icon="▱" />
         <SideLink to="/my-articles" label="My articles" icon="▤" />
         <SideLink to="/settings/profile" label="Profile settings" icon="⚙" />
         <SideLink to="/settings/sessions" label="Active sessions" icon="◷" />

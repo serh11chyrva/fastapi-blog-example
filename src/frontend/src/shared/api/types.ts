@@ -3,7 +3,7 @@ export type ProfileCard = {
   id: string;
   username: string;
   display_name: string;
-  avatar_url: string | null;
+  avatars: { original: string | null };
 };
 export type User = Pick<ProfileCard, "id" | "username" | "display_name"> & {
   email: string;
@@ -53,42 +53,49 @@ export type OwnProfile = Omit<Profile, "badges"> & {
   revision: number;
   badges: OwnerBadge[];
 };
-type Author = {
-  author_id: string;
-  author_username: string;
-  author_display_name: string;
-  author_avatar_url: string | null;
-};
-type PublicationBase = Author & {
+export type PublicationKind = "micro_post" | "article";
+export type Attachment =
+  | { type: "image"; url: string; alt: string }
+  | { type: "link"; url: string; label: string | null }
+  | { type: "mention"; user_id: string }
+  | { type: "hashtag"; tag: string }
+  | { type: "og_card"; url: string; title: string; description: string; image_url: string | null; site_name: string | null }
+  | { type: "article"; article_id: string }
+  | { type: "embed"; provider: "soundcloud" | "spotify" | "youtube" | "twitch"; url: string }
+  | { type: "video"; url: string };
+export type PublicationBase = {
   id: string;
   share_url: string | null;
+  owner_id: string;
+  authors: ProfileCard[];
+  attachments: Attachment[];
 };
-export type FeedItem = PublicationBase & {
-  published_at: string;
-} & ({
+export type PostFeedItem = PublicationBase & {
   kind: "micro_post";
   text: string;
-  images: string[];
-  title: null;
-  summary: null;
-  thumbnail_url: null;
-} | {
+  published_at: string;
+};
+export type ArticleFeedItem = PublicationBase & {
   kind: "article";
   title: string;
   summary: string;
   thumbnail_url: string | null;
-  text: null;
-  images: [
-  ];
-});
-export type Feed = {
-  items: FeedItem[];
-  next_cursor: string | null;
+  published_at: string;
 };
+export type OriginalFeedItem = PostFeedItem | ArticleFeedItem;
+export type RepostFeedItem = {
+  id: string;
+  kind: "repost";
+  reposted_by: ProfileCard;
+  published_at: string;
+  post: PostFeedItem;
+};
+export type FeedItem = OriginalFeedItem | RepostFeedItem;
+export type CursorPage<T> = { items: T[]; next_cursor: string | null };
+export type Feed = CursorPage<FeedItem>;
 export type MicroPost = PublicationBase & {
   kind: "micro_post";
   text: string;
-  images: string[];
   created_at: string;
   updated_at: string;
 };
@@ -105,6 +112,33 @@ export type Article = PublicationBase & {
   scheduled_at: string | null;
   published_at: string | null;
 };
+export type InteractionAction = "like" | "save" | "repost";
+export type InteractionSummary = {
+  likes_count: number;
+  comments_count: number;
+  reposts_count: number | null;
+  liked: boolean;
+  saved: boolean;
+  reposted: boolean | null;
+};
+export type SavedPublication = { id: string; saved_at: string; publication: OriginalFeedItem };
+type CommentContent = {
+  id: string;
+  author: ProfileCard | null;
+  text: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted: boolean;
+};
+export type PostReply = CommentContent & {
+  post_id: string;
+  parent_id: string | null;
+  root_id: string;
+  depth: number;
+  replies_count: number;
+};
+export type ArticleComment = CommentContent & { article_id: string };
+export type DiscussionComment = PostReply | ArticleComment;
 export type Session = {
   id: string;
   created_at: string;

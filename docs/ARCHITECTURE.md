@@ -155,7 +155,7 @@ post and feed schemas have no separate `images` field. Internal `image_keys` rem
 for image authorization and cleanup. Article body descriptors stay in the body. Upload
 confirmation removes stale explicit post image descriptors while preserving non-image content.
 Top-level clearing removes descriptors, not uploaded objects. API documentation and schema
-examples describe these semantics; frontend adoption is a separate change.
+examples describe these semantics. The frontend reads typed attachments directly and no longer expects a separate post images field.
 
 ## Frontend responsibilities
 
@@ -194,7 +194,7 @@ reads load accounts in batches. Responses expose `owner_id` and compact public c
 Profiles store avatar metadata in `avatars.original` as `key` and `content_type`, or null when absent.
 An index on `avatars.original.key` supports attachment reads and cleanup. Presenters expose only the
 nullable original URL. Resizing, legacy-response adapters, and data/index migrations are not included.
-The frontend still uses the previous API contract and requires a separate update.
+Frontend author cards, ownership checks, and profile images use `authors`, `owner_id`, and `avatars.original` directly.
 
 
 ## Interactions and discussions
@@ -233,3 +233,32 @@ visible page. Existing collections require no data backfill; Beanie registers th
 collections and indexes at startup. No new dependency or background worker is required.
 
 See [INTERACTIONS.md](INTERACTIONS.md) for concrete routes, response examples, and access policy.
+
+
+## Frontend interactions and discussions
+
+`features/interactions/PublicationActions` loads uncached public counts and viewer flags for an
+original publication, sends explicit PUT/DELETE desired states, and disables conflicting actions
+while requests or reconciliation reads are pending. A local browser event refreshes other mounted
+representations of the same original; user-specific flags reset when the account changes. The
+private Saved page removes unsaved entries locally and is mounted under a protected route.
+
+Feed cards unwrap repost events while retaining the reposter/time banner and original author
+cards, attachments, controls, and ownership checks. Repost changes refresh their containing feed
+or profile list. Profile Reposts uses the public relationship endpoint, separate from authored
+publication lists. Article and shared-post reading pages reuse these controls and discussions.
+
+`features/comments/Discussion` reads one post level at a time and mounts child lists only when
+expanded. Root, parent, and original IDs stay in the API rather than being reconstructed from
+visual indentation. Indentation is capped after four levels while deeper replies remain browsable.
+Article comments use the flat endpoint and never expose reply controls. Forms retain failed text;
+owned live comments support edits/deletes; tombstones preserve expanded child navigation.
+
+`shared/hooks/useCursorList` owns cancellation, first-page/continuation errors, duplicate request
+protection, and relationship/comment cursors. Empty visible saved/repost pages do not hide a
+remaining cursor. TypeScript unions distinguish original posts, articles, and repost events.
+Post reads at `/posts/:postId` provide a fallback when a shared URL is absent. Existing article
+editor state retains its current API payload; custom TipTap nodes convert variable attachment
+attributes into one editor-local descriptor and back before persistence, preserving strict backend
+union shapes. Article images already present in the body are not repeated in the attachment list.
+No new frontend runtime dependency is required.

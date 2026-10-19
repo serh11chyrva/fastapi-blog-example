@@ -33,15 +33,16 @@ export function FeedPage({ following = false }: {
 
     {error && <div className="notice-error">
       {error}
+      <button className="ml-2 underline" onClick={() => setRefreshKey((value) => value + 1)}>Reload feed</button>
       {following && !user && <Link className="ml-2 font-semibold underline" to="/login">Log in</Link>}
     </div>}
 
     {busy ? <div className="surface p-8 text-center text-sm text-slate-500">Loading the latest posts…</div> : feed.items.length ? <div className="space-y-4">
       {feed.items.map((item) => <FeedCard key={`${item.kind}-${item.id}`} item={item} onChanged={() => setRefreshKey((value) => value + 1)} />)}
-      {feed.next_cursor && <button className="button-secondary w-full" disabled={loadingMore} onClick={() => void loadMore()}>
-        {loadingMore ? "Loading…" : "Load more"}
-      </button>}
-    </div> : !error && <EmptyState title={following ? "Your following feed is quiet" : "Nothing has been published yet"} body={following ? "Follow a few profiles and their latest notes will appear here." : "Be the first to share a thought or publish an article."} />}
+    </div> : !error && <EmptyState title={feed.next_cursor ? "No available publications on this page" : following ? "Your following feed is quiet" : "Nothing has been published yet"} body={feed.next_cursor ? "Continue to see older publications." : following ? "Follow a few profiles and their latest notes will appear here." : "Be the first to share a thought or publish an article."} />}
+    {!busy && feed.next_cursor && <button className="button-secondary w-full" disabled={loadingMore} onClick={() => void loadMore()}>
+      {loadingMore ? "Loading…" : "Load more"}
+    </button>}
 
   </div>;
 }

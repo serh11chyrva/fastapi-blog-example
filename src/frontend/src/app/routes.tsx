@@ -11,6 +11,8 @@ import { ArticlePage } from "../features/articles/ArticlePage";
 import { SharedPublicationPage } from "../features/articles/SharedPublicationPage";
 import { ArticleEditorPage } from "../features/articles/ArticleEditorPage";
 import { SessionsPage } from "../features/profiles/sessions/SessionsPage";
+import { SavedPage } from "../features/interactions/SavedPage";
+import { PostPage } from "../features/feed/PostPage";
 import { EmptyState } from "../shared/ui/EmptyState";
 export function AppRoutes() {
   return <Routes>
@@ -32,6 +34,8 @@ export function AppRoutes() {
 
         <Route path="following" element={<FeedPage following />} />
 
+        <Route path="saved" element={<SavedPage />} />
+
         <Route path="my-articles" element={<MyArticlesPage />} />
 
         <Route path="settings/profile" element={<ProfileSettingsPage />} />
@@ -46,6 +50,8 @@ export function AppRoutes() {
 
     <Route element={<ReadingLayout />}>
 
+
+      <Route path="posts/:postId" element={<PostPage />} />
 
       <Route path="articles/:articleId" element={<ArticlePage />} />
 

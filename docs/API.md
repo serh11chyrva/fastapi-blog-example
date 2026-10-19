@@ -473,7 +473,7 @@ Posts and articles store an ordered `attachments` array. Each object is a strict
 union selected by `type`; unknown types and fields return 422. Up to 30 explicit descriptors
 are allowed per publication. Existing documents default to `attachments: []` without a migration.
 Post text remains required (1–280 characters, nonblank); attachments do not replace it.
-These are backend contracts; frontend rendering and editing are a separate change.
+The frontend renders typed content and preserves the supported TipTap nodes during article editing. Typed attachment creation controls and provider player integrations remain separate work; post image uploads keep their existing controls.
 
 | Type | Fields | Behavior |
 | --- | --- | --- |

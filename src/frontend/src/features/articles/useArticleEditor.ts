@@ -4,6 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { Article } from "../../shared/api/types";
 import { useEditor } from "@tiptap/react";
 import { createEditorExtensions } from "./editorExtensions";
+import { fromEditorBody, toEditorBody } from "./contentNodes";
 import { api, errorMessage } from "../../shared/api/client";
 import { uploadImages } from "../../shared/uploads/uploadImages";
 export function useArticleEditor() {
@@ -21,9 +22,9 @@ export function useArticleEditor() {
   const imageInput = useRef<HTMLInputElement>(null);
   const editor = useEditor({
     extensions: createEditorExtensions(),
-    content: body,
+    content: toEditorBody(body),
     editable: true,
-    onUpdate: ({ editor: current }) => setBody(current.getJSON()),
+    onUpdate: ({ editor: current }) => setBody(fromEditorBody(current.getJSON())),
     editorProps: { attributes: { class: "tiptap-content tiptap-editable" } },
   });
   const [loading, setLoading] = useState(!!articleId);
@@ -66,8 +67,8 @@ export function useArticleEditor() {
     return () => URL.revokeObjectURL(url);
   }, [thumbnailFile]);
   useEffect(() => {
-    if (editor && JSON.stringify(editor.getJSON()) !== JSON.stringify(body))
-      editor.commands.setContent(body, { emitUpdate: false });
+    if (editor && JSON.stringify(fromEditorBody(editor.getJSON())) !== JSON.stringify(body))
+      editor.commands.setContent(toEditorBody(body), { emitUpdate: false });
   }, [editor, body]);
   async function persist(): Promise<Article> {
     if (!title.trim())

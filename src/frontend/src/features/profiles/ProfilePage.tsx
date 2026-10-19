@@ -9,6 +9,7 @@ import { Avatar } from "../../shared/ui/Avatar";
 import { BadgeIcon } from "./BadgeIcon";
 import { PostComposer } from "../feed/PostComposer";
 import { ProfilePublications } from "./ProfilePublications";
+import { ProfileReposts } from "./ProfileReposts";
 export function ProfilePage() {
   const { handle } = useParams();
   return <ProfileContent key={handle} />;
@@ -19,7 +20,7 @@ function ProfileContent() {
   const { user } = useApp();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"micro_post" | "article">("micro_post");
+  const [tab, setTab] = useState<"micro_post" | "article" | "repost">("micro_post");
   const [refreshKey, setRefreshKey] = useState(0);
   const [networkKind, setNetworkKind] = useState<"followers" | "following" | null>(null);
   const networkList = useOffsetList<ProfileCard>(networkKind && profile ? `/users/${profile.username}/${networkKind}` : null);
@@ -64,7 +65,7 @@ function ProfileContent() {
       <div className="h-20 bg-neutral-100" />
       <div className="px-5 pb-6 sm:px-7">
         <div className="-mt-10 flex flex-wrap items-end justify-between gap-4">
-          <Avatar src={profile.avatar_url} name={profile.display_name} size="lg" />
+          <Avatar src={profile.avatars.original} name={profile.display_name} size="lg" />
           <div className="flex gap-2">
             {own ? <Link to="/settings/profile" className="button-secondary">Edit profile</Link> : user ? <button className={profile.is_following ? "button-secondary" : "button-primary"} onClick={toggleFollow}>
               {profile.is_following ? "Following" : "Follow"}
@@ -98,7 +99,7 @@ function ProfileContent() {
           </p>
           <div className="flex flex-wrap gap-3">
             {network.map((person) => <Link className="flex items-center gap-2 border border-slate-200 px-3 py-2" key={person.id} to={`/@${person.username}`}>
-              <Avatar src={person.avatar_url} name={person.display_name} size="sm" />
+              <Avatar src={person.avatars.original} name={person.display_name} size="sm" />
               <span className="text-sm">
                 {person.display_name}
               </span>
@@ -127,8 +128,9 @@ function ProfileContent() {
     <div className="flex gap-7 border-b border-neutral-200">
       <button className={`profile-tab ${tab === "micro_post" ? "active" : ""}`} onClick={() => setTab("micro_post")}>Posts</button>
       <button className={`profile-tab ${tab === "article" ? "active" : ""}`} onClick={() => setTab("article")}>Articles</button>
+      <button className={`profile-tab ${tab === "repost" ? "active" : ""}`} onClick={() => setTab("repost")}>Reposts</button>
     </div>
     {tab === "micro_post" && own && <PostComposer onPosted={() => setRefreshKey((value) => value + 1)} />}
-    <ProfilePublications key={`${profile.username}-${tab}-${refreshKey}`} username={profile.username} kind={tab} onChanged={() => setRefreshKey((value) => value + 1)} />
+    {tab === "repost" ? <ProfileReposts key={profile.username} username={profile.username} /> : <ProfilePublications key={`${profile.username}-${tab}-${refreshKey}`} username={profile.username} kind={tab} onChanged={() => setRefreshKey((value) => value + 1)} />}
   </div>;
 }
