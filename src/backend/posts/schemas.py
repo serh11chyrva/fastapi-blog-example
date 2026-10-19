@@ -45,7 +45,7 @@ class MicroPostCreate(BaseModel):
 
 
 class MicroPostResponse(BaseModel):
-    """Published micro-post with its ordered public author cards."""
+    """Published micro-post with ordered authors and images represented only as typed attachments."""
 
     model_config = ConfigDict(
         title="Published micro-post",
@@ -69,16 +69,12 @@ class MicroPostResponse(BaseModel):
     attachments: list[PublicationAttachment] = Field(
         default_factory=list,
         description="Ordered typed descriptors followed by uploaded images without explicit placement. "
+        "Images appear only here as type=image entries, with up to five uploaded images per post. "
         "Resolve account and article IDs through their endpoints to apply current visibility rules.",
     )
     text: str = Field(
         description="Public post text, without surrounding whitespace.",
         examples=[examples.POST_TEXT],
-    )
-    images: list[str] = Field(
-        default_factory=list,
-        description="Same-origin URLs for attached images, in display order. A post can have up to five images.",
-        examples=[[examples.POST_IMAGE_URL]],
     )
     owner_id: str = Field(
         description="Account owning the publication and controlling edits, uploads, and private visibility.",

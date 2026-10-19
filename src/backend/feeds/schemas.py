@@ -47,13 +47,12 @@ class FeedBase(BaseModel):
 
 
 class PostFeedItem(FeedBase):
-    """Compact micro-post representation returned in publication feeds."""
+    """Compact micro-post whose images are represented only in attachments."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_POST]})
 
     kind: Literal["micro_post"] = "micro_post"
     text: str = Field(description="Public micro-post text.")
-    images: list[str] = Field(default_factory=list, description="Post image URLs in display order.")
     title: None = None
     summary: None = None
     thumbnail_url: None = None
@@ -69,7 +68,6 @@ class ArticleFeedItem(FeedBase):
     summary: str = Field(description="Article preview; may be empty.")
     thumbnail_url: str | None = Field(default=None, description="Article cover URL, if present.")
     text: None = None
-    images: list[str] = Field(default_factory=list, max_length=0)
 
 
 FeedItem = Annotated[PostFeedItem | ArticleFeedItem, Field(discriminator="kind")]

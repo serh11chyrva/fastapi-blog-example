@@ -90,7 +90,6 @@ POST = {
     "kind": "micro_post",
     "share_url": "/@maya_bennett/finished-a-24-km-ride-along-the-river-before-breakfast-the-best--a98f7c1326e44b6a8c5d39e27104bf60",
     "text": POST_TEXT,
-    "images": [],
     "attachments": [],
     "owner_id": ACCOUNT["id"],
     "authors": [AUTHOR],
@@ -100,7 +99,6 @@ POST = {
 POST_WITH_FEATURED_AUTHORS = POST | {"authors": [AUTHOR, PROFILE_USER]}
 POST_IMAGE_URL = "/static/images/post-images/74b936dfe1a24c708951c3e628a0fd5b.jpg"
 POST_WITH_IMAGES = POST | {
-    "images": [POST_IMAGE_URL],
     "attachments": [{"type": "image", "url": POST_IMAGE_URL, "alt": ""}],
     "updated_at": "2026-10-12T10:06:14Z",
 }
@@ -242,7 +240,7 @@ FEED_ARTICLE = {
         "attachments",
         "published_at",
     )
-} | {"text": None, "images": []}
+} | {"text": None}
 FEED_POST = {
     key: POST[key]
     for key in (
@@ -250,7 +248,6 @@ FEED_POST = {
         "kind",
         "share_url",
         "text",
-        "images",
         "attachments",
         "owner_id",
         "authors",

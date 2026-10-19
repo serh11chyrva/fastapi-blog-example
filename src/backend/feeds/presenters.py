@@ -35,7 +35,6 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> FeedItem
             **common,
             share_url=share_path(authors[0].username, publication.text, publication.share_id),
             text=publication.text,
-            images=[publication_image_url(key, "post-images") for key in publication.image_keys],
             published_at=publication.created_at,
         )
 

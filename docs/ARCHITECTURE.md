@@ -148,7 +148,9 @@ contains an allowlisted provider and HTTPS resource URL; neither triggers an ext
 
 Image storage inventories remain authoritative for authorization and cleanup. Presenters append
 image descriptors for inventory entries missing from explicit placement, so legacy images appear
-in the new contract without migration. Article body descriptors stay in the body. Upload
+in the new contract without migration. Posts expose image URLs exclusively in `attachments`;
+post and feed schemas have no separate `images` field. Internal `image_keys` remain authoritative
+for image authorization and cleanup. Article body descriptors stay in the body. Upload
 confirmation removes stale explicit post image descriptors while preserving non-image content.
 Top-level clearing removes descriptors, not uploaded objects. API documentation and schema
 examples describe these semantics; frontend adoption is a separate change.

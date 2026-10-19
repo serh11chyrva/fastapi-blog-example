@@ -35,6 +35,7 @@ Image downloads use `/static/images/` and retain article access checks.
 Posts and articles accept ordered `attachments` discriminated by `type`: image, link, mention,
 hashtag, og_card, article, and embed. Video is reserved and currently returns 422.
 Up to 30 explicit descriptors are accepted; responses append uploaded images without explicit placement.
+Post images are represented only as `type: image` elements in `attachments`; there is no separate `images` field.
 Image references must belong to the publication, mentioned accounts must exist, and referenced articles
 must be published at write time. Article bodies also support inline mention/hashtag nodes and block
 attachment nodes with a complete descriptor in attrs (up to 30 descriptors per body).

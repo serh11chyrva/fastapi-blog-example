@@ -24,7 +24,6 @@ def post_response(post: MicroPost, authors: list[User]) -> MicroPostResponse:
         ),
         share_url=share_path(authors[0].username, post.text, post.share_id),
         text=post.text,
-        images=[publication_image_url(key, "post-images") for key in post.image_keys],
         authors=[user_card(author) for author in authors],
         created_at=post.created_at,
         updated_at=post.updated_at,

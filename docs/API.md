@@ -375,6 +375,7 @@ Feed items are a discriminated union: `micro_post` requires text, while `article
       "kind": "micro_post",
       "title": null,
       "text": "A small idea worth sharing.",
+      "attachments": [],
       "summary": null,
       "owner_id": "65f0c2a1b2c3d4e5f6071829",
       "authors": [{"id":"65f0c2a1b2c3d4e5f6071829","username":"reader_one","display_name":"Avery R.","avatars":{"original":null}}],
@@ -416,6 +417,7 @@ Create request and representative response:
   "id":"65f0c2a1b2c3d4e5f6071831",
   "kind":"micro_post",
   "text":"A small idea worth sharing with the community.",
+  "attachments": [],
   "owner_id":"65f0c2a1b2c3d4e5f6071829",
   "authors": [{"id":"65f0c2a1b2c3d4e5f6071829","username":"reader_one","display_name":"Avery R.","avatars":{"original":null}}],
   "created_at":"2026-10-12T09:34:15Z",
@@ -518,7 +520,10 @@ Images still use the existing prepare/PUT/confirm upload protocol, with five ima
 and 30 inline images per article. Create a publication first, upload images, then optionally add
 `image` descriptors to place images among other attachment types or provide alternate text.
 Repeating an image URL within explicit/body descriptors is rejected. Upload inventories
-(`images` / `inline_image_urls`) and their cleanup/authorization indexes remain authoritative.
+(`image_keys` / `inline_image_keys` in storage) and their cleanup/authorization indexes remain authoritative.
+Post responses expose images only as `type: "image"` entries in `attachments`; the separate `images`
+field is removed, including in feeds, profile publications, shared-post reads, and upload confirmation
+responses. Article responses retain their separate `inline_image_urls` upload inventory.
 Clearing explicit descriptors does not delete uploaded files. Replacing post images through
 upload confirmation removes old image descriptors, preserves other descriptors, and queues the
 replaced files for cleanup as before.
