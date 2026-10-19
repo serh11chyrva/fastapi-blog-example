@@ -24,7 +24,7 @@ function CommentForm({ path, parentId, label, onCreated, onCancel }: {
   path: string;
   parentId?: string;
   label: string;
-  onCreated: () => void;
+  onCreated: (comment: DiscussionComment) => void;
   onCancel?: () => void;
 }) {
   const [text, setText] = useState("");
@@ -43,10 +43,10 @@ function CommentForm({ path, parentId, label, onCreated, onCancel }: {
     setBusy(true);
     setError("");
     try {
-      await api(path, { method: "POST", body: JSON.stringify({ text, ...(parentId ? { parent_id: parentId } : {}) }) });
+      const created = await api<DiscussionComment>(path, { method: "POST", body: JSON.stringify({ text, ...(parentId ? { parent_id: parentId } : {}) }) });
       if (!active.current) return;
       setText("");
-      onCreated();
+      onCreated(created);
     } catch (reason) {
       if (active.current) setError(`${errorMessage(reason)} Your text has been kept. Reload the conversation before retrying if the result is uncertain.`);
     } finally {
@@ -70,25 +70,45 @@ function CommentForm({ path, parentId, label, onCreated, onCancel }: {
   </form>;
 }
 
-function CommentList({ kind, id, parentId }: { kind: PublicationKind; id: string; parentId?: string }) {
+function CommentList({ kind, id, parentId, newComments, onRecentUpdate }: {
+  kind: PublicationKind; id: string; parentId?: string; newComments?: DiscussionComment[];
+  onRecentUpdate?: (comment: DiscussionComment) => void;
+}) {
   const { user } = useApp();
   const base = `${publicationPath(kind, id)}/${kind === "micro_post" ? "replies" : "comments"}`;
   const list = useCursorList<DiscussionComment>(`${base}${parentId ? `?parent_id=${encodeURIComponent(parentId)}` : ""}`);
-  function created() {
-    list.refresh();
+  const [recent, setRecent] = useState<DiscussionComment[]>([]);
+  useEffect(() => {
+    if (newComments?.length) {
+      setRecent((items) => [...items, ...newComments.filter((comment) => !items.some((item) => item.id === comment.id))]);
+    }
+  }, [newComments]);
+  const visibleRecent = recent.filter((comment) => !list.items.some((item) => item.id === comment.id));
+  function update(updated: DiscussionComment) {
+    list.setItems((items) => items.map((item) => item.id === updated.id ? updated : item));
+    setRecent((items) => items.map((item) => item.id === updated.id ? updated : item));
+    onRecentUpdate?.(updated);
+  }
+  function created(comment: DiscussionComment) {
+    setRecent((items) => [...items, comment]);
     notifyInteractionChange({ kind, id });
   }
   return <div>
     {user && !parentId && <CommentForm path={base} label={kind === "micro_post" ? "Your reply" : "Your comment"} onCreated={created} />}
+    {visibleRecent.length > 0 && <div className="my-4 space-y-4">
+      <p className="text-sm text-neutral-500" role="status">Just sent{list.cursor && " · Load more to continue the earlier conversation."}</p>
+      {visibleRecent.map((comment) => <CommentItem key={comment.id} comment={comment} kind={kind} publicationId={id}
+        base={base} onUpdate={update} />)}
+    </div>}
     <div className="space-y-4">
       {list.items.map((comment) => <CommentItem key={comment.id} comment={comment} kind={kind} publicationId={id}
-        base={base} onUpdate={(updated) => list.setItems((items) => items.map((item) => item.id === updated.id ? updated : item))} />)}
+        base={base} onUpdate={update} />)}
     </div>
     {list.loading && <p role="status" className="py-3 text-sm text-neutral-500">Loading conversation…</p>}
     {list.error && <p role="alert" className="notice-error mt-3">{list.error}{" "}
       <button className="underline" onClick={list.cursor ? () => void list.loadMore() : list.refresh}>Retry</button>
     </p>}
-    {!list.loading && !list.error && !list.items.length && <p className="py-3 text-sm text-neutral-500">No {parentId ? "replies" : kind === "micro_post" ? "replies yet. Start the conversation." : "comments yet. Be the first to comment."}</p>}
+    {!list.loading && !list.error && !list.items.length && !visibleRecent.length && <p className="py-3 text-sm text-neutral-500">No {parentId ? "replies" : kind === "micro_post" ? "replies yet. Start the conversation." : "comments yet. Be the first to comment."}</p>}
     {list.cursor && <button className="button-secondary mt-4" disabled={list.loading} onClick={() => void list.loadMore()}>Load more</button>}
     <button className="button-quiet mt-3 text-xs" disabled={list.loading} onClick={list.refresh}>Refresh conversation</button>
   </div>;
@@ -105,7 +125,7 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate }: {
   const [editing, setEditing] = useState(false);
   const [replying, setReplying] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [childrenVersion, setChildrenVersion] = useState(0);
+  const [recentReplies, setRecentReplies] = useState<DiscussionComment[]>([]);
   const [text, setText] = useState(comment.text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -189,15 +209,16 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate }: {
       <button className="underline" disabled={busy} onClick={() => void reload()}>Reload comment</button>
     </p>}
     {replying && !comment.deleted && user && <CommentForm path={base} parentId={comment.id} label="Reply to this comment"
-      onCancel={() => setReplying(false)} onCreated={() => {
+      onCancel={() => setReplying(false)} onCreated={(created) => {
         setReplying(false);
         setExpanded(true);
-        setChildrenVersion((value) => value + 1);
+        setRecentReplies((items) => [...items, created]);
         if (thread) onUpdate({ ...thread, replies_count: thread.replies_count + 1 });
         notifyInteractionChange({ kind, id: publicationId });
       }} />}
     {expanded && thread && <div className={thread.depth < 4 ? "mt-4 border-l border-neutral-200 pl-3 sm:pl-5" : "mt-4 border-t border-neutral-200"}>
-      <CommentList key={`${comment.id}:${childrenVersion}`} kind="micro_post" id={publicationId} parentId={comment.id} />
+      <CommentList kind="micro_post" id={publicationId} parentId={comment.id} newComments={recentReplies}
+        onRecentUpdate={(updated) => setRecentReplies((items) => items.map((item) => item.id === updated.id ? updated : item))} />
     </div>}
   </article>;
 }

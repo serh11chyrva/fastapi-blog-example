@@ -1,4 +1,9 @@
 export type ApiRequestOptions = RequestInit;
+export const sessionExpiredEvent = "api-session-expired";
+let sessionGeneration = 0;
+export function advanceSessionGeneration() {
+  sessionGeneration++;
+}
 export type ValidationIssue = {
   loc?: (string | number)[];
   msg: string;
@@ -17,10 +22,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 export async function api<T>(path: string, init: ApiRequestOptions = {}): Promise<T> {
+  const generation = sessionGeneration;
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData))
     headers.set("Content-Type", "application/json");
   const response = await fetch(`/api/v1${path}`, { ...init, headers, credentials: "same-origin" });
+  if (response.status === 401 && generation === sessionGeneration && !init.signal?.aborted
+      && !["/auth/login", "/auth/register", "/auth/me"].includes(path)) {
+    window.dispatchEvent(new Event(sessionExpiredEvent));
+  }
   if (response.status === 204)
     return undefined as T;
   let payload: unknown;

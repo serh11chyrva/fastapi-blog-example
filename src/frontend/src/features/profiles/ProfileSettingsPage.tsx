@@ -4,7 +4,7 @@ import type { OwnProfile, OwnerBadge, ProfileLinkInput } from "../../shared/api/
 import { api, errorMessage } from "../../shared/api/client";
 import { Navigate } from "react-router-dom";
 import type { FormEvent } from "react";
-import { uploadImages } from "../../shared/uploads/uploadImages";
+import { useImageUploader } from "../../shared/uploads/uploadImages";
 import { Avatar } from "../../shared/ui/Avatar";
 import { BadgeIcon } from "./BadgeIcon";
 export function ProfileSettingsPage() {
@@ -17,6 +17,8 @@ export function ProfileSettingsPage() {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const uploadImages = useImageUploader();
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   async function loadProfile() {
     const value = await api<OwnProfile>("/me/profile");
     setProfile(value);
@@ -68,14 +70,18 @@ export function ProfileSettingsPage() {
   async function upload(event: FormEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
-    if (!file || uploading || saving || !profile)
-      return;
+    if (file) await uploadAvatar(file);
+  }
+  async function uploadAvatar(file: File) {
+    if (uploading || saving || !profile) return;
+    setPendingAvatar(file);
     setUploading(true);
     setError("");
     setNotice("");
     try {
       const updated = await uploadImages<OwnProfile>("/me/avatar", [file]);
       setProfile(updated.revision === profile.revision + 1 ? updated : { ...profile, avatars: updated.avatars });
+      setPendingAvatar(null);
       setNotice("Your avatar has been updated.");
     }
     catch (reason) {
@@ -99,6 +105,8 @@ export function ProfileSettingsPage() {
             {uploading ? "Uploading…" : "Upload avatar"}
             <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} disabled={uploading} />
           </label>
+          {pendingAvatar && <button type="button" className="button-secondary"
+            onClick={() => void uploadAvatar(pendingAvatar)}>Retry avatar upload</button>}
           <span className="text-xs text-slate-400">JPEG, PNG, or WebP · up to 5 MB</span>
         </div>
         <label className="form-label block">Username<div className="field mt-1.5 bg-slate-50 text-slate-500">@{user.username}</div></label>

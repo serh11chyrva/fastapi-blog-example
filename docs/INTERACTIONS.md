@@ -248,6 +248,9 @@ uploads, or feed events in this implementation. Notifications are not sent.
 - Plain-text forms enforce the 5,000-character limit, disable repeated submission while pending,
   and keep text on failure. Owned live comments offer Edit and Delete; failed edits can reload the
   latest comment without replacing the local draft. Deletion hides text/author and preserves children.
+  Successful creation uses the returned comment immediately in a Just sent section, retaining
+  loaded pages and their cursor. The same behavior applies to nested replies. As pagination
+  reaches those entries, they move into the ordinary list without duplicate cards.
 - Publication ownership and author cards use `owner_id`/`authors`, and avatars use `avatars.original`.
   Post images render only from typed `attachments`. There are no legacy flat-author or image-array
   fallbacks. Article attachments render outside the body unless the same image already occurs within it.

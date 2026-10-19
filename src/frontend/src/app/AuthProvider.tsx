@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { api, ApiError, errorMessage } from "../shared/api/client";
+import { advanceSessionGeneration, api, ApiError, errorMessage, sessionExpiredEvent } from "../shared/api/client";
 import type { User } from "../shared/api/types";
 type AuthState = {
   status: "loading";
@@ -28,6 +28,15 @@ export function AuthProvider({ children }: {
   const restore = useRef<AbortController | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    function expired() {
+      advanceSessionGeneration();
+      restore.current?.abort();
+      setState({ status: "anonymous", user: null });
+    }
+    window.addEventListener(sessionExpiredEvent, expired);
+    return () => window.removeEventListener(sessionExpiredEvent, expired);
+  }, []);
+  useEffect(() => {
     const controller = new AbortController();
     restore.current = controller;
     setState({ status: "loading", user: null });
@@ -45,7 +54,11 @@ export function AuthProvider({ children }: {
       });
     return () => controller.abort();
   }, [attempt]);
-  const setUser = (user: User | null) => { restore.current?.abort(); setState(user ? { status: "authenticated", user } : { status: "anonymous", user: null }); };
+  const setUser = (user: User | null) => {
+    advanceSessionGeneration();
+    restore.current?.abort();
+    setState(user ? { status: "authenticated", user } : { status: "anonymous", user: null });
+  };
   return <AuthContext.Provider value={{ ...state, setUser, retry: () => setAttempt((value) => value + 1) }}>
     {children}
   </AuthContext.Provider>;

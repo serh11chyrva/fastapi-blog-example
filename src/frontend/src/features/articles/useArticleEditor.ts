@@ -6,7 +6,7 @@ import { useEditor } from "@tiptap/react";
 import { createEditorExtensions } from "./editorExtensions";
 import { fromEditorBody, toEditorBody } from "./contentNodes";
 import { api, errorMessage } from "../../shared/api/client";
-import { uploadImages } from "../../shared/uploads/uploadImages";
+import { useImageUploader, validateImages } from "../../shared/uploads/uploadImages";
 export function useArticleEditor() {
   const { articleId } = useParams();
   const navigate = useNavigate();
@@ -16,6 +16,8 @@ export function useArticleEditor() {
   const [article, setArticle] = useState<Article | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const uploadImages = useImageUploader();
+  const [pendingInlineImage, setPendingInlineImage] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
   const [publishAt, setPublishAt] = useState("");
@@ -70,15 +72,20 @@ export function useArticleEditor() {
     if (editor && JSON.stringify(fromEditorBody(editor.getJSON())) !== JSON.stringify(body))
       editor.commands.setContent(toEditorBody(body), { emitUpdate: false });
   }, [editor, body]);
-  async function persist(): Promise<Article> {
+  function validateContent() {
     if (!title.trim())
       throw new Error("Add a title before saving your article.");
+    if (thumbnailFile) validateImages("/cover", [thumbnailFile]);
+  }
+  async function persist(currentArticle: Article | null = article): Promise<Article> {
+    validateContent();
     const payload = { title, summary, body };
-    let saved = article ? await api<Article>(`/articles/${article.id}`, { method: "PATCH", body: JSON.stringify(payload) }) : await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
+    let saved = currentArticle ? await api<Article>(`/articles/${currentArticle.id}`, { method: "PATCH", body: JSON.stringify(payload) }) : await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
     setArticle(saved);
     if (thumbnailFile) {
-      saved = await uploadImages<Article>(`/articles/${saved.id}/cover`, [thumbnailFile]);
+      await uploadImages<Article>(`/articles/${saved.id}/cover`, [thumbnailFile]);
       setThumbnailFile(null);
+      saved = await api<Article>(`/articles/${saved.id}`);
     }
     setArticle(saved);
     return saved;
@@ -89,12 +96,15 @@ export function useArticleEditor() {
     setSaving(true);
     setError("");
     try {
+      validateImages("/images", [file]);
+      setPendingInlineImage(file);
       const saved = article || await persist();
       const uploaded = await uploadImages<{
         url: string;
         alt_text: string;
       }>(`/articles/${saved.id}/images`, [file]);
       editor?.chain().focus().insertContent({ type: "image", attrs: { src: uploaded.url, alt: uploaded.alt_text } }).run();
+      setPendingInlineImage(null);
     }
     catch (reason) {
       setError(errorMessage(reason));
@@ -104,6 +114,7 @@ export function useArticleEditor() {
     }
   }
   async function runAction(action: "draft" | "delete" | "publish" | "schedule") {
+    if (saving) return;
     if (action === "delete" && (!article || !confirm("Delete this article? This removes it from public pages.")))
       return;
     if (action === "schedule" && !publishAt) {
@@ -118,13 +129,24 @@ export function useArticleEditor() {
         navigate("/my-articles");
         return;
       }
-      let saved = await persist();
-      if (action === "draft" && saved.status !== "draft")
-        saved = await api<Article>(`/articles/${saved.id}/draft`, { method: "POST" });
+      validateContent();
+      let scheduledTime: string | undefined;
+      if (action === "schedule") {
+        const date = new Date(publishAt);
+        if (!Number.isFinite(date.getTime()) || date.getTime() <= Date.now())
+          throw new Error("Choose a future date and time for publication.");
+        scheduledTime = date.toISOString();
+      }
+      let currentArticle = article;
+      if ((action === "draft" || action === "schedule") && currentArticle) {
+        currentArticle = await api<Article>(`/articles/${currentArticle.id}/draft`, { method: "POST" });
+        setArticle(currentArticle);
+      }
+      let saved = await persist(currentArticle);
       if (action === "publish")
         saved = await api<Article>(`/articles/${saved.id}/publish`, { method: "POST" });
       if (action === "schedule")
-        saved = await api<Article>(`/articles/${saved.id}/schedule`, { method: "POST", body: JSON.stringify({ publish_at: new Date(publishAt).toISOString() }) });
+        saved = await api<Article>(`/articles/${saved.id}/schedule`, { method: "POST", body: JSON.stringify({ publish_at: scheduledTime }) });
       setArticle(saved);
       navigate(saved.status === "published" ? saved.share_url || `/articles/${saved.id}` : `/articles/${saved.id}`);
     }
@@ -136,5 +158,5 @@ export function useArticleEditor() {
     }
   }
   useEffect(() => { editor?.setEditable(!saving); }, [editor, saving]);
-  return { loading, loadError, title, setTitle, summary, setSummary, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, editor, uploadInlineImage, runAction };
+  return { loading, loadError, title, setTitle, summary, setSummary, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, runAction };
 }

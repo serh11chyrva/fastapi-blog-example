@@ -170,11 +170,31 @@ examples describe these semantics. The frontend reads typed attachments directly
 - `shared/hooks/` owns reusable bounded list loading. Feed pagination has its own
   cursor hook. Both cancel outdated requests and prevent concurrent load-more calls.
 - `shared/ui/` contains common presentation components; `shared/uploads/` implements
-  the prepare, direct PUT, and confirm protocol.
+  the prepare, direct PUT, and confirm protocol. Its uploader hook retains each pending
+  upload ID and the selected File objects while the form remains mounted. A retry after
+  PUT success repeats confirmation without uploading or attaching another image. Only
+  a definitive expired/missing upload response discards a pending confirmation; an
+  uncertain result retains it. Cover completion reloads the article because replayed
+  upload responses contain the original saved article snapshot.
+
+Image metadata is validated before post creation. A later upload failure explicitly
+reports that the note is already public; retry updates that same note. Avatar and inline
+image forms retain failed selections with explicit retry controls. Pending uploads are
+kept in memory and are discarded when their form unmounts; after navigation or reload,
+inspect current attachments before starting a replacement upload.
+
+Draft and schedule actions make an existing article private before saving content or
+cover changes. Local title, cover, and scheduling checks happen before mutations. If
+saving or scheduling subsequently fails, the article remains a private draft. Cover
+confirmation reloads current article data rather than restoring an old upload snapshot.
 
 Protected routes wait for session restoration. An unavailable authentication service
 has an explicit retry state. Route changes cancel outdated reads, and editor form
-state is recreated when the article ID changes. Loading failures remain distinct
+state is recreated when the article ID changes. A 401 from an authenticated API
+operation clears the local session, including when logout finds an expired session.
+Login failures remain local to the credential form. Session generations prevent a late
+401 from an earlier session from clearing a newly authenticated account.
+Loading failures remain distinct
 from successfully loaded empty lists.
 
 Cookie security is generated from authentication dependencies. Optional-session
