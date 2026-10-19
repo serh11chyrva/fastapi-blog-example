@@ -6,9 +6,10 @@ import json
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 
 from backend.links.platforms import validate_link_url
+from backend.publications.attachments import PublicationAttachment
 
 type ArticleBody = dict[str, JsonValue]
 type NodeKind = Literal[
@@ -24,6 +25,9 @@ type NodeKind = Literal[
     "hardBreak",
     "horizontalRule",
     "image",
+    "attachment",
+    "mention",
+    "hashtag",
 ]
 MAX_ARTICLE_JSON_BYTES = 1_000_000
 MAX_ARTICLE_DEPTH = 64
@@ -38,7 +42,9 @@ BLOCK_NODES = {
     "codeBlock",
     "horizontalRule",
     "image",
+    "attachment",
 }
+ATTACHMENT_ADAPTER = TypeAdapter(PublicationAttachment)
 
 
 class TiptapMark(BaseModel):
@@ -135,7 +141,7 @@ def validate_tiptap_document(document: ArticleBody) -> None:
             if not node.content or children != {"listItem"}:
                 raise ValueError("Lists must contain list items")
         elif node.type in {"paragraph", "heading"}:
-            if not children.issubset({"text", "hardBreak"}):
+            if not children.issubset({"text", "hardBreak", "mention", "hashtag"}):
                 raise ValueError("Paragraphs and headings require inline content")
         elif node.type == "codeBlock":
             if not children.issubset({"text"}) or any(child.marks for child in node.content):
@@ -186,6 +192,53 @@ def validate_tiptap_document(document: ArticleBody) -> None:
                 validate_link_url(href)
 
         pending.extend(node.content)
+
+    article_body_attachments(document)
+
+
+def article_body_attachments(document: ArticleBody) -> list[PublicationAttachment]:
+    """Validate and extract typed descriptors from structurally validated editor content.
+
+    Block attachment attributes contain a complete descriptor including its type. Inline mention
+    and hashtag attributes omit type because the node already supplies it. At most 30 descriptors
+    may appear in a body; ordinary image nodes retain their separate image ownership rules.
+
+    :param document: TipTap document whose node shapes, depth, and parent-child rules were validated.
+    :return: Typed body descriptors in document order, without modifying the original JSON.
+    """
+    attachments: list[PublicationAttachment] = []
+    pending: list[ArticleBody] = [document]
+
+    while pending:
+        node = pending.pop()
+        kind = node.get("type")
+
+        if kind in {"attachment", "mention", "hashtag"}:
+            attrs = node.get("attrs", {})
+
+            if not isinstance(attrs, dict):
+                raise ValueError("Attachment attributes must be an object")
+
+            if kind != "attachment":
+                if "type" in attrs:
+                    raise ValueError("Inline attachment attributes must omit type")
+
+                attrs = {**attrs, "type": kind}
+
+            try:
+                attachments.append(ATTACHMENT_ADAPTER.validate_python(attrs))
+            except ValidationError as exc:
+                raise ValueError("Article contains invalid attachment attributes") from exc
+
+            if len(attachments) > 30:
+                raise ValueError("An article body can contain up to 30 typed attachments")
+
+        children = node.get("content", [])
+
+        if isinstance(children, list):
+            pending.extend(child for child in reversed(children) if isinstance(child, dict))
+
+    return attachments
 
 
 def article_image_keys(document: ArticleBody) -> set[str]:

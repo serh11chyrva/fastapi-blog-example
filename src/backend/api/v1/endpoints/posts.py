@@ -35,7 +35,10 @@ Posts = Annotated[PostService, Depends(get_posts_service)]
     response_model=MicroPostResponse,
     status_code=201,
     summary="Publish a micro-post",
-    description="Creates a public post immediately. Text is trimmed and limited to 280 characters.",
+    description=(
+        "Creates a public post with optional typed attachments. Text is trimmed and limited to 280 characters. "
+        "Referenced accounts must exist and attached articles must be published. Video is reserved and rejected."
+    ),
     tags=["Micro-posts"],
     responses=documented_responses(
         401,
@@ -87,7 +90,10 @@ async def get_micro_post(post_id: PostId, posts: Posts) -> MicroPostResponse:
     "/posts/{post_id}",
     response_model=MicroPostResponse,
     summary="Edit your micro-post",
-    description="Only the owner may edit a post. The complete text field is required.",
+    description=(
+        "Only the owner may edit a post. Text is required; supplied attachments replace explicit descriptors. "
+        "Omitted attachments are preserved. Image uploads remain managed by the upload endpoints."
+    ),
     tags=["Micro-posts"],
     responses=documented_responses(401, 403, 404, 409, 503),
 )
@@ -98,7 +104,7 @@ async def update_micro_post(
     current_user: CurrentUser,
     posts: Posts,
 ) -> MicroPostResponse:
-    """Replace the authenticated author's micro-post text.
+    """Replace the owner's post text and optionally its typed attachments.
 
     :param _origin: Validated Origin header required by mutating API operations.
     :param post_id: MongoDB identifier of the micro-post.

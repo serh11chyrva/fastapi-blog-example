@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from backend.articles.models import Article
 from backend.articles.repository import ArticleRepository, ArticleStatus
 from backend.articles.schemas import ArticleCreate, ArticleUpdate
-from backend.articles.validation import article_image_keys
+from backend.articles.validation import article_body_attachments, article_image_keys
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.core.config import get_settings
@@ -18,8 +18,10 @@ from backend.core.transactions import transaction
 from backend.feeds.cache import invalidate_public_feed
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
+from backend.publications.attachment_validation import validate_attachment_references
 from backend.publications.queries import load_authors
 from backend.storage.cleanup import queue_deletion
+from backend.storage.urls import publication_image_url
 
 
 def publication_id(value: str) -> PydanticObjectId:
@@ -69,7 +71,7 @@ class ArticleService:
         return item
 
     async def create_article(self, payload: ArticleCreate, owner: User) -> Article:
-        """Create an audited article draft without preattached inline images.
+        """Create an audited draft after validating body and attachment references.
 
         :param payload: Validated request data for the operation.
         :param owner: Authenticated account owning or initiating the operation.
@@ -84,11 +86,15 @@ class ArticleService:
             title=payload.title,
             summary=payload.summary,
             body=payload.body,
+            attachments=payload.attachments,
             created_at=now,
             updated_at=now,
         )
 
         async with transaction(self.resources.mongo) as session:
+            await validate_attachment_references(
+                [*payload.attachments, *article_body_attachments(payload.body)], [], session
+            )
             await article.insert(session=session)
             await record_audit(
                 self.audit,
@@ -103,7 +109,7 @@ class ArticleService:
         return article
 
     async def edit_article(self, article_id: str, payload: ArticleUpdate, owner: User) -> Article:
-        """Update supplied article fields after checking ownership and image keys.
+        """Update supplied article fields and validate references in one audited transaction.
 
         :param article_id: MongoDB identifier of the article.
         :param payload: Validated request data for the operation.
@@ -112,6 +118,16 @@ class ArticleService:
         """
         async with transaction(self.resources.mongo) as session:
             article = await self.owned(article_id, owner, session)
+
+            if payload.attachments is not None or payload.body is not None:
+                attachments = article.attachments if payload.attachments is None else payload.attachments
+                body = article.body if payload.body is None else payload.body
+                await validate_attachment_references(
+                    [*attachments, *article_body_attachments(body)],
+                    [publication_image_url(key, "article-images") for key in article.inline_image_keys],
+                    session,
+                )
+                article.attachments = attachments
 
             if payload.body is not None:
                 if not article_image_keys(payload.body).issubset(set(article.inline_image_keys)):

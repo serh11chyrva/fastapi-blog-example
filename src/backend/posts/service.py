@@ -16,8 +16,10 @@ from backend.posts.models import MicroPost
 from backend.posts.repository import PostRepository
 from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
+from backend.publications.attachment_validation import validate_attachment_references
 from backend.publications.queries import load_authors
 from backend.storage.cleanup import queue_deletion
+from backend.storage.urls import publication_image_url
 
 
 def publication_id(value: str) -> PydanticObjectId:
@@ -74,9 +76,12 @@ class PostService:
         :return: The persisted micro-post.
         """
         now = datetime.now(UTC)
-        post = MicroPost(owner_id=owner.id, text=payload.text, created_at=now, updated_at=now)
+        post = MicroPost(
+            owner_id=owner.id, text=payload.text, attachments=payload.attachments, created_at=now, updated_at=now
+        )
 
         async with transaction(self.resources.mongo) as session:
+            await validate_attachment_references(payload.attachments, [], session)
             await post.insert(session=session)
             await record_audit(
                 self.audit,
@@ -92,7 +97,7 @@ class PostService:
         return post
 
     async def edit_post(self, post_id: str, payload: MicroPostCreate, owner: User) -> MicroPost:
-        """Replace an owned micro-post's text in an audited transaction.
+        """Replace owned post text and supplied attachments in one audited transaction.
 
         :param post_id: MongoDB identifier of the micro-post.
         :param payload: Validated request data for the operation.
@@ -101,6 +106,15 @@ class PostService:
         """
         async with transaction(self.resources.mongo) as session:
             post = await self.owned(post_id, owner, session)
+
+            if "attachments" in payload.model_fields_set:
+                await validate_attachment_references(
+                    payload.attachments,
+                    [publication_image_url(key, "post-images") for key in post.image_keys],
+                    session,
+                )
+                post.attachments = payload.attachments
+
             post.text = payload.text
             post.updated_at = datetime.now(UTC)
             await post.save(session=session)

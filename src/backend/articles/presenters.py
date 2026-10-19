@@ -5,6 +5,7 @@ from backend.articles.schemas import ArticleResponse
 from backend.articles.urls import article_thumbnail_url
 from backend.profiles.models import User
 from backend.profiles.presenters import user_card
+from backend.publications.attachments import display_attachments
 from backend.publications.urls import share_path
 from backend.storage.urls import publication_image_url
 
@@ -19,6 +20,9 @@ def article_response(article: Article, authors: list[User]) -> ArticleResponse:
     return ArticleResponse(
         id=str(article.id),
         owner_id=str(article.owner_id),
+        attachments=display_attachments(
+            article.attachments, [publication_image_url(key, "article-images") for key in article.inline_image_keys]
+        ),
         share_url=share_path(authors[0].username, article.title, article.share_id),
         title=article.title,
         summary=article.summary,

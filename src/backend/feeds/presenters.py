@@ -6,6 +6,7 @@ from backend.feeds.schemas import ArticleFeedItem, FeedItem, PostFeedItem
 from backend.posts.models import MicroPost
 from backend.profiles.models import User
 from backend.profiles.presenters import user_card
+from backend.publications.attachments import display_attachments
 from backend.publications.urls import share_path
 from backend.storage.urls import publication_image_url
 
@@ -17,10 +18,16 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> FeedItem
     :param authors: All author accounts in stored order, with the owner first.
     :return: The micro-post or article feed item.
     """
+    if isinstance(publication, MicroPost):
+        image_urls = [publication_image_url(key, "post-images") for key in publication.image_keys]
+    else:
+        image_urls = [publication_image_url(key, "article-images") for key in publication.inline_image_keys]
+
     common = dict(
         id=str(publication.id),
         owner_id=str(publication.owner_id),
         authors=[user_card(author) for author in authors],
+        attachments=display_attachments(publication.attachments, image_urls),
     )
 
     if isinstance(publication, MicroPost):

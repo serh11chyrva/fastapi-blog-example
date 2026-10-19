@@ -5,12 +5,14 @@ from beanie import Document
 from pydantic import Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
+from backend.publications.attachments import PublicationAttachments
 from backend.publications.models import PublicationAuthors
 
 
 class MicroPost(Document, PublicationAuthors):
-    """Public short-form publication with ordered authors, stable sharing, and image attachments."""
+    """Public short-form publication with ordered authors, stable sharing, and typed content attachments."""
 
+    attachments: PublicationAttachments = Field(default_factory=list)
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     text: str
     image_keys: list[str] = Field(default_factory=list)

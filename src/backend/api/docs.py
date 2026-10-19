@@ -32,6 +32,14 @@ Article bodies use TipTap JSON. Upload inline images to the article before refer
 their returned URLs in its body. Request upload URLs with JSON metadata, PUT raw bytes
 to Garage without application cookies, then confirm the upload. URLs last ten minutes.
 Image downloads use `/static/images/` and retain article access checks.
+Posts and articles accept ordered `attachments` discriminated by `type`: image, link, mention,
+hashtag, og_card, article, and embed. Video is reserved and currently returns 422.
+Up to 30 explicit descriptors are accepted; responses append uploaded images without explicit placement.
+Image references must belong to the publication, mentioned accounts must exist, and referenced articles
+must be published at write time. Article bodies also support inline mention/hashtag nodes and block
+attachment nodes with a complete descriptor in attrs (up to 30 descriptors per body).
+OG metadata is caller-supplied; external URLs are not fetched. Embed descriptors accept HTTPS URLs for
+SoundCloud, Spotify, YouTube, and Twitch, without HTML or automatic player integration.
 Publication responses and feed items expose a nonempty `authors` array of public profile cards,
 with the owner first, followed by featured authors in stored order. Responses also expose `owner_id`.
 Only the owner controls edits and private access; featured authors are display credits. Creation leaves
@@ -44,7 +52,7 @@ Feeds return newest-first pages. Pass `next_cursor` unchanged as the next reques
 `cursor` and keep the same `kind` filter. A null cursor marks the end of the feed.
 Document identifiers are MongoDB ObjectIds; profile links and publication shares use UUIDs.
 Timestamps include a timezone and are returned in UTC. Media and share URLs are relative to this origin.
-Partial updates leave omitted or null fields unchanged. Empty strings or lists clear fields where allowed.
+Article partial updates leave omitted or null fields unchanged. Post edits require text and preserve omitted attachments; null attachments are invalid. Empty strings or lists clear fields where allowed.
 Profile links use format version 1 and badges version 2. Open a link's redirect_url for a
 temporary redirect; platform identifies its site. Public profiles include only visible badges.
 GET /me/profile returns private badge settings and the revision required for profile writes.
@@ -73,11 +81,11 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Micro-posts",
-        "description": "Publish public notes of up to 280 characters. Authors can edit or delete their notes and replace their attachments with up to five images.",
+        "description": "Publish public notes of up to 280 characters. Owners can edit or delete their notes, attach typed content, and upload up to five images.",
     },
     {
         "name": "Articles",
-        "description": "Write TipTap articles as private drafts, add a cover and inline images, then publish or schedule them. Drafts and scheduled articles, including their media, are accessible only to their owner.",
+        "description": "Write TipTap articles as private drafts, add a cover, inline images, typed attachments, mentions, and hashtags, then publish or schedule them. Drafts and scheduled articles, including their media, are accessible only to their owner.",
     },
     {
         "name": "Publications",

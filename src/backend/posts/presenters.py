@@ -4,6 +4,7 @@ from backend.posts.models import MicroPost
 from backend.posts.schemas import MicroPostResponse
 from backend.profiles.models import User
 from backend.profiles.presenters import user_card
+from backend.publications.attachments import display_attachments
 from backend.publications.urls import share_path
 from backend.storage.urls import publication_image_url
 
@@ -18,6 +19,9 @@ def post_response(post: MicroPost, authors: list[User]) -> MicroPostResponse:
     return MicroPostResponse(
         id=str(post.id),
         owner_id=str(post.owner_id),
+        attachments=display_attachments(
+            post.attachments, [publication_image_url(key, "post-images") for key in post.image_keys]
+        ),
         share_url=share_path(authors[0].username, post.text, post.share_id),
         text=post.text,
         images=[publication_image_url(key, "post-images") for key in post.image_keys],

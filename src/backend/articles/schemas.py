@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from backend.api import examples
 from backend.articles.validation import ArticleBody, validate_tiptap_document
 from backend.profiles.schemas import ProfileUserResponse
+from backend.publications.attachments import PublicationAttachment, PublicationAttachments
 
 
 class ArticleCreate(BaseModel):
@@ -13,9 +14,14 @@ class ArticleCreate(BaseModel):
 
     model_config = ConfigDict(
         title="New article draft",
-        json_schema_extra={"examples": [examples.ARTICLE_CREATE]},
+        json_schema_extra={"examples": [examples.ARTICLE_CREATE, examples.ARTICLE_RICH_CREATE]},
     )
 
+    attachments: PublicationAttachments = Field(
+        default_factory=list,
+        description="Up to 30 ordered typed attachments. Referenced articles must be published. "
+        "Images must be uploaded to this article; video is reserved and rejected.",
+    )
     title: str = Field(
         min_length=1,
         max_length=160,
@@ -29,8 +35,15 @@ class ArticleCreate(BaseModel):
         examples=[examples.ARTICLE_CREATE["summary"]],
     )
     body: ArticleBody = Field(
-        description="TipTap JSON document, up to 1,000,000 UTF-8 bytes, 64 levels, and 10,000 nodes. Malformed node shapes and parent-child structures are rejected. Supports paragraphs, headings (levels 1-3), lists, blockquotes, code blocks, breaks, rules, and uploaded images; marks: bold, italic, strike, code, and HTTP(S) links. Image sources must reference images uploaded to this article.",
-        examples=[examples.ARTICLE_BODY],
+        description=(
+            "TipTap JSON document, up to 1,000,000 UTF-8 bytes, 64 levels, and 10,000 nodes. Malformed node shapes "
+            "and parent-child structures are rejected. Supports paragraphs, headings (levels 1-3), lists, blockquotes, "
+            "code blocks, breaks, rules, uploaded images, inline mention/hashtag nodes, and block attachment nodes "
+            "(typed descriptors in attrs, up to 30 per body); marks: bold, italic, strike, code, and HTTP(S) links. "
+            "Image sources must reference images uploaded to this article. Mention and article references are checked "
+            "on writes; video is reserved and rejected."
+        ),
+        examples=[examples.ARTICLE_BODY, examples.ARTICLE_RICH_CREATE["body"]],
     )
 
     @field_validator("title")
@@ -79,6 +92,11 @@ class ArticleUpdate(BaseModel):
         json_schema_extra={"examples": [examples.ARTICLE_UPDATE]},
     )
 
+    attachments: PublicationAttachments | None = Field(
+        default=None,
+        description="Replacement attachments. Omit or use null to preserve; [] clears explicit descriptors. "
+        "Uploaded images remain in the image inventory.",
+    )
     title: str | None = Field(
         default=None,
         min_length=1,
@@ -95,7 +113,7 @@ class ArticleUpdate(BaseModel):
     body: ArticleBody | None = Field(
         default=None,
         description="Complete replacement TipTap JSON document, subject to the same rules as creation. Omit or use null to keep the body. Referenced images must have been uploaded to this article.",
-        examples=[examples.ARTICLE_BODY],
+        examples=[examples.ARTICLE_BODY, examples.ARTICLE_RICH_CREATE["body"]],
     )
 
     @field_validator("title")
@@ -177,7 +195,14 @@ class ArticleResponse(BaseModel):
 
     model_config = ConfigDict(
         title="Article",
-        json_schema_extra={"examples": [examples.ARTICLE_PUBLISHED, examples.ARTICLE, examples.ARTICLE_WITH_FEATURED_AUTHORS]},
+        json_schema_extra={
+            "examples": [
+                examples.ARTICLE_PUBLISHED,
+                examples.ARTICLE,
+                examples.ARTICLE_WITH_FEATURED_AUTHORS,
+                examples.ARTICLE_WITH_CONTENT,
+            ]
+        },
     )
 
     id: str = Field(
@@ -194,6 +219,11 @@ class ArticleResponse(BaseModel):
         description="Relative page URL with a readable slug and stable UUID. The article is publicly accessible only when published.",
         examples=[examples.ARTICLE["share_url"]],
     )
+    attachments: list[PublicationAttachment] = Field(
+        default_factory=list,
+        description="Ordered typed descriptors followed by inline images without explicit placement. "
+        "Resolve referenced IDs through normal endpoints; their availability can change.",
+    )
     title: str = Field(
         description="Article title without surrounding whitespace.",
         examples=[examples.ARTICLE_CREATE["title"]],
@@ -204,7 +234,7 @@ class ArticleResponse(BaseModel):
     )
     body: ArticleBody = Field(
         description="Validated TipTap JSON document used to render the full article.",
-        examples=[examples.ARTICLE_BODY],
+        examples=[examples.ARTICLE_BODY, examples.ARTICLE_RICH_CREATE["body"]],
     )
     thumbnail_url: str | None = Field(
         default=None,

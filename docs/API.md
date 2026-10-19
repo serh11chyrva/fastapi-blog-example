@@ -401,7 +401,7 @@ Feed items are a discriminated union: `micro_post` requires text, while `article
 | --- | --- | --- | --- |
 | POST | `/posts` | Session | Publish immediately |
 | GET | `/posts/{post_id}` | Public | Read post |
-| PATCH | `/posts/{post_id}` | Owner | Replace post text |
+| PATCH | `/posts/{post_id}` | Owner | Replace post text and optional typed attachments |
 | DELETE | `/posts/{post_id}` | Owner | Soft-delete post |
 | GET | `/publications/{username}/{share_slug}` | Public | Resolve a shared `@username/slug--share-id` link |
 
@@ -423,7 +423,7 @@ Create request and representative response:
 }
 ```
 
-Text must contain 1–280 non-whitespace characters. `PATCH` accepts the same complete request shape. A missing, deleted, or non-owned post returns `404` for edit/delete.
+Text must be nonblank and at most 280 characters before trimming surrounding whitespace. `PATCH` still requires `text`; an omitted `attachments` field preserves existing descriptors, while `[]` clears them and `null` returns 422. Creation defaults to no explicit descriptors. A missing, deleted, or non-owned post returns `404` for edit/delete.
 
 ## Articles
 
@@ -463,7 +463,104 @@ The scheduler checks every 15 seconds. Returning to draft clears a pending sched
 }
 ```
 
-Article response adds `id`, `kind: "article"`, `status`, `owner_id`, `authors`, `created_at`, `updated_at`, and nullable `published_at`. `PATCH` accepts any subset of `title`, `summary`, and `body`. Published articles are publicly readable. Draft reads by anyone except the owner return `404`.
+Article response adds `id`, `kind: "article"`, `status`, `owner_id`, `authors`, `created_at`, `updated_at`, and nullable `published_at`. `PATCH` accepts any subset of `title`, `summary`, `body`, and `attachments`. Omitted or null article fields preserve their current values; `attachments: []` clears explicit descriptors. Published articles are publicly readable. Draft reads by anyone except the owner return `404`.
+
+## Typed publication content
+
+Posts and articles store an ordered `attachments` array. Each object is a strict discriminated
+union selected by `type`; unknown types and fields return 422. Up to 30 explicit descriptors
+are allowed per publication. Existing documents default to `attachments: []` without a migration.
+Post text remains required (1–280 characters, nonblank); attachments do not replace it.
+These are backend contracts; frontend rendering and editing are a separate change.
+
+| Type | Fields | Behavior |
+| --- | --- | --- |
+| `image` | `url`, optional `alt` (up to 1,000 characters, default empty) | Same-origin URL of an image uploaded to this exact post or article |
+| `link` | `url`, optional `label` (1–200 characters) | Plain HTTP(S) link |
+| `mention` | `user_id` | 24-character ObjectId of an existing account; no notification is sent |
+| `hashtag` | `tag` | 1–64 Unicode letters, digits, or underscores, without `#`; case is preserved |
+| `og_card` | `url`, `title` (1–300), optional `description` (up to 1,000, default empty), `image_url`, `site_name` (1–200) | Caller-supplied preview metadata; no scraping or verification of its contents |
+| `article` | `article_id` | 24-character ObjectId of an existing published, undeleted article |
+| `embed` | `provider`, `url` | Descriptor for `soundcloud`, `spotify`, `youtube`, or `twitch`; no HTML or player implementation |
+| `video` | `url` | Reserved schema variant; all writes currently return 422, including TipTap nodes |
+
+External URLs are limited to 2,048 characters and require HTTP(S), a hostname, no credentials,
+and no whitespace, control characters, or backslashes. Embed URLs additionally require HTTPS,
+no nonstandard port, and an exact supported provider hostname: SoundCloud (`soundcloud.com`,
+`www.soundcloud.com`, `w.soundcloud.com`), Spotify (`open.spotify.com`), YouTube (`youtube.com`,
+`www.youtube.com`, `youtu.be`, `www.youtube-nocookie.com`), or Twitch (`twitch.tv`, `www.twitch.tv`,
+`clips.twitch.tv`, `player.twitch.tv`). This validates the descriptor, not remote resource existence
+or embeddability. No external URL is fetched by this feature. Clients must render metadata as text
+and use their own provider-specific player integration rather than treating URLs as trusted HTML.
+
+```json
+{
+  "text": "Notes for the reading group.",
+  "attachments": [
+    {"type":"link","url":"https://example.com/notes","label":"Reading notes"},
+    {"type":"mention","user_id":"68eb7491d37a2f06b8ce9540"},
+    {"type":"hashtag","tag":"reading"},
+    {"type":"og_card","url":"https://example.com/notes","title":"Reading notes","description":"Ideas to revisit"},
+    {"type":"article","article_id":"68ebb250c39a6184f027de93"},
+    {"type":"embed","provider":"youtube","url":"https://www.youtube.com/watch?v=jfKfPfyJRdk"}
+  ]
+}
+```
+
+Replace example IDs with an existing account and a published article. Reference checks occur
+inside the publication mutation transaction; invalid or unavailable references return 422.
+An attachment stores only an ID for a mention or article, not a profile or article snapshot.
+An article can later be unpublished or deleted. Resolve references through the ordinary account
+and article endpoints and respect their current 404/access rules. Attachments grant no ownership,
+private access, featured-author credit, notifications, or automatic hashtag discovery.
+
+Images still use the existing prepare/PUT/confirm upload protocol, with five images per post
+and 30 inline images per article. Create a publication first, upload images, then optionally add
+`image` descriptors to place images among other attachment types or provide alternate text.
+Repeating an image URL within explicit/body descriptors is rejected. Upload inventories
+(`images` / `inline_image_urls`) and their cleanup/authorization indexes remain authoritative.
+Clearing explicit descriptors does not delete uploaded files. Replacing post images through
+upload confirmation removes old image descriptors, preserves other descriptors, and queues the
+replaced files for cleanup as before.
+
+Post, article, shared-publication, feed, and profile-publication responses expose `attachments`.
+They retain explicit descriptor order, then append typed descriptors for uploaded images without
+explicit placement (including legacy images). Consequently a response can exceed 30 descriptors:
+the limit applies to explicit stored descriptors. Article body descriptors remain in the body and
+are not copied into the top-level list. Article covers remain a separate `thumbnail_url`.
+
+### TipTap references and embedded content
+
+In addition to existing nodes and marks, paragraphs and headings support inline `mention`
+and `hashtag` leaf nodes. Their `attrs` contain `user_id` or `tag` respectively, without `type`.
+Block positions support an `attachment` leaf whose `attrs` contain a complete typed descriptor.
+These nodes cannot contain child content, text, or marks. A body supports up to 30 such descriptors
+independently of the top-level attachment limit and retains its existing byte, depth, and node limits.
+
+```json
+{
+  "type": "doc",
+  "content": [
+    {"type":"paragraph","content":[
+      {"type":"text","text":"Discussed with "},
+      {"type":"mention","attrs":{"user_id":"68eb7491d37a2f06b8ce9540"}},
+      {"type":"text","text":" "},
+      {"type":"hashtag","attrs":{"tag":"reading"}}
+    ]},
+    {"type":"attachment","attrs":{
+      "type":"embed","provider":"spotify",
+      "url":"https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+    }}
+  ]
+}
+```
+
+Article creation validates descriptors without any preuploaded images. On body or attachment
+edits, references in the resulting body and top-level list are validated together; ordinary image
+nodes continue to require images uploaded to the containing article. Reference availability is
+checked on content writes, not continuously or during scheduled publication. Only IDs remain
+when referenced resources later disappear. The OpenAPI union, rich request/response examples,
+and these rules are exposed in the Scalar reference at `/api/docs`.
 
 ## Health and error envelope
 

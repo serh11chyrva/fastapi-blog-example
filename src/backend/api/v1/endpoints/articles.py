@@ -62,7 +62,11 @@ async def delete_article(
     response_model=ArticleResponse,
     status_code=201,
     summary="Create an article draft",
-    description=("Creates a private-to-owner draft. The body must follow the supported TipTap JSON schema."),
+    description=(
+        "Creates a private-to-owner draft with optional typed attachments. TipTap supports inline mentions and "
+        "hashtags and block attachment descriptors. Mentioned accounts must exist; referenced articles must be published. "
+        "Video descriptors are reserved and rejected."
+    ),
     tags=["Articles"],
     responses=documented_responses(
         401,
@@ -159,7 +163,11 @@ async def get_article(article_id: ArticleId, current_user: OptionalUser, article
     "/articles/{article_id}",
     response_model=ArticleResponse,
     summary="Edit your article",
-    description="Partial update of title, summary, or TipTap JSON body; only the owner may edit.",
+    description=(
+        "Partial update of title, summary, TipTap JSON body, or typed attachments; only the owner may edit. "
+        "Omitted or null attachments are preserved; [] clears explicit descriptors. "
+        "References are checked in the write transaction."
+    ),
     tags=["Articles"],
     responses=documented_responses(
         401,

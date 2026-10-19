@@ -30,7 +30,7 @@ formatting with `uv run --locked ruff format src/backend`.
 | `articles/` | Article documents, request/response schemas, validation, repository, service, presenters, share-ID backfill, and scheduled publishing |
 | `posts/` | Micro-post documents, request/response schemas, repository, service, presenters, and share-ID backfill |
 | `feeds/` | Mixed publication reads, response schemas, presenters, deterministic cursors, and public feed cache invalidation |
-| `publications/` | Public share-link resolution across article/post repositories and shared readable URL construction |
+| `publications/` | Public share-link resolution, shared readable URLs, typed attachment contracts, image descriptor presentation, and transactional reference validation |
 | `storage/` | Upload preparation, confirmation leases, immutable copies, attachment adapters, object storage access, and cleanup |
 | `audit/` | Transport-independent request metadata and transactional audit event writes |
 | `core/` | Configuration, typed clients, transaction conflict policy, and application errors |
@@ -60,8 +60,9 @@ and published-only article visibility. Image URL construction belongs to `storag
 and article cover URL construction belongs to `articles/`. Upload orchestration remains
 in `storage/`, which imports each feature's models, schemas, and presenters directly.
 
-This split replaces `content/` without changing HTTP paths, operation names, schema
-names, response fields, or MongoDB collection/index names. Existing share IDs remain
+The original split replaced `content/` without changing HTTP paths, operation names, schema
+names, response fields, or MongoDB collection/index names. Typed attachments subsequently extend
+the request and response contracts without changing collections or existing image indexes. Existing share IDs remain
 valid; each feature owns its legacy share-ID backfill, and the article scheduler is
 started from `articles/scheduler.py`.
 
@@ -128,6 +129,29 @@ Article input is validated as a supported TipTap tree before storage. Validation
 checks node/mark shapes, parent-child relationships, image sources, and safe links,
 with limits on UTF-8 size, depth, node count, and pending traversal work. Image
 ownership is checked separately in the article update transaction.
+
+`publications/attachments.py` defines a strict union discriminated by `type`, reused in Beanie
+models, request/response schemas, feeds, and TipTap descriptor validation. Missing stored
+attachment lists default to empty. Adding a future content kind requires an explicit schema
+variant and relevant policy, rather than accepting arbitrary dictionaries. The video variant
+is reserved and rejected on all content writes; no video upload or playback is implemented.
+`publications/attachment_validation.py` checks account/article references with bounded batched
+Beanie queries in the caller's mutation transaction. It checks uploaded image ownership and
+rejects reserved video descriptors before persistence. References contain IDs only and never
+copy private account or article data; later resolution uses existing visibility rules.
+
+Posts and articles store at most 30 explicit descriptors. Article bodies can independently
+contain up to 30 inline mention/hashtag or block attachment descriptors. Article edits validate
+references from the resulting body and explicit attachment list together. Ordinary TipTap images
+retain their existing validation path. OG metadata is supplied by the caller, and embed metadata
+contains an allowlisted provider and HTTPS resource URL; neither triggers an external request.
+
+Image storage inventories remain authoritative for authorization and cleanup. Presenters append
+image descriptors for inventory entries missing from explicit placement, so legacy images appear
+in the new contract without migration. Article body descriptors stay in the body. Upload
+confirmation removes stale explicit post image descriptors while preserving non-image content.
+Top-level clearing removes descriptors, not uploaded objects. API documentation and schema
+examples describe these semantics; frontend adoption is a separate change.
 
 ## Frontend responsibilities
 

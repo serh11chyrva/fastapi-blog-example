@@ -91,6 +91,7 @@ POST = {
     "share_url": "/@maya_bennett/finished-a-24-km-ride-along-the-river-before-breakfast-the-best--a98f7c1326e44b6a8c5d39e27104bf60",
     "text": POST_TEXT,
     "images": [],
+    "attachments": [],
     "owner_id": ACCOUNT["id"],
     "authors": [AUTHOR],
     "created_at": "2026-10-12T10:03:27Z",
@@ -100,6 +101,7 @@ POST_WITH_FEATURED_AUTHORS = POST | {"authors": [AUTHOR, PROFILE_USER]}
 POST_IMAGE_URL = "/static/images/post-images/74b936dfe1a24c708951c3e628a0fd5b.jpg"
 POST_WITH_IMAGES = POST | {
     "images": [POST_IMAGE_URL],
+    "attachments": [{"type": "image", "url": POST_IMAGE_URL, "alt": ""}],
     "updated_at": "2026-10-12T10:06:14Z",
 }
 ARTICLE_BODY = {
@@ -143,6 +145,7 @@ ARTICLE = {
     **ARTICLE_CREATE,
     "thumbnail_url": None,
     "inline_image_urls": [],
+    "attachments": [],
     "status": "draft",
     "owner_id": ACCOUNT["id"],
     "authors": [AUTHOR],
@@ -159,6 +162,48 @@ ARTICLE_PUBLISHED = ARTICLE | {
     "updated_at": "2026-10-13T09:26:41Z",
     "published_at": "2026-10-13T09:26:41Z",
 }
+POST_RICH_CREATE = {
+    "text": "Reading notes, music, and a conversation worth continuing.",
+    "attachments": [
+        {"type": "link", "url": "https://example.com/notes", "label": "Reading notes"},
+        {"type": "mention", "user_id": PROFILE_USER["id"]},
+        {"type": "hashtag", "tag": "reading"},
+        {
+            "type": "og_card",
+            "url": "https://example.com/notes",
+            "title": "Reading notes",
+            "description": "A few ideas to revisit.",
+        },
+        {"type": "article", "article_id": ARTICLE["id"]},
+        {"type": "embed", "provider": "youtube", "url": "https://www.youtube.com/watch?v=jfKfPfyJRdk"},
+    ],
+}
+POST_WITH_CONTENT = POST | POST_RICH_CREATE
+ARTICLE_RICH_CREATE = ARTICLE_CREATE | {
+    "body": {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "Discussed with "},
+                    {"type": "mention", "attrs": {"user_id": PROFILE_USER["id"]}},
+                    {"type": "text", "text": " "},
+                    {"type": "hashtag", "attrs": {"tag": "reading"}},
+                ],
+            },
+            {
+                "type": "attachment",
+                "attrs": {
+                    "type": "embed",
+                    "provider": "spotify",
+                    "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                },
+            },
+        ],
+    },
+}
+ARTICLE_WITH_CONTENT = ARTICLE | ARTICLE_RICH_CREATE
 ARTICLE_UPDATED = (
     ARTICLE
     | ARTICLE_UPDATE
@@ -194,6 +239,7 @@ FEED_ARTICLE = {
         "thumbnail_url",
         "owner_id",
         "authors",
+        "attachments",
         "published_at",
     )
 } | {"text": None, "images": []}
@@ -205,6 +251,7 @@ FEED_POST = {
         "share_url",
         "text",
         "images",
+        "attachments",
         "owner_id",
         "authors",
     )

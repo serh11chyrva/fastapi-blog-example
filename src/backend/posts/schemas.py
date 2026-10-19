@@ -5,13 +5,22 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api import examples
 from backend.profiles.schemas import ProfileUserResponse
+from backend.publications.attachments import PublicationAttachment, PublicationAttachments
 
 
 class MicroPostCreate(BaseModel):
-    """Text for a public micro-post; whitespace-only values are rejected."""
+    """Text and optional ordered attachments for a public micro-post."""
 
-    model_config = ConfigDict(title="Micro-post text", json_schema_extra={"examples": [examples.POST_CREATE]})
+    model_config = ConfigDict(
+        title="Micro-post content",
+        json_schema_extra={"examples": [examples.POST_CREATE, examples.POST_RICH_CREATE]},
+    )
 
+    attachments: PublicationAttachments = Field(
+        default_factory=list,
+        description="Ordered typed content, up to 30 descriptors. Images must already belong to the post. "
+        "Video is reserved and rejected. On edit, omission preserves attachments; [] clears explicit descriptors.",
+    )
     text: str = Field(
         min_length=1,
         max_length=280,
@@ -40,7 +49,7 @@ class MicroPostResponse(BaseModel):
 
     model_config = ConfigDict(
         title="Published micro-post",
-        json_schema_extra={"examples": [examples.POST_WITH_IMAGES, examples.POST_WITH_FEATURED_AUTHORS]},
+        json_schema_extra={"examples": [examples.POST_WITH_IMAGES, examples.POST_WITH_FEATURED_AUTHORS, examples.POST_WITH_CONTENT]},
     )
 
     id: str = Field(
@@ -56,6 +65,11 @@ class MicroPostResponse(BaseModel):
         default=None,
         description="Relative public page URL containing the author handle, readable slug, and stable share UUID.",
         examples=[examples.POST["share_url"]],
+    )
+    attachments: list[PublicationAttachment] = Field(
+        default_factory=list,
+        description="Ordered typed descriptors followed by uploaded images without explicit placement. "
+        "Resolve account and article IDs through their endpoints to apply current visibility rules.",
     )
     text: str = Field(
         description="Public post text, without surrounding whitespace.",
@@ -83,6 +97,6 @@ class MicroPostResponse(BaseModel):
         examples=[examples.POST["created_at"]],
     )
     updated_at: datetime = Field(
-        description="UTC time of the most recent text or image update.",
+        description="UTC time of the most recent text, attachment, or image update.",
         examples=[examples.POST_WITH_IMAGES["updated_at"]],
     )

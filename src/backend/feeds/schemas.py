@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from backend.api import examples
 from backend.profiles.schemas import ProfileUserResponse
+from backend.publications.attachments import PublicationAttachment
 
 
 class FeedBase(BaseModel):
@@ -15,6 +16,9 @@ class FeedBase(BaseModel):
         json_schema_extra={"examples": [examples.FEED_ARTICLE, examples.FEED_POST]},
     )
 
+    attachments: list[PublicationAttachment] = Field(
+        default_factory=list, description="Typed publication attachments, including uploaded images without placement."
+    )
     id: str = Field(
         description="Publication identifier; use kind to select the post or article endpoint.",
         examples=[examples.ARTICLE["id"]],

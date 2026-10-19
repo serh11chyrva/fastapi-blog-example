@@ -7,12 +7,14 @@ from pydantic import Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from backend.articles.validation import ArticleBody
+from backend.publications.attachments import PublicationAttachments
 from backend.publications.models import PublicationAuthors
 
 
 class Article(Document, PublicationAuthors):
     """Long-form publication with ordered authors, a TipTap body, and publication state."""
 
+    attachments: PublicationAttachments = Field(default_factory=list)
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
     summary: str = ""

@@ -138,6 +138,7 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 - Own-profile API and settings with private badge preferences, server-enforced visibility, and revision checks that reject stale profile edits.
 - Follow relationships and chronological public and following feeds.
 - 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
+- Backend posts and articles support typed attachments: images, links, mentions, hashtags, caller-supplied OG cards, published article references, and SoundCloud/Spotify/YouTube/Twitch embed descriptors. Articles also accept inline mention/hashtag and block attachment TipTap nodes. Video is reserved for future implementation and currently rejected; frontend support is separate. See [typed publication content](docs/API.md#typed-publication-content).
 - Editorial black-and-white UI with separate Posts and Articles profile tabs; article editing and reading use a full-screen writing and reading layout.
 - Responsive English UI; published content and profiles are readable without signing in.
 

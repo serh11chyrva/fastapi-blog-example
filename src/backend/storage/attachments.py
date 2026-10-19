@@ -18,6 +18,7 @@ from backend.posts.schemas import MicroPostResponse
 from backend.profiles.models import AvatarImage, User
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import ProfileResponse
+from backend.publications.attachments import ImageAttachment
 from backend.publications.queries import load_authors
 from backend.storage.models import ImagePurpose, ImageUpload
 from backend.storage.urls import publication_image_url
@@ -105,6 +106,7 @@ class ImageAttachments:
         elif isinstance(target, MicroPost):
             old_keys = target.image_keys
             target.image_keys = keys
+            target.attachments = [item for item in target.attachments if not isinstance(item, ImageAttachment)]
             action, target_type = "MICRO_POST_IMAGES_CHANGED", "micro_post"
         elif upload.purpose == "article-covers":
             old_keys = [target.thumbnail_key] if target.thumbnail_key else []
