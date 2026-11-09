@@ -25,6 +25,7 @@ from backend.api.router import router
 from backend.articles.migrations import ensure_public_share_ids as ensure_article_share_ids
 from backend.articles.scheduler import run_publication_scheduler
 from backend.auth.presentation import open_geoip_database
+from backend.comments.migrations import ensure_comment_like_counts
 from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
 from backend.core.errors import ApplicationError
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             document_models=DOCUMENT_MODELS,
         )
         await ensure_profile_schema()
+        await ensure_comment_like_counts()
         await ensure_post_share_ids()
         await ensure_article_share_ids()
         await redis_client.ping()

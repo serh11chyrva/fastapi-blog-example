@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
 import type { FeedItem, OriginalFeedItem } from "../../shared/api/types";
+import { HighlightedReplies } from "../comments/HighlightedReplies";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
 import { Attachments } from "../publications/Attachments";
@@ -86,6 +87,8 @@ function OriginalCard({ item, onChanged, showDiscussion }: {
       </>}
     </div>
     {error && <p className="notice-error mt-3" role="alert">{error}</p>}
+    {item.kind === "micro_post" && !comments &&
+      <HighlightedReplies postId={item.id} openDiscussion={() => setComments(true)} />}
     {comments && <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} />}
   </>;
 }

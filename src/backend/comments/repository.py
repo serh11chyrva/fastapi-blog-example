@@ -1,6 +1,6 @@
 """Bounded Beanie discussion queries with separate flat and threaded policies."""
 
-from typing import Any
+from typing import Any, Literal
 
 from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -9,6 +9,7 @@ from backend.comments.models import ArticleComment, PostReply
 from backend.publications.access import PublicationKind
 
 type Discussion = PostReply | ArticleComment
+type DiscussionSort = Literal["oldest", "newest", "most_liked"]
 
 
 class CommentRepository:
@@ -41,15 +42,19 @@ class CommentRepository:
         parent_id: PydanticObjectId | None,
         cursor: PydanticObjectId | None,
         limit: int,
+        sort: DiscussionSort = "oldest",
+        likes_count: int | None = None,
     ) -> list[Discussion]:
         """Read a bounded flat page or one direct-child level, retaining tombstones.
 
         :param kind: Discussion model selected by the publication type.
         :param publication_id: Containing post or article identifier.
         :param parent_id: Parent reply for a post level; None selects roots and is ignored for articles.
-        :param cursor: Last comment ObjectId from the previous oldest-first page.
+        :param cursor: Last comment ObjectId from the preceding page.
         :param limit: Requested page size; one additional row is read to detect continuation.
-        :return: At most limit plus one scoped comments in ObjectId order.
+        :param sort: Legacy oldest order or a live-only newest or ranked order.
+        :param likes_count: Last seen rank when continuing a most-liked page.
+        :return: At most limit plus one scoped entries in the requested order.
         """
         model = PostReply if kind == "micro_post" else ArticleComment
         field = "post_id" if kind == "micro_post" else "article_id"
@@ -58,10 +63,20 @@ class CommentRepository:
         if kind == "micro_post":
             conditions["parent_id"] = parent_id
 
-        if cursor is not None:
-            conditions["_id"] = {"$gt": cursor}
+        order = [("_id", 1 if sort == "oldest" else -1)]
+        if sort != "oldest":
+            conditions["deleted_at"] = None
+        if sort == "most_liked":
+            order.insert(0, ("likes_count", -1))
+            if cursor is not None:
+                conditions["$or"] = [
+                    {"likes_count": {"$lt": likes_count}},
+                    {"likes_count": likes_count, "_id": {"$lt": cursor}},
+                ]
+        elif cursor is not None:
+            conditions["_id"] = {"$gt" if sort == "oldest" else "$lt": cursor}
 
-        return await model.find(conditions).sort(("_id", 1)).limit(limit + 1).to_list()
+        return await model.find(conditions).sort(*order).limit(limit + 1).to_list()
 
     @staticmethod
     async def child_counts(reply_ids: list[PydanticObjectId]) -> dict[PydanticObjectId, int]:

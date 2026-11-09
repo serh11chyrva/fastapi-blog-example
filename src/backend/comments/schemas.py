@@ -56,6 +56,8 @@ class CommentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted: bool
+    likes_count: int = Field(default=0, ge=0, description="Number of likes on the live entry.")
+    liked: bool = Field(default=False, description="Whether the current viewer likes this entry.")
 
 
 class PostReplyResponse(CommentResponse):

@@ -2,15 +2,17 @@
 
 from datetime import UTC, datetime
 
+from pymongo.errors import DuplicateKeyError
+
 from beanie import PydanticObjectId
 
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
-from backend.comments.models import ArticleComment, PostReply
+from backend.comments.models import ArticleComment, CommentLike, PostReply
 from backend.comments.presenters import comment_responses
-from backend.comments.repository import CommentRepository, Discussion
+from backend.comments.repository import CommentRepository, Discussion, DiscussionSort
 from backend.comments.schemas import ArticleCommentPage, CommentText, PostReplyPage
-from backend.core.errors import InvalidOperation, NotFound
+from backend.core.errors import Conflict, InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.profiles.models import User
@@ -144,6 +146,46 @@ class CommentService:
 
         return comment
 
+    async def set_like(
+        self, kind: PublicationKind, publication_id: str, comment_id: str, owner: User, enabled: bool,
+    ) -> None:
+        """Change a live entry's viewer reaction and count in one transaction.
+
+        :param kind: Type of containing publication.
+        :param publication_id: Public containing publication identifier.
+        :param comment_id: Live entry scoped to the publication.
+        :param owner: Authenticated viewer changing their own reaction.
+        :param enabled: Desired presence of the reaction.
+        :return: None.
+        """
+        try:
+            async with transaction(self.resources.mongo) as session:
+                publication = await public_publication(kind, publication_id, session, touch=True)
+                item = await self.repository.get(kind, publication.id, object_id(comment_id), session)
+
+                if item is None or item.deleted_at is not None:
+                    raise NotFound("Comment not found")
+
+                reaction = await CommentLike.find_one(
+                    {"kind": kind, "comment_id": item.id, "user_id": owner.id}, session=session,
+                )
+                if enabled == (reaction is not None):
+                    return
+
+                if enabled:
+                    await CommentLike(kind=kind, comment_id=item.id, user_id=owner.id).insert(session=session)
+                else:
+                    await reaction.delete(session=session)
+
+                await item.update({"$inc": {"likes_count": 1 if enabled else -1}}, session=session)
+                await record_audit(
+                    self.audit, "COMMENT_LIKED" if enabled else "COMMENT_UNLIKED",
+                    actor_id=owner.id, target_type="post_reply" if kind == "micro_post" else "article_comment",
+                    target_id=comment_id, metadata={"publication_id": publication_id}, session=session,
+                )
+        except DuplicateKeyError as exc:
+            raise Conflict("Reaction changed; reload before retrying") from exc
+
     async def page(
         self,
         kind: PublicationKind,
@@ -151,14 +193,18 @@ class CommentService:
         parent_id: str | None,
         cursor: str | None,
         limit: int,
+        viewer_id: PydanticObjectId | None = None,
+        sort: DiscussionSort = "oldest",
     ) -> PostReplyPage | ArticleCommentPage:
         """Read one post-tree level or a flat article discussion without loading descendants recursively.
 
         :param kind: Containing publication type.
         :param publication_id: Public containing publication identifier.
         :param parent_id: Optional post parent reply; omission selects roots. Article parent IDs are rejected.
-        :param cursor: Last returned ObjectId, or None for the first oldest-first page.
+        :param cursor: Position from the same sort, or None for the first page.
         :param limit: Bounded page size supplied by the HTTP adapter.
+        :param viewer_id: Current viewer for reaction state, or None for anonymous reads.
+        :param sort: Discussion order; post ranking applies to live roots only.
         :return: Typed discussion page with a continuation cursor when another row exists.
         """
         if kind == "article" and parent_id is not None:
@@ -170,12 +216,32 @@ class CommentService:
         if parent is not None and await self.repository.get(kind, publication.id, parent) is None:
             raise NotFound("Parent reply not found")
 
-        rows = await self.repository.page(kind, publication.id, parent, object_id(cursor) if cursor else None, limit)
+        if kind == "micro_post" and sort != "oldest" and (parent is not None or sort != "most_liked"):
+            raise InvalidOperation("Only root replies can be ranked")
+
+        last_id = None
+        last_count = None
+        if cursor:
+            if sort == "oldest":
+                last_id = object_id(cursor)
+            else:
+                fields = cursor.split(".")
+                if len(fields) != 3 or fields[0] != sort or not fields[1].isascii() or not fields[1].isdecimal():
+                    raise InvalidOperation("Invalid discussion cursor for this sort")
+
+                last_count = int(fields[1])
+                if last_count > 2**63 - 1:
+                    raise InvalidOperation("Invalid discussion cursor rank")
+                last_id = object_id(fields[2])
+
+        rows = await self.repository.page(kind, publication.id, parent, last_id, limit, sort, last_count)
         page = rows[:limit]
-        result = dict(
-            items=await comment_responses(page),
-            next_cursor=str(page[-1].id) if len(rows) > limit else None,
-        )
+        next_cursor = None
+        if len(rows) > limit:
+            last = page[-1]
+            next_cursor = str(last.id) if sort == "oldest" else f"{sort}.{last.likes_count}.{last.id}"
+
+        result = dict(items=await comment_responses(page, viewer_id), next_cursor=next_cursor)
 
         return PostReplyPage(**result) if kind == "micro_post" else ArticleCommentPage(**result)
 

@@ -149,3 +149,5 @@ export type Session = {
   device: string;
   current: boolean;
 };
+  likes_count: number;
+  liked: boolean;
