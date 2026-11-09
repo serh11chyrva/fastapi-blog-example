@@ -1,4 +1,4 @@
-# Commonplace API reference
+# FastAPI Blog Example API reference
 
 This guide documents the implemented API in addition to the interactive Scalar reference at `http://localhost:8080/api/docs` and its machine-readable schema at `/api/openapi.json`. Endpoint metadata is declared beside each route; required cookie security is generated from authentication dependencies, and optional-session reads explicitly allow anonymous access.
 
@@ -162,8 +162,12 @@ The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other user
 | GET | `/links/{link_id}/redirect` | Public | Temporarily redirect to a saved link |
 | GET | `/users/{username}/links/{link_id}/redirect` | Public | Deprecated compatibility redirect |
 | GET | `/users/{username}/publications?kind=all` | Public | List up to 50 public publications |
+| GET | `/users/{username}/timeline` | Public | Page through authored posts, reposts, and authored article comments |
 | POST | `/me/avatar/uploads` | Session | Prepare an avatar upload |
 | POST | `/me/avatar/uploads/{upload_id}/complete` | Session | Confirm and replace avatar; return current own profile |
+| POST | `/me/banner/uploads` | Session | Prepare a profile banner |
+| POST | `/me/banner/uploads/{upload_id}/complete` | Session | Confirm and replace the profile banner |
+| DELETE | `/me/banner` | Session | Remove the current profile banner |
 | GET | `/users/{username}/followers` | Public | List followers |
 | GET | `/users/{username}/following` | Public | List followed accounts |
 | PUT | `/users/{username}/follow` | Session | Follow account (idempotent) |
@@ -171,15 +175,16 @@ The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other user
 
 ### Profile edits and concurrency
 
-Read `GET /me/profile` before editing and send its `revision` with every profile or badge visibility PATCH. Revision is an optimistic concurrency counter, independent of data format `version`. Every successful PATCH increments it, including no-op updates; avatar attachment increments it once as well. Stale revisions or concurrent transactional writes return `409` with `{"detail":"Profile changed; reload your profile before saving"}`. Reload and explicitly reconcile edits before retrying; do not automatically resubmit an old form with a new revision. Missing revision returns `422`, including for older clients.
+Read `GET /me/profile` before editing and send its `revision` with every profile or badge visibility PATCH. Revision is an optimistic concurrency counter, independent of data format `version`. Every successful PATCH increments it, including no-op updates. Attaching an avatar or banner or removing a current banner also increments it once. Stale revisions or concurrent transactional writes return `409` with `{"detail":"Profile changed; reload your profile before saving"}`. Reload and explicitly reconcile edits before retrying; do not automatically resubmit an old form with a new revision. Missing revision returns `422`, including for older clients.
 
-Editable fields are partial: omitted or null values stay unchanged. `display_name` is trimmed, nonblank, and limited to 64 characters, `bio` to 280, and `links` to eight entries. Labels are trimmed and allow 1–32 characters; URLs allow 8–500 characters and require absolute HTTP(S) URLs with a hostname, without credentials, whitespace, control characters, or backslashes. The same link validation applies to persistence models. Use `[]` to clear links. Unknown top-level profile fields return `422`.
+Editable fields are partial: omitted or null values stay unchanged. `display_name` is trimmed, nonblank, and limited to 64 characters, `bio` to 280, `location` to 80, and `links` to eight entries. An empty location clears it. Labels are trimmed and allow 1–32 characters; URLs allow 8–500 characters and require absolute HTTP(S) URLs with a hostname, without credentials, whitespace, control characters, or backslashes. The same link validation applies to persistence models. Use `[]` to clear links. Unknown top-level profile fields return `422`.
 
 ```json
 {
   "revision": 0,
   "display_name": "Avery R.",
   "bio": "Writing about books and software.",
+  "location": "Kyiv, Ukraine",
   "links": [
     {"label": "Website", "url": "https://example.com"},
     {"label": "GitHub", "url": "https://github.com/reader-one"}
@@ -197,9 +202,13 @@ Public profile example:
   "username": "reader_one",
   "display_name": "Avery R.",
   "bio": "Writing about books and software.",
+  "location": "Kyiv, Ukraine",
   "links": [{"version":1,"id":"da3861fe-4336-411f-8e34-e32d37c2ebad","label":"Website","url":"https://example.com","platform":"website","redirect_url":"/api/v1/links/da3861fe-4336-411f-8e34-e32d37c2ebad/redirect"}],
   "avatars": {"original": "/static/images/avatars/0123456789abcdef0123456789abcdef.png"},
   "badges": [{"version":2,"code":"early-reader","payload":{"label":"Early Reader","description":"Joined the demo community early.","background_color":"#f3f4f6","text_color":"#374151","icon_url":"/static/images/badges/star.svg","icon_color":"#374151"}}],
+  "joined_at": "2026-10-12T08:42:19Z",
+  "posts_count": 12,
+  "banner_url": null,
   "follower_count": 3,
   "following_count": 5,
   "is_following": false
@@ -225,6 +234,16 @@ Public profile example:
   "permissions": {"can_disable": true}
 }
 ```
+
+### Public profile activity
+
+The timeline returns `{items, next_cursor}` in descending event time, kind, and ID order.
+The default limit is 20 and the maximum is 50. Continue with the opaque cursor
+from the preceding page. An unknown profile returns 404. Each item is a `micro_post`,
+`repost`, or `article_comment`. Comment items carry the author, text, creation timestamp,
+and a compact article card. The article card's `share_url` plus `#comment-{id}` opens
+the discussion at that comment. Deleted entries and unavailable articles are omitted.
+The public profile's `posts_count` counts visible posts crediting the user as an author.
 
 ### Stable links and redirects
 
@@ -268,10 +287,14 @@ Image uploads have three steps: prepare with JSON metadata, PUT raw bytes to the
 | --- | --- | --- |
 | POST | `/me/avatar/uploads` | Prepare one avatar |
 | POST | `/me/avatar/uploads/{upload_id}/complete` | Confirm avatar; returns current own profile and revision |
+| POST | `/me/banner/uploads` | Prepare one banner up to 5 MiB |
+| POST | `/me/banner/uploads/{upload_id}/complete` | Replace the banner and return the current own profile |
+| DELETE | `/me/banner` | Detach the current banner and queue cleanup |
 | POST | `/posts/{post_id}/images/uploads` | Prepare one to five gallery images, in display order |
 | POST | `/posts/{post_id}/images/uploads/{upload_id}/complete` | Replace the whole gallery; returns post |
 | POST | `/articles/{article_id}/cover/uploads` | Prepare one cover |
 | POST | `/articles/{article_id}/cover/uploads/{upload_id}/complete` | Replace cover; returns article with `thumbnail_url` |
+| DELETE | `/articles/{article_id}/cover` | Detach the cover and queue cleanup |
 | POST | `/articles/{article_id}/images/uploads` | Prepare one inline image |
 | POST | `/articles/{article_id}/images/uploads/{upload_id}/complete` | Append inline image; returns `url` and `alt_text` |
 
@@ -314,7 +337,7 @@ Confirmation has no request body. Its returned inline image can be inserted into
 {"url":"/static/images/article-images/0123456789abcdef0123456789abcdef.png","alt_text":"figure.png"}
 ```
 
-The server validates a separate final copy and attaches it in a transaction with the audit event. Replaying the temporary PUT cannot overwrite that final image. Repeating a completed confirmation does not attach again. Publication confirmations return the original saved result; avatar confirmation returns the current own profile and revision, including when replaying a completed upload from an older API format. A failed gallery confirmation leaves existing attachments intact. Concurrent edits can return `409`; retry confirmation while the upload is valid. If it expires, prepare a new upload.
+The server validates a separate final copy and attaches it in a transaction with the audit event. Replaying the temporary PUT cannot overwrite that final image. Repeating a completed confirmation does not attach again. Publication confirmations return the original saved result; avatar and banner confirmations return the current own profile and revision, including when replaying a completed upload from an older API format. A failed gallery confirmation leaves existing attachments intact. Concurrent edits can return `409`; retry confirmation while the upload is valid. If it expires, prepare a new upload.
 
 Preparation and PUT URLs last ten minutes. Completion must start before the deadline and has a five-minute processing lease. Missing files, expired sessions, and concurrent confirmations return `409`; missing or inaccessible upload sessions return `404`. Oversized images return `413`, unsupported bytes return `415`, and size mismatch or count limits return `422`. Storage/database failures return `503`. Temporary files and abandoned final copies are queued for cleanup after an hour; replaced and deleted attachments are queued immediately. The worker runs every minute and retries failed deletions. Upload-session results are retained for seven days after expiry.
 
@@ -324,7 +347,8 @@ Downloads are at the application root, outside `/api/v1`:
 | --- | --- | --- |
 | GET | `/static/images/avatars/{object_name}` | Public, attached avatar |
 | GET | `/static/images/post-images/{object_name}` | Public, non-deleted post |
-| GET | `/static/images/article-covers/{object_name}` | Published article or its author |
+| GET | `/static/images/profile-banners/{object_name}` | Public while attached |
+| GET | `/static/images/article-covers/{object_name}` | Published article or its owner |
 | GET | `/static/images/article-images/{object_name}` | Published article or its author |
 
 Only attached images are served. Missing, deleted, or inaccessible images return `404`; unavailable storage returns `503`. Article images use `Cache-Control: private, no-store`, including published articles, so returning an article to draft does not leave a publicly cached copy. Avatars and post images use a one-hour public cache. TipTap image sources must use the new relative article-image paths and belong to the article being saved. Legacy multipart upload routes and `/api/v1/media/` download routes are removed, without migration or redirects.
@@ -473,7 +497,7 @@ Posts and articles store an ordered `attachments` array. Each object is a strict
 union selected by `type`; unknown types and fields return 422. Up to 30 explicit descriptors
 are allowed per publication. Existing documents default to `attachments: []` without a migration.
 Post text remains required (1–280 characters, nonblank); attachments do not replace it.
-The frontend renders typed content and preserves the supported TipTap nodes during article editing. Typed attachment creation controls and provider player integrations remain separate work; post image uploads keep their existing controls.
+The composer and editor support link cards, publication references, and embedded provider players. The editor preserves supported TipTap nodes during save and reload.
 
 | Type | Fields | Behavior |
 | --- | --- | --- |
@@ -481,19 +505,17 @@ The frontend renders typed content and preserves the supported TipTap nodes duri
 | `link` | `url`, optional `label` (1–200 characters) | Plain HTTP(S) link |
 | `mention` | `user_id` | 24-character ObjectId of an existing account; no notification is sent |
 | `hashtag` | `tag` | 1–64 Unicode letters, digits, or underscores, without `#`; case is preserved |
-| `og_card` | `url`, `title` (1–300), optional `description` (up to 1,000, default empty), `image_url`, `site_name` (1–200) | Caller-supplied preview metadata; no scraping or verification of its contents |
+| `og_card` | `url`, `title` (1–300), optional `description` (up to 1,000, default empty), `image_url`, `site_name` (1–200) | Caller-supplied or server-generated preview metadata |
 | `article` | `article_id` | 24-character ObjectId of an existing published, undeleted article |
-| `embed` | `provider`, `url` | Descriptor for `soundcloud`, `spotify`, `youtube`, or `twitch`; no HTML or player implementation |
+| `post` | `post_id` | 24-character ObjectId of an existing public micro-post |
+| `embed` | `provider`, `url` | HTTPS resource descriptor for `soundcloud`, `spotify`, `youtube`, `vimeo`, or `twitch` |
 | `video` | `url` | Reserved schema variant; all writes currently return 422, including TipTap nodes |
 
 External URLs are limited to 2,048 characters and require HTTP(S), a hostname, no credentials,
 and no whitespace, control characters, or backslashes. Embed URLs additionally require HTTPS,
-no nonstandard port, and an exact supported provider hostname: SoundCloud (`soundcloud.com`,
-`www.soundcloud.com`, `w.soundcloud.com`), Spotify (`open.spotify.com`), YouTube (`youtube.com`,
-`www.youtube.com`, `youtu.be`, `www.youtube-nocookie.com`), or Twitch (`twitch.tv`, `www.twitch.tv`,
-`clips.twitch.tv`, `player.twitch.tv`). This validates the descriptor, not remote resource existence
-or embeddability. No external URL is fetched by this feature. Clients must render metadata as text
-and use their own provider-specific player integration rather than treating URLs as trusted HTML.
+the standard port, and a hostname allowed for the provider. The app offers click-to-load players
+for supported YouTube, Vimeo, Spotify, and SoundCloud resource URLs. Other accepted provider URLs
+open as links. Clients render metadata as text and build player URLs from recognized resource IDs.
 
 ```json
 {
@@ -511,10 +533,12 @@ and use their own provider-specific player integration rather than treating URLs
 
 Replace example IDs with an existing account and a published article. Reference checks occur
 inside the publication mutation transaction; invalid or unavailable references return 422.
-An attachment stores only an ID for a mention or article, not a profile or article snapshot.
-An article can later be unpublished or deleted. Resolve references through the ordinary account
-and article endpoints and respect their current 404/access rules. Attachments grant no ownership,
-private access, featured-author credit, notifications, or automatic hashtag discovery.
+An attachment stores the ID of the account or publication. For cards, pass up to 30 repeated
+`ref=article:<id>` or `ref=micro_post:<id>` values to `GET /publications/previews`.
+The response is an array of compact cards in request order. Unavailable originals are omitted
+and nested references are excluded. Retaining an existing reference in an edit is allowed
+after its target becomes unavailable. Attachments grant no ownership, private access, featured
+credit, notifications, or automatic hashtag discovery.
 
 Images still use the existing prepare/PUT/confirm upload protocol, with five images per post
 and 30 inline images per article. Create a publication first, upload images, then optionally add
@@ -534,7 +558,20 @@ explicit placement (including legacy images). Consequently a response can exceed
 the limit applies to explicit stored descriptors. Article body descriptors remain in the body and
 are not copied into the top-level list. Article covers remain a separate `thumbnail_url`.
 
+### External link preview
+
+Send `{"url":"https://example.com/"}` to `POST /links/preview` with a session and Origin.
+The result is a ready-to-store `og_card`. The fetch is limited to public HTTP(S) hosts on
+standard ports, up to three redirects, five seconds, and 512 KiB of HTML. The endpoint
+accepts up to 20 requests per minute per account and IP. A blocked destination returns 422,
+rate limiting returns 429, and unavailable metadata falls back to the original hostname.
+The fetch never proxies the page body or downloads Open Graph images.
+
 ### TipTap references and embedded content
+
+Text may carry an `underline` mark. Paragraphs and headings accept `attrs.textAlign`
+(`left`, `center`, `right`, or `justify`). Blockquotes accept `attrs.citation` up to 200
+characters. Code blocks accept a language identifier such as `javascript`.
 
 In addition to existing nodes and marks, paragraphs and headings support inline `mention`
 and `hashtag` leaf nodes. Their `attrs` contain `user_id` or `tag` respectively, without `type`.
@@ -580,7 +617,8 @@ Scalar at `/api/docs` includes the new Interactions and Comments endpoint groups
 - GET the matching `/interactions` endpoint for public counts and optional private viewer flags.
 - GET `/me/saved` for only your saved publications; GET `/profiles/{username}/reposts` for public reposts.
 - `/posts/{post_id}/replies` supports roots and direct children via `parent_id`.
-- `/articles/{article_id}/comments` remains flat and rejects parent fields in create/update bodies.
+- `/articles/{article_id}/comments` supports `sort=newest` or `sort=most_liked` and rejects parent fields in create/update bodies.
+- PUT/DELETE a scoped comment or reply's `/like` endpoint to set a reaction on a live entry.
 
 All mutations require a session and Origin. Only public originals can receive interactions or
 comments; interaction removal also works after the original becomes unavailable. Comment authors

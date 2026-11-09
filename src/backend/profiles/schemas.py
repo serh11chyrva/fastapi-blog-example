@@ -65,12 +65,28 @@ class ProfileUpdate(BaseModel):
         description="Replacement biography. Use an empty string to clear it; omit or use null to leave it unchanged.",
         examples=[examples.PROFILE_UPDATE["bio"]],
     )
+    location: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Public location. Send an empty string to clear it, or omit it to keep the current value.",
+    )
+
     links: list[LinkInput] | None = Field(
         default=None,
         max_length=8,
         description="Replacement list of up to eight public links. Use [] to clear links; omit or use null to keep them.",
         examples=[[examples.LINK]],
     )
+
+    @field_validator("location")
+    @classmethod
+    def trim_location(cls, value: str | None) -> str | None:
+        """Trim a public location while preserving an omitted update.
+
+        :param value: Optional public location supplied by the owner.
+        :return: Trimmed location, or None for an omitted update.
+        """
+        return value.strip() if value is not None else None
 
     @field_validator("display_name")
     @classmethod
@@ -182,6 +198,10 @@ class ProfileResponse(BaseModel):
         description="Only publicly visible badges. Owner settings and assignment timestamps are never included.",
         examples=[[examples.BADGE]],
     )
+    joined_at: datetime | None = Field(default=None, description="Public account creation timestamp.")
+    location: str = Field(default="", description="Public location, or an empty string.")
+    posts_count: int = Field(default=0, ge=0, description="Number of public posts crediting this account.")
+    banner_url: str | None = Field(default=None, description="Public profile banner image, if configured.")
     follower_count: int = Field(description="Number of accounts following this profile.", examples=[127])
     following_count: int = Field(description="Number of accounts this profile follows.", examples=[43])
     is_following: bool = Field(

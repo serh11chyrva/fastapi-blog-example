@@ -9,7 +9,7 @@ from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.resources import Resources
 from backend.feeds.repository import FeedKind
-from backend.feeds.schemas import FeedItem
+from backend.feeds.schemas import FeedItem, ProfileTimelinePage
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import (
     BadgePreferenceUpdate,
@@ -19,6 +19,7 @@ from backend.profiles.schemas import (
     ProfileUserResponse,
 )
 from backend.profiles.service import ProfileService
+from backend.profiles.timeline import profile_timeline
 
 router = APIRouter()
 queries = ProfileQueries()
@@ -90,6 +91,33 @@ async def list_profile_publications(
 
 
 @router.get(
+    "/users/{username}/timeline",
+    response_model=ProfileTimelinePage,
+    summary="List public profile activity",
+    description="Public authored posts, reposts, and live comments on published articles, newest first.",
+    tags=["Profiles"],
+    responses=documented_responses(404, 422, 503),
+)
+async def get_profile_timeline(
+    username: Username,
+    response: Response,
+    cursor: Annotated[str | None, Query(max_length=512, description="Opaque cursor from the previous page.")] = None,
+    limit: Annotated[int, Query(ge=1, le=50, description="Page size from 1 to 50.")] = 20,
+) -> ProfileTimelinePage:
+    """Read current public activity for an existing profile.
+
+    :param username: Case-insensitive profile handle.
+    :param response: Response whose cache policy prevents reuse after visibility changes.
+    :param cursor: Optional position from the previous activity page.
+    :param limit: Maximum number of activity entries.
+    :return: The public activity page and its next cursor.
+    """
+    response.headers["Cache-Control"] = "no-store"
+
+    return await profile_timeline(await queries.by_username(username), cursor, limit)
+
+
+@router.get(
     "/me/profile",
     response_model=OwnProfileResponse,
     summary="Get your own profile",
@@ -148,6 +176,24 @@ async def update_profile(
     response.headers["Cache-Control"] = "private, no-store"
 
     return await queries.own_response(await profiles.update(current_user.id, payload))
+
+
+@router.delete(
+    "/me/banner", status_code=204, summary="Remove your profile banner",
+    description="Detach the banner, advance the profile revision, and queue cleanup. Repeated requests are safe.",
+    tags=["Media"], responses=documented_responses(401, 403, 404, 409, 503),
+)
+async def remove_banner(_origin: Origin, current_user: CurrentUser, profiles: Profiles) -> Response:
+    """Detach the authenticated owner's banner.
+
+    :param _origin: Required same-origin mutation header.
+    :param current_user: Account whose banner is removed.
+    :param profiles: Request-scoped profile service.
+    :return: Empty response after the banner is detached.
+    """
+    await profiles.remove_banner(current_user)
+
+    return Response(status_code=204)
 
 
 @router.patch(

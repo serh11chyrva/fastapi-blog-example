@@ -59,6 +59,7 @@ def public_profile(
     follower_count: int,
     following_count: int,
     is_following: bool,
+    posts_count: int,
 ) -> ProfileResponse:
     """Assemble public profile fields and visible badge assignments.
 
@@ -67,6 +68,7 @@ def public_profile(
     :param follower_count: Number of accounts following the profile.
     :param following_count: Number of accounts followed by the profile.
     :param is_following: Whether the current viewer follows this profile.
+    :param posts_count: Number of live micro-posts crediting the profile.
     :return: The public profile with follow counts and viewer relationship.
     """
     return ProfileResponse(
@@ -74,6 +76,10 @@ def public_profile(
         username=user.username,
         display_name=user.display_name,
         bio=user.bio,
+        location=user.location,
+        joined_at=user.created_at,
+        posts_count=posts_count,
+        banner_url=f"/static/images/profile-banners/{user.banner.key.rsplit('/', 1)[-1]}" if user.banner else None,
         links=[link_response(link) for link in user.links],
         avatars=avatars(user),
         badges=[

@@ -184,6 +184,8 @@ avoid storing arbitrarily large recursive documents or ancestry arrays.
   "created_at": "2026-10-14T10:05:00Z",
   "updated_at": "2026-10-14T10:05:00Z",
   "deleted": false,
+  "likes_count": 4,
+  "liked": true,
   "post_id": "68eb856f7a02c1349de6b580",
   "parent_id": "68ebd420f2b7a8c901234561",
   "root_id": "68ebd420f2b7a8c901234561",
@@ -219,16 +221,27 @@ Create and update accept only `{"text":"A useful observation."}`. Unknown body
 fields, including `parent_id`, `root_id`, and `depth`, return 422. Article comments
 use their own collection and response model with `article_id`; neither contains a
 parent, depth, root, or children field. They cannot become threaded through a request.
-List responses use the same oldest-first cursor rules and page size as post replies.
-Deletion retains a flat tombstone with null text and author. Create returns 201;
-updates return 200; deletion returns 204.
+Default list responses use the existing oldest-first cursor rules and include tombstones.
+Explicit `sort=newest` and `sort=most_liked` return live comments only. Ranked pages sort
+by like count and then by ObjectId, both descending. Reuse cursors with their original sort
+and refresh the ranked list when likes change. Post roots also accept `sort=most_liked`
+without `parent_id`. Create returns 201, updates return 200, and deletion returns 204.
 
 Both discussion types accept plain text only, with 1–5,000 characters before trimming
 and whitespace-only content rejected. Text is not interpreted as HTML, TipTap, or an
 attachment. Non-owned, missing, or cross-publication comment IDs return 404. Comments
-are not publications: they have no featured authors, likes, saves, reposts, media
-uploads, or feed events in this implementation. Notifications are not sent.
+cannot be saved, reposted, or credited to additional authors. Profile activity shows
+live article comments written by that account beside the current public article card.
 
+
+## Discussion likes
+
+Use PUT or DELETE on `/posts/{post_id}/replies/{comment_id}/like` or
+`/articles/{article_id}/comments/{comment_id}/like` to set or clear the signed-in
+account's like. A successful change or no-op returns 204. The entry and publication
+must be live and public. The reaction, count, and audit event commit together.
+Reads return `likes_count` and `liked` with private, no-store caching. Anonymous
+readers receive `liked: false` and tombstones return zero likes.
 
 ## Frontend flows
 
@@ -236,15 +249,16 @@ uploads, or feed events in this implementation. Notifications are not sent.
   additionally offer Repost. Pressed states and counts come from the original's interaction summary.
   Anonymous readers can read discussions and follow the login link to participate.
 - Reposts have a separate banner naming the reposter and showing event time. Their controls act on
-  the original post. Public and following feeds refresh after a repost change. Profiles have a
-  separate Reposts tab with cursor pagination.
+  the original post. Public and following feeds refresh after a repost change. The profile
+  Posts tab merges posts, reposts, and authored article comments.
 - Saved is a protected page at `/saved`, linked from desktop and mobile site navigation. It lists
   saved posts/articles with their ordinary controls; unsaving removes the item from the shelf.
   Saved/repost lists retain Load more even when unavailable originals empty a visible page.
 - Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
   A post's View replies button loads only that parent's children. Reply forms appear only for live
   parents. Deleted parents retain their existing branches; deeper live descendants remain usable.
-  Article discussions display a single flat list and never offer Reply or accept a parent.
+  The article Reply action fills in an @handle in the flat comment form. Article pages can
+  load a scoped linked comment directly by ID when it falls outside the current page.
 - Plain-text forms enforce the 5,000-character limit, disable repeated submission while pending,
   and keep text on failure. Owned live comments offer Edit and Delete; failed edits can reload the
   latest comment without replacing the local draft. Deletion hides text/author and preserves children.
@@ -256,8 +270,8 @@ uploads, or feed events in this implementation. Notifications are not sent.
   fallbacks. Article attachments render outside the body unless the same image already occurs within it.
 - Typed TipTap mentions, hashtags, and attachment blocks render and survive editor round trips.
   Account mentions retain their ID label because no public account-by-ID resolver is provided.
-  Embed descriptors open the provider URL; they do not load third-party players. The existing image
-  composer/editor controls remain available; new rich-attachment authoring controls are not included.
+  Supported external providers load a player on demand. Link cards and quoted originals can
+  be attached from the composer or the editor.
 
 Request failures remain visible with retry/refresh controls. Viewer changes reset private flags;
 requests for previous routes/pages are aborted or ignored on completion. Interaction summaries

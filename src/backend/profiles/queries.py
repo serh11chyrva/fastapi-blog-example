@@ -8,6 +8,7 @@ from backend.core.errors import NotFound, Unavailable
 from backend.feeds.presenters import feed_item
 from backend.feeds.repository import FeedKind, FeedRepository
 from backend.feeds.schemas import FeedItem
+from backend.posts.models import MicroPost
 from backend.profiles.models import BadgeDefinition, User
 from backend.profiles.presenters import own_profile, public_profile, user_card
 from backend.profiles.repository import ProfileRepository
@@ -58,7 +59,18 @@ class ProfileQueries:
         :param viewer_id: Current viewer account ID, or None for anonymous access.
         :return: The profile as visible to the supplied viewer.
         """
-        definitions = await self.definitions(user)
+        return await self._response(user, viewer_id, await self.definitions(user))
+
+    async def _response(
+        self, user: User, viewer_id: PydanticObjectId | None, definitions: dict[str, BadgeDefinition],
+    ) -> ProfileResponse:
+        """Load the public profile counters and apply the supplied badge definitions.
+
+        :param user: Public profile account.
+        :param viewer_id: Current viewer ID, or None for anonymous reads.
+        :param definitions: Badge definitions already resolved for the profile.
+        :return: Public profile and viewer-specific follow state.
+        """
         followers, following = await self.repository.counts(user.id)
 
         return public_profile(
@@ -67,6 +79,9 @@ class ProfileQueries:
             followers,
             following,
             await self.repository.is_following(viewer_id, user.id),
+            await MicroPost.find({
+                "deleted_at": None, "$or": [{"owner_id": user.id}, {"featured_author_ids": user.id}],
+            }).count(),
         )
 
     async def own_response(self, user: User) -> OwnProfileResponse:
@@ -76,14 +91,7 @@ class ProfileQueries:
         :return: The private owner profile response.
         """
         definitions = await self.definitions(user)
-        followers, following = await self.repository.counts(user.id)
-        public = public_profile(
-            user,
-            definitions,
-            followers,
-            following,
-            await self.repository.is_following(user.id, user.id),
-        )
+        public = await self._response(user, user.id, definitions)
 
         return own_profile(user, public, definitions)
 

@@ -59,7 +59,7 @@ class ImageAttachments:
 
         object_id = PydanticObjectId(target_id)
 
-        if purpose == "avatars":
+        if purpose in {"avatars", "profile-banners"}:
             user = await User.get(object_id, session=session)
 
             if user is None or user.id != owner.id:
@@ -99,10 +99,18 @@ class ImageAttachments:
         old_keys: list[str] = []
 
         if isinstance(target, User):
-            old_keys = [target.avatars.original.key] if target.avatars.original else []
-            target.avatars.original = AvatarImage(key=keys[0], content_type=upload.files[0].content_type)
+            image = AvatarImage(key=keys[0], content_type=upload.files[0].content_type)
+            if upload.purpose == "profile-banners":
+                old_keys = [target.banner.key] if target.banner else []
+                target.banner = image
+                action = "PROFILE_BANNER_CHANGED"
+            else:
+                old_keys = [target.avatars.original.key] if target.avatars.original else []
+                target.avatars.original = image
+                action = "AVATAR_CHANGED"
+
             target.revision += 1
-            action, target_type = "AVATAR_CHANGED", "user"
+            target_type = "user"
         elif isinstance(target, MicroPost):
             old_keys = target.image_keys
             target.image_keys = keys
@@ -156,7 +164,7 @@ def saved_result(upload: ImageUpload) -> UploadResult:
     if upload.result is None:
         raise InvalidOperation("Completed upload result is missing")
 
-    if upload.purpose == "avatars":
+    if upload.purpose in {"avatars", "profile-banners"}:
         return ProfileResponse.model_validate(upload.result)
 
     if upload.purpose == "post-images":

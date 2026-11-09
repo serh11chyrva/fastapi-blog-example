@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from beanie import PydanticObjectId
 from pydantic import AwareDatetime, BaseModel, ValidationError
@@ -13,12 +13,14 @@ from pydantic import AwareDatetime, BaseModel, ValidationError
 from backend.core.errors import InvalidOperation
 from backend.feeds.repository import PublicationKind
 
+type TimelineKind = PublicationKind | Literal["article_comment"]
+
 
 class CursorPayload(BaseModel):
     """Validated position supporting original publications and independent repost events."""
 
     time: AwareDatetime
-    kind: PublicationKind
+    kind: TimelineKind
     id: PydanticObjectId
 
 
@@ -27,7 +29,7 @@ class FeedCursor:
     """Stable feed position ordered by event time, event kind, and original or repost ID."""
 
     published_at: datetime
-    kind: PublicationKind
+    kind: TimelineKind
     object_id: PydanticObjectId
 
     def encode(self) -> str:
@@ -40,10 +42,11 @@ class FeedCursor:
         return base64.urlsafe_b64encode(payload.model_dump_json().encode()).decode().rstrip("=")
 
     @classmethod
-    def decode(cls, value: str | None) -> FeedCursor | None:
+    def decode(cls, value: str | None, *, profile: bool = False) -> FeedCursor | None:
         """Read an existing cursor; malformed or timezone-naive payloads are rejected.
 
         :param value: Opaque feed cursor, or None for the initial page.
+        :param profile: Whether profile-only comment positions are accepted.
         :return: The decoded cursor, or None when no cursor was supplied.
         """
         if not value:
@@ -56,9 +59,12 @@ class FeedCursor:
         except (ValueError, TypeError, ValidationError) as exc:
             raise InvalidOperation("Invalid feed cursor") from exc
 
+        if payload.kind == "article_comment" and not profile:
+            raise InvalidOperation("Invalid feed cursor")
+
         return cls(payload.time, payload.kind, payload.id)
 
-    def conditions(self, kind: PublicationKind, date_field: str) -> dict[str, Any]:
+    def conditions(self, kind: TimelineKind, date_field: str) -> dict[str, Any]:
         """Continue descending order across collections, including equal timestamps.
 
         :param kind: Original publication or repost event kind whose boundary is being computed.

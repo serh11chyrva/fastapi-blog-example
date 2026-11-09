@@ -265,13 +265,15 @@ private Saved page removes unsaved entries locally and is mounted under a protec
 
 Feed cards unwrap repost events while retaining the reposter/time banner and original author
 cards, attachments, controls, and ownership checks. Repost changes refresh their containing feed
-or profile list. Profile Reposts uses the public relationship endpoint, separate from authored
-publication lists. Article and shared-post reading pages reuse these controls and discussions.
+or profile list. The public profile timeline merges post authorship, repost activity, and live
+article comments with the same descending event tuple used by public feeds. Article and shared-post
+reading pages reuse these controls and discussions.
 
 `features/comments/Discussion` reads one post level at a time and mounts child lists only when
 expanded. Root, parent, and original IDs stay in the API rather than being reconstructed from
 visual indentation. Indentation is capped after four levels while deeper replies remain browsable.
-Article comments use the flat endpoint and never expose reply controls. Forms retain failed text;
+Article comments use the flat endpoint, with an @handle shortcut and optional rank sorting.
+Unique reaction edges and denormalized counts commit together. Forms retain failed text;
 owned live comments support edits/deletes; tombstones preserve expanded child navigation.
 
 `shared/hooks/useCursorList` owns cancellation, first-page/continuation errors, duplicate request

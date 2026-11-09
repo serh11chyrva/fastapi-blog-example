@@ -106,7 +106,7 @@ Demo accounts are `alice@example.com`, `ben@example.com`, and `casey@example.com
 
 The Redis port is bound to localhost for development. MongoDB is accessed remotely through the configured Atlas connection string.
 
-Image bucket names and size limits are defined in `src/backend/core/config.py`: `blog-avatars` contains avatars; `blog-publications` contains post images, article covers, and inline images. Avatars, post images, and inline article images allow 5 MiB per file; covers allow 10 MiB. Temporary uploads live under `temporary/` in the corresponding private bucket. Neither bucket is exposed as a public website.
+Image bucket names and size limits are defined in `src/backend/core/config.py`: `blog-avatars` contains avatars and profile banners; `blog-publications` contains post images, article covers, and inline images. Avatars, profile banners, post images, and inline article images allow 5 MiB per file; covers allow 10 MiB. Temporary uploads live under `temporary/` in the corresponding private bucket. Neither bucket is exposed as a public website.
 
 Browsers request ten-minute presigned PUT URLs, upload directly to Garage, then confirm through the API. Confirmation validates a separate final copy and attaches it transactionally; upload replay cannot change an accepted image. API responses use `/static/images/...` URLs. FastAPI checks publication visibility before serving images, including private drafts. Nginx and Vite forward these paths to FastAPI. See [docs/API.md](docs/API.md) for the complete protocol.
 
@@ -134,15 +134,15 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 - Email or `@username` registration and login with opaque, server-side sessions.
 - A session settings page with web/mobile/desktop client types, approximate GeoLite2 locations, readable browser/device labels, last activity, individual revocation, and logout from other sessions.
 - Append-only audit events for security, profile, follow, and publication actions.
-- Public profiles with bios, versioned links with domain detection and independent redirects, shared badge definitions with versioned display payloads, and uploaded JPEG, PNG, or WebP avatars.
+- Public profiles with bios, locations, post counts, linked activity, versioned links, badges, and uploaded avatars and banners.
 - Own-profile API and settings with private badge preferences, server-enforced visibility, and revision checks that reject stale profile edits.
 - Follow relationships and chronological public and following feeds.
 - 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
-- Backend posts and articles support typed attachments: images, links, mentions, hashtags, caller-supplied OG cards, published article references, and SoundCloud/Spotify/YouTube/Twitch embed descriptors. Articles also accept inline mention/hashtag and block attachment TipTap nodes. The frontend renders typed attachments and preserves the new TipTap nodes when editing articles. Video is reserved and rejected; rich attachment creation and provider player integrations remain future work. See [typed publication content](docs/API.md#typed-publication-content).
+- Posts and articles support typed attachments, including external link previews, quoted publications, and click-to-load provider players. See [typed publication content](docs/API.md#typed-publication-content).
 - Editorial black-and-white UI with separate Posts and Articles profile tabs; article editing and reading use a full-screen writing and reading layout.
 - Responsive English UI; published content and profiles are readable without signing in.
 
-Likes, private saves, and discussions are available in the frontend for posts and published articles. Unquoted post reposts appear in public/following feeds and the profile Reposts tab. The private Saved page is available from navigation. Post replies expand as nested threads; article comments remain flat. Authors can edit and delete their own comments while preserving reply branches. See [interactions and discussions](docs/INTERACTIONS.md).
+Likes, private saves, and discussions are available in the frontend for posts and published articles. Unquoted post reposts appear in public/following feeds and the profile Posts tab. The private Saved page is available from navigation. Post replies expand as nested threads. Article comments can be sorted by likes or recency and appear on the comment author's profile. Authors can edit and delete their own comments while preserving reply branches. See [interactions and discussions](docs/INTERACTIONS.md).
 
 Email delivery, OAuth/OIDC, and MFA are planned follow-up features.
 

@@ -79,6 +79,8 @@ class User(Document):
     username: str
     display_name: str
     bio: str = ""
+    location: str = ""
+    banner: AvatarImage | None = None
     links: list[ProfileLink] = Field(default_factory=list, max_length=8)
     avatars: AvatarVariants = Field(default_factory=AvatarVariants)
     badges: list[BadgeAssignment] = Field(default_factory=list)
@@ -122,6 +124,7 @@ class User(Document):
             IndexModel([("username", ASCENDING)], unique=True, name="users_username_unique"),
             IndexModel([("links.id", ASCENDING)], name="profile_links_by_id"),
             IndexModel([("avatars.original.key", ASCENDING)], name="users_avatar_original_key"),
+            IndexModel([("banner.key", ASCENDING)], name="users_banner_key"),
         ]
 
 

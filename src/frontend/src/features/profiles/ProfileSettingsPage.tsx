@@ -1,3 +1,4 @@
+import { usePageTitle } from "../../app/usePageTitle";
 import { useApp } from "../../app/AuthProvider";
 import { useEffect, useState } from "react";
 import type { OwnProfile, OwnerBadge, ProfileLinkInput } from "../../shared/api/types";
@@ -8,10 +9,12 @@ import { useImageUploader } from "../../shared/uploads/uploadImages";
 import { Avatar } from "../../shared/ui/Avatar";
 import { BadgeIcon } from "./BadgeIcon";
 export function ProfileSettingsPage() {
+  usePageTitle("Profile settings");
   const { user } = useApp();
   const [profile, setProfile] = useState<OwnProfile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const [location, setLocation] = useState("");
   const [links, setLinks] = useState<ProfileLinkInput[]>([]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -19,11 +22,13 @@ export function ProfileSettingsPage() {
   const [saving, setSaving] = useState(false);
   const uploadImages = useImageUploader();
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
+  const [pendingBanner, setPendingBanner] = useState<File | null>(null);
   async function loadProfile() {
     const value = await api<OwnProfile>("/me/profile");
     setProfile(value);
     setDisplayName(value.display_name);
     setBio(value.bio);
+    setLocation(value.location);
     setLinks(value.links.map(({ version, id, label, url }) => ({ version, id, label, url })));
   }
   useEffect(() => {
@@ -35,10 +40,11 @@ export function ProfileSettingsPage() {
   async function save(event: FormEvent) {
     event.preventDefault(); if (!profile || saving || uploading)
       return; setSaving(true); setNotice(""); setError(""); try {
-        const updated = await api<OwnProfile>("/me/profile", { method: "PATCH", body: JSON.stringify({ revision: profile.revision, display_name: displayName, bio, links }) });
+        const updated = await api<OwnProfile>("/me/profile", { method: "PATCH", body: JSON.stringify({ revision: profile.revision, display_name: displayName, bio, location, links }) });
         setProfile(updated);
         setDisplayName(updated.display_name);
         setBio(updated.bio);
+        setLocation(updated.location);
         setLinks(updated.links.map(({ version, id, label, url }) => ({ version, id, label, url })));
         setNotice("Your profile has been updated.");
       }
@@ -91,6 +97,29 @@ export function ProfileSettingsPage() {
       setUploading(false);
     }
   }
+  async function changeBanner(file?: File) {
+    if (uploading || saving || !profile) return;
+    setUploading(true);
+    setError("");
+    setNotice("");
+    if (file) setPendingBanner(file);
+    try {
+      let updated: OwnProfile;
+      if (file) {
+        updated = await uploadImages<OwnProfile>("/me/banner", [file]);
+      } else {
+        await api("/me/banner", { method: "DELETE" });
+        updated = await api<OwnProfile>("/me/profile");
+      }
+      setProfile(updated.revision === profile.revision + 1 ? updated : { ...profile, banner_url: updated.banner_url });
+      setPendingBanner(null);
+      setNotice(file ? "Your profile banner has been updated." : "Your profile banner has been removed.");
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setUploading(false);
+    }
+  }
   function updateLink(index: number, key: "label" | "url", value: string) { setLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item)); }
   return <div className="space-y-4">
     <div>
@@ -109,6 +138,25 @@ export function ProfileSettingsPage() {
             onClick={() => void uploadAvatar(pendingAvatar)}>Retry avatar upload</button>}
           <span className="text-xs text-slate-400">JPEG, PNG, or WebP · up to 5 MB</span>
         </div>
+        <div className="space-y-3">
+          {profile?.banner_url && <img className="h-32 w-full object-cover" src={profile.banner_url} alt="Profile banner" />}
+          <div className="flex flex-wrap gap-2">
+            <label className="button-secondary cursor-pointer">
+              {profile?.banner_url ? "Replace banner" : "Upload banner"}
+              <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void changeBanner(file);
+                }} />
+            </label>
+            {profile?.banner_url && <button type="button" className="button-quiet" onClick={() => void changeBanner()}>Remove banner</button>}
+            {pendingBanner && <button type="button" className="button-secondary"
+              onClick={() => void changeBanner(pendingBanner)}>Retry banner upload</button>}
+          </div>
+        </div>
+        <label className="form-label block">Location<input className="field mt-1.5" maxLength={80}
+          value={location} onChange={(event) => setLocation(event.target.value)} /></label>
         <label className="form-label block">Username<div className="field mt-1.5 bg-slate-50 text-slate-500">@{user.username}</div></label>
         <label className="form-label block">Public name<input className="field mt-1.5" maxLength={64} value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>
         <label className="form-label block">Bio<textarea className="field mt-1.5 min-h-24 resize-y" maxLength={280} value={bio} onChange={(event) => setBio(event.target.value)} /></label>

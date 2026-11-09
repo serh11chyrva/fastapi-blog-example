@@ -49,7 +49,7 @@ class ImageStorageService:
         """
         settings = get_settings()
 
-        if purpose == "avatars":
+        if purpose in {"avatars", "profile-banners"}:
             return settings.avatar_max_bytes
 
         return (
@@ -115,7 +115,7 @@ class ImageStorageService:
             owner_id=owner.id,
             target_id=target.id,
             purpose=purpose,
-            bucket=settings.avatar_bucket if purpose == "avatars" else settings.publication_bucket,
+            bucket=settings.avatar_bucket if purpose in {"avatars", "profile-banners"} else settings.publication_bucket,
             created_at=now,
             expires_at=now + timedelta(seconds=settings.upload_expiry_seconds),
             files=[

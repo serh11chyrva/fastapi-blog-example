@@ -7,6 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
+from backend.core.config import get_settings
 from backend.core.errors import (
     BadRequest,
     Conflict,
@@ -20,6 +21,7 @@ from backend.links.models import ProfileLink
 from backend.profiles.models import BadgeDefinition, Follow, User
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import BadgePreferenceUpdate, LinkInput, ProfileUpdate
+from backend.storage.cleanup import queue_deletion
 
 
 class ProfileService:
@@ -152,6 +154,30 @@ class ProfileService:
             raise Conflict("Profile changed; reload your profile before saving") from exc
 
         return updated
+
+    async def remove_banner(self, owner: User) -> None:
+        """Remove the current banner and advance the owner revision atomically.
+
+        :param owner: Authenticated profile owner.
+        :return: None.
+        """
+        async with transaction(self.resources.mongo) as session:
+            user = await User.get(owner.id, session=session)
+            if user is None:
+                raise NotFound("Profile not found")
+
+            if user.banner is None:
+                return
+
+            key = user.banner.key
+            await user.update({
+                "$set": {"banner": None, "updated_at": datetime.now(UTC)}, "$inc": {"revision": 1},
+            }, session=session)
+            await queue_deletion(get_settings().avatar_bucket, key, session=session)
+            await record_audit(
+                self.audit, "PROFILE_BANNER_REMOVED", actor_id=user.id, target_type="user",
+                target_id=str(user.id), session=session,
+            )
 
     async def follow(self, owner: User, username: str) -> None:
         """Create a follow relationship and audit it if it does not exist.

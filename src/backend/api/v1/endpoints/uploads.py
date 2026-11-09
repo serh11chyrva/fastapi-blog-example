@@ -100,6 +100,50 @@ async def complete_avatar(
 
 
 @router.post(
+    "/me/banner/uploads", response_model=ImageUploadResponse, status_code=201,
+    summary="Prepare a profile banner upload",
+    description="Prepare a presigned upload for one JPEG, PNG, or WebP banner up to 5 MiB.",
+    tags=["Media"], responses=documented_responses(401, 403, 413, 422, 503),
+)
+async def prepare_banner(
+    _origin: Origin, payload: ImageUploadRequest, service: Storage, current_user: CurrentUser,
+) -> ImageUploadResponse:
+    """Prepare an image upload bound to the current profile.
+
+    :param _origin: Required same-origin mutation header.
+    :param payload: Image metadata for the single banner.
+    :param service: Request-scoped image storage service.
+    :param current_user: Authenticated owner of the target profile.
+    :return: Presigned upload instructions.
+    """
+    return await service.create(current_user, "profile-banners", str(current_user.id), payload)
+
+
+@router.post(
+    "/me/banner/uploads/{upload_id}/complete", response_model=OwnProfileResponse,
+    summary="Confirm replacement of the profile banner",
+    description="Attach the validated upload, advance the profile revision, and queue cleanup of the former banner.",
+    tags=["Media"], responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
+)
+async def complete_banner(
+    _origin: Origin, upload_id: UploadId, service: Storage, response: Response, current_user: CurrentUser,
+) -> OwnProfileResponse:
+    """Confirm a banner once and return the current owner profile.
+
+    :param _origin: Required same-origin mutation header.
+    :param upload_id: Identifier from banner upload preparation.
+    :param service: Request-scoped image storage service.
+    :param response: HTTP response for the private cache policy.
+    :param current_user: Authenticated owner of the target profile.
+    :return: Current profile with the attached banner and revision.
+    """
+    await service.complete(current_user, "profile-banners", str(current_user.id), upload_id)
+    response.headers["Cache-Control"] = "private, no-store"
+
+    return await ProfileQueries().own_by_id(current_user.id)
+
+
+@router.post(
     "/posts/{post_id}/images/uploads",
     response_model=ImageUploadResponse,
     status_code=status.HTTP_201_CREATED,

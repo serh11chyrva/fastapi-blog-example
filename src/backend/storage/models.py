@@ -5,7 +5,7 @@ from beanie import Document, PydanticObjectId
 from pydantic import BaseModel, JsonValue
 from pymongo import ASCENDING, IndexModel
 
-ImagePurpose = Literal["avatars", "post-images", "article-covers", "article-images"]
+ImagePurpose = Literal["avatars", "profile-banners", "post-images", "article-covers", "article-images"]
 
 
 class UploadFileRecord(BaseModel):

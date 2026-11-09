@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../api/client";
 import type { CursorPage } from "../api/types";
 
-export function useCursorList<T extends { id: string }>(path: string) {
+export function useCursorList<T extends { id: string }>(path: string, identify: (item: T) => string = (item) => item.id) {
   const [items, setItems] = useState<T[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,8 +54,8 @@ export function useCursorList<T extends { id: string }>(path: string) {
       });
       if (!controller.signal.aborted) {
         setItems((previous) => {
-          const seen = new Set(previous.map((item) => item.id));
-          return [...previous, ...page.items.filter((item) => !seen.has(item.id))];
+          const seen = new Set(previous.map(identify));
+          return [...previous, ...page.items.filter((item) => !seen.has(identify(item)))];
         });
         setCursor(page.next_cursor);
       }

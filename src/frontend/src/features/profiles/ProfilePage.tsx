@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom";
+import { usePageTitle } from "../../app/usePageTitle";
 import { useApp } from "../../app/AuthProvider";
 import { useEffect, useState } from "react";
 import type { Profile, ProfileCard } from "../../shared/api/types";
@@ -9,7 +10,7 @@ import { Avatar } from "../../shared/ui/Avatar";
 import { BadgeIcon } from "./BadgeIcon";
 import { PostComposer } from "../feed/PostComposer";
 import { ProfilePublications } from "./ProfilePublications";
-import { ProfileReposts } from "./ProfileReposts";
+import { ProfileTimeline } from "./ProfileTimeline";
 export function ProfilePage() {
   const { handle } = useParams();
   return <ProfileContent key={handle} />;
@@ -20,7 +21,7 @@ function ProfileContent() {
   const { user } = useApp();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"micro_post" | "article" | "repost">("micro_post");
+  const [tab, setTab] = useState<"micro_post" | "article">("micro_post");
   const [refreshKey, setRefreshKey] = useState(0);
   const [networkKind, setNetworkKind] = useState<"followers" | "following" | null>(null);
   const networkList = useOffsetList<ProfileCard>(networkKind && profile ? `/users/${profile.username}/${networkKind}` : null);
@@ -41,6 +42,14 @@ function ProfileContent() {
       });
     return () => controller.abort();
   }, [username]);
+  function refreshActivity() {
+    setRefreshKey((value) => value + 1);
+    void api<Profile>(`/users/${encodeURIComponent(username)}`)
+      .then((value) => setProfile((current) => current?.id === value.id
+        ? { ...current, posts_count: value.posts_count } : current))
+      .catch(() => undefined);
+  }
+
   async function toggleFollow() {
     if (!profile)
       return;
@@ -55,6 +64,7 @@ function ProfileContent() {
   function showNetwork(kind: "followers" | "following") {
     setNetworkKind(kind);
   }
+  usePageTitle(error ? "Profile unavailable" : profile?.display_name ?? "Loading profile");
   if (error)
     return <EmptyState title="Profile unavailable" body={error} />;
   if (!profile)
@@ -62,7 +72,9 @@ function ProfileContent() {
   const own = user?.id === profile.id;
   return <div className="space-y-5">
     <section className="surface overflow-hidden">
-      <div className="h-20 bg-neutral-100" />
+      <div className="h-32 bg-neutral-100 sm:h-44">
+        {profile.banner_url && <img className="h-full w-full object-cover" src={profile.banner_url} alt="" />}
+      </div>
       <div className="px-5 pb-6 sm:px-7">
         <div className="-mt-10 flex flex-wrap items-end justify-between gap-4">
           <Avatar src={profile.avatars.original} name={profile.display_name} size="lg" />
@@ -75,10 +87,16 @@ function ProfileContent() {
         <h1 className="editorial-title mt-4 text-3xl font-semibold text-black">
           {profile.display_name}
         </h1>
-        <p className="text-sm text-slate-500">@{profile.username}</p>
+        <p className="text-sm text-slate-500">@{profile.username} · {profile.posts_count} posts</p>
         {profile.bio && <p className="mt-4 max-w-2xl whitespace-pre-wrap text-[15px] leading-7 text-slate-700">
           {profile.bio}
         </p>}
+        <div className="mt-3 flex flex-wrap gap-4 text-sm text-neutral-500">
+          {profile.location && <span>{profile.location}</span>}
+          {profile.joined_at && <time dateTime={profile.joined_at}>
+            Joined {new Date(profile.joined_at).toLocaleDateString("en", { month: "long", year: "numeric" })}
+          </time>}
+        </div>
         <div className="mt-4 flex gap-5 text-sm">
           <button onClick={() => void showNetwork("following")}>
             <strong className="text-slate-900">
@@ -128,9 +146,11 @@ function ProfileContent() {
     <div className="flex gap-7 border-b border-neutral-200">
       <button className={`profile-tab ${tab === "micro_post" ? "active" : ""}`} onClick={() => setTab("micro_post")}>Posts</button>
       <button className={`profile-tab ${tab === "article" ? "active" : ""}`} onClick={() => setTab("article")}>Articles</button>
-      <button className={`profile-tab ${tab === "repost" ? "active" : ""}`} onClick={() => setTab("repost")}>Reposts</button>
     </div>
-    {tab === "micro_post" && own && <PostComposer onPosted={() => setRefreshKey((value) => value + 1)} />}
-    {tab === "repost" ? <ProfileReposts key={profile.username} username={profile.username} /> : <ProfilePublications key={`${profile.username}-${tab}-${refreshKey}`} username={profile.username} kind={tab} onChanged={() => setRefreshKey((value) => value + 1)} />}
+    {tab === "micro_post" && own && <PostComposer onPosted={refreshActivity} />}
+    {tab === "micro_post"
+      ? <ProfileTimeline key={`${profile.username}-${refreshKey}`} username={profile.username} onChanged={refreshActivity} />
+      : <ProfilePublications key={profile.username} username={profile.username} kind="article"
+          onChanged={() => setRefreshKey((value) => value + 1)} />}
   </div>;
 }

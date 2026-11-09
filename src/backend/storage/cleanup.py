@@ -41,6 +41,9 @@ async def is_attached(key: str) -> bool:
     if key.startswith("avatars/"):
         return await User.find_one({"avatars.original.key": key}) is not None
 
+    if key.startswith("profile-banners/"):
+        return await User.find_one({"banner.key": key}) is not None
+
     if key.startswith("post-images/"):
         return await MicroPost.find_one({"image_keys": key, "deleted_at": None}) is not None
 
