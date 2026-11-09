@@ -70,11 +70,18 @@ class ArticleAttachment(AttachmentBase):
     article_id: ContentId
 
 
+class PostAttachment(AttachmentBase):
+    """Reference an original public micro-post without storing its content."""
+
+    type: Literal["post"] = "post"
+    post_id: ContentId
+
+
 class EmbedAttachment(AttachmentBase):
     """Describe a provider resource for a future client-side player integration."""
 
     type: Literal["embed"] = "embed"
-    provider: Literal["soundcloud", "spotify", "youtube", "twitch"]
+    provider: Literal["soundcloud", "spotify", "youtube", "twitch", "vimeo"]
     url: ContentUrl = Field(description="HTTPS provider resource URL; arbitrary iframe HTML is not accepted.")
 
     @model_validator(mode="after")
@@ -88,6 +95,7 @@ class EmbedAttachment(AttachmentBase):
             "soundcloud": {"soundcloud.com", "www.soundcloud.com", "w.soundcloud.com"},
             "spotify": {"open.spotify.com"},
             "youtube": {"youtube.com", "www.youtube.com", "youtu.be", "www.youtube-nocookie.com"},
+            "vimeo": {"vimeo.com", "www.vimeo.com", "player.vimeo.com"},
             "twitch": {"twitch.tv", "www.twitch.tv", "clips.twitch.tv", "player.twitch.tv"},
         }
 
@@ -111,6 +119,7 @@ type PublicationAttachment = Annotated[
     | HashtagAttachment
     | OpenGraphAttachment
     | ArticleAttachment
+    | PostAttachment
     | EmbedAttachment
     | VideoAttachment,
     Field(discriminator="type"),

@@ -31,6 +31,27 @@ Articles = Annotated[ArticleService, Depends(get_articles_service)]
 
 
 @router.delete(
+    "/articles/{article_id}/cover", status_code=204, summary="Remove your article cover",
+    description="Detach the current cover and queue storage cleanup. Repeating the request is safe.",
+    tags=["Articles"], responses=documented_responses(401, 403, 404, 409, 503),
+)
+async def remove_article_cover(
+    _origin: Origin, article_id: ArticleId, current_user: CurrentUser, articles: Articles,
+) -> Response:
+    """Remove a cover from the owner's article.
+
+    :param _origin: Required same-origin mutation header.
+    :param article_id: Owned article identifier.
+    :param current_user: Authenticated article owner.
+    :param articles: Request-scoped article service.
+    :return: Empty response after the cover is detached.
+    """
+    await articles.remove_cover(article_id, current_user)
+
+    return Response(status_code=204)
+
+
+@router.delete(
     "/articles/{article_id}",
     status_code=204,
     summary="Delete an article",

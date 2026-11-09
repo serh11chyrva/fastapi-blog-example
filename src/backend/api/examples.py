@@ -39,13 +39,14 @@ PROFILE_UPDATE = {
     "display_name": ACCOUNT["display_name"],
     "bio": "Software engineer, weekend cyclist, and collector of good reading recommendations.",
     "links": [LINK],
+    "location": "Kyiv, Ukraine",
 }
 BADGE = {
     "version": 2,
     "code": "early-adopter",
     "payload": {
         "label": "Early adopter",
-        "description": "Joined Commonplace during its first community release.",
+        "description": "Joined the blog during its first community release.",
         "background_color": "#f3f4f6",
         "text_color": "#374151",
         "icon_url": "/static/images/badges/star.svg",
@@ -66,6 +67,9 @@ PROFILE = {
     "links": [LINK_RESPONSE],
     "avatars": {"original": AVATAR_URL},
     "badges": [BADGE],
+    "joined_at": "2026-10-12T08:42:19Z",
+    "posts_count": 12,
+    "banner_url": "/static/images/profile-banners/96b1d2efb94446b2b891eb516cdbe4c0.webp",
     "follower_count": 127,
     "following_count": 43,
     "is_following": False,
@@ -298,6 +302,8 @@ POST_REPLY = {
     "created_at": "2026-10-14T10:05:00Z",
     "updated_at": "2026-10-14T10:05:00Z",
     "deleted": False,
+    "likes_count": 4,
+    "liked": True,
     "post_id": POST["id"],
     "parent_id": None,
     "root_id": "68ebd420f2b7a8c901234561",
@@ -306,9 +312,11 @@ POST_REPLY = {
 }
 POST_REPLY_CHILD = POST_REPLY | {
     "id": "68ebd421f2b7a8c901234562", "text": "Agreed, especially the practical example.",
-    "parent_id": POST_REPLY["id"], "depth": 1, "replies_count": 0,
+    "parent_id": POST_REPLY["id"], "depth": 1, "replies_count": 0, "likes_count": 0, "liked": False,
 }
-POST_REPLY_DELETED = POST_REPLY | {"author": None, "text": None, "deleted": True}
+POST_REPLY_DELETED = POST_REPLY | {
+    "author": None, "text": None, "deleted": True, "likes_count": 0, "liked": False,
+}
 ARTICLE_COMMENT = {
     "id": "68ebd422f2b7a8c901234563",
     "author": PROFILE_USER,
@@ -316,10 +324,32 @@ ARTICLE_COMMENT = {
     "created_at": "2026-10-14T10:05:00Z",
     "updated_at": "2026-10-14T10:05:00Z",
     "deleted": False,
+    "likes_count": 4,
+    "liked": True,
     "article_id": ARTICLE["id"],
 }
 POST_REPLY_PAGE = {"items": [POST_REPLY], "next_cursor": None}
 ARTICLE_COMMENT_PAGE = {"items": [ARTICLE_COMMENT], "next_cursor": None}
+ARTICLE_PREVIEW = {
+    key: FEED_ARTICLE[key]
+    for key in ("kind", "id", "share_url", "authors", "title", "summary", "thumbnail_url", "published_at")
+}
+POST_PREVIEW = {
+    key: FEED_POST[key]
+    for key in ("kind", "id", "share_url", "authors", "text", "thumbnail_url", "published_at")
+}
+PROFILE_TIMELINE = {
+    "items": [
+        {
+            "kind": "article_comment",
+            **{key: ARTICLE_COMMENT[key] for key in ("id", "author", "text", "created_at")},
+            "article": ARTICLE_PREVIEW,
+        },
+        FEED_REPOST,
+        FEED_POST,
+    ],
+    "next_cursor": None,
+}
 SAVED_PAGE = {
     "items": [{
         "id": "68ebd423f2b7a8c901234564", "saved_at": "2026-10-14T10:10:00Z", "publication": FEED_ARTICLE,

@@ -1,5 +1,7 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useArticleEditor } from "./useArticleEditor";
+import { usePageTitle } from "../../app/usePageTitle";
+import { AttachmentComposer } from "../publications/AttachmentComposer";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorContent } from "@tiptap/react";
 export function ArticleEditorPage() {
@@ -7,7 +9,8 @@ export function ArticleEditorPage() {
   return <ArticleEditorForm key={articleId || "new"} />;
 }
 function ArticleEditorForm() {
-  const { loading, loadError, title, setTitle, summary, setSummary, article, error, saving, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, runAction } = useArticleEditor();
+  const { loading, loadError, title, setTitle, summary, setSummary, article, error, saving, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
+  usePageTitle(loading ? "Loading editor" : loadError ? "Editor unavailable" : article ? `Edit ${article.title}` : "Write an article");
   if (loading)
     return <p role="status">Loading article…</p>;
   if (loadError)
@@ -40,6 +43,8 @@ function ArticleEditorForm() {
             {preview ? "Replace image" : "Choose image"}
             <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setThumbnailFile(event.target.files?.[0] || null)} disabled={saving} />
           </label>
+          {preview && <button type="button" className="button-quiet" disabled={saving}
+            onClick={() => void removeCover()}>Remove cover</button>}
         </div>
       </div>
       <label className="form-label mt-6 block">Summary<textarea className="field mt-2 min-h-20 resize-y" disabled={saving} maxLength={320} placeholder="A short introduction for readers" value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
@@ -56,7 +61,9 @@ function ArticleEditorForm() {
         }} />
         {pendingInlineImage && <button type="button" className="button-secondary my-2" disabled={saving}
           onClick={() => void uploadInlineImage(pendingInlineImage)}>Retry image upload</button>}
-        <div className="rounded-b border border-t-0 border-neutral-200 bg-white px-4 py-4">
+        <AttachmentComposer disabled={saving || !editor} onAdd={(item) =>
+          editor?.chain().focus().insertContent({ type: "attachment", attrs: { descriptor: item } }).run()} />
+        <div className="rounded border border-neutral-200 bg-white px-4 py-4">
           <EditorContent editor={editor} />
         </div>
       </div>
@@ -75,7 +82,9 @@ function ArticleEditorForm() {
       <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <label className="form-label">Publish after<input className="field mt-1.5 sm:w-64" type="datetime-local" disabled={saving} value={publishAt} onChange={(event) => setPublishAt(event.target.value)} /></label>
         <div className="flex flex-wrap gap-2">
-          <button className="button-secondary" disabled={saving} onClick={() => void runAction("draft")}>Draft</button>
+          <button className="button-secondary" disabled={saving} onClick={() => void runAction("save")}>Save changes</button>
+          {article && article.status !== "draft" &&
+            <button className="button-secondary" disabled={saving} onClick={() => void runAction("draft")}>Move to draft</button>}
           {article && <button className="button-secondary" disabled={saving} onClick={() => void runAction("delete")}>Delete</button>}
           <button className="button-secondary" disabled={saving} onClick={() => void runAction("schedule")}>Publish after…</button>
           <button className="button-primary" disabled={saving} onClick={() => void runAction("publish")}>
@@ -83,6 +92,11 @@ function ArticleEditorForm() {
           </button>
         </div>
       </div>
+      {article && <Link className="mt-4 inline-block text-sm underline"
+        to={article.status === "published" ? article.share_url || `/articles/${article.id}` : `/articles/${article.id}`}>
+        View article
+      </Link>}
+      {notice && <p className="notice-success mt-4" role="status">{notice}</p>}
       {error && <div className="notice-error mt-4">
         {error}
       </div>}

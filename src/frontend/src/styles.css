@@ -29,6 +29,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .tiptap-content h1 { font-size: 1.8rem; }.tiptap-content h2 { font-size: 1.45rem; }.tiptap-content h3 { font-size: 1.2rem; }
 .tiptap-content ul, .tiptap-content ol { padding-left: 1.5rem; }.tiptap-content ul { list-style: disc; }.tiptap-content ol { list-style: decimal; }
 .tiptap-content blockquote { border-left: 3px solid #d1d5db; padding-left: 1rem; color: #64748b; }
+.tiptap-content blockquote[data-citation]::after { display: block; margin-top: .5rem; font-size: .85em; content: attr(data-citation); }
+.tiptap-content [id^="section-"] { scroll-margin-top: 6rem; }
 .tiptap-content pre { overflow-x: auto; border-radius: .75rem; background: #f3f4f6; padding: 1rem; color: #111827; font-size: .85rem; }
 .tiptap-content code { border-radius: .25rem; background: #f1f5f9; padding: .1rem .25rem; font-size: .9em; }
 .tiptap-content pre code { background: transparent; padding: 0; }

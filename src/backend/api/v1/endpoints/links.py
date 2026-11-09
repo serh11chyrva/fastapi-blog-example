@@ -1,14 +1,48 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
-from backend.api.metadata import Username, documented_responses
+from backend.api.metadata import Origin, Username, documented_responses
+from backend.auth.dependencies import CurrentUser
+from backend.auth.rate_limit import enforce_rate_limit
+from backend.links.preview import LinkPreviewRequest, link_preview
 from backend.links.service import LinkService
 from backend.profiles.repository import ProfileRepository
+from backend.publications.attachments import OpenGraphAttachment
 
 router = APIRouter()
 service = LinkService()
+
+
+@router.post(
+    "/links/preview", response_model=OpenGraphAttachment,
+    summary="Preview an external link", description="Fetch bounded public HTML and return a text-only card.",
+    tags=["Links"],
+    responses=documented_responses(
+        401, 403, 422, 429, 503,
+        examples=[({
+            "type": "og_card", "url": "https://example.com/", "title": "Example Domain",
+            "description": "", "site_name": "example.com", "image_url": None,
+        }, "Link preview")],
+    ),
+)
+async def preview_link(
+    _origin: Origin, payload: LinkPreviewRequest, request: Request, response: Response, current_user: CurrentUser,
+) -> OpenGraphAttachment:
+    """Return safe metadata for an authenticated publication editor.
+
+    :param _origin: Required same-origin header.
+    :param payload: Public link to preview.
+    :param request: Request used for the account and IP rate limit.
+    :param response: HTTP response for the private cache policy.
+    :param current_user: Authenticated editor requesting the card.
+    :return: Ready-to-store link attachment, with hostname fallback when unavailable.
+    """
+    await enforce_rate_limit(request, "link-preview", str(current_user.id), limit=20, window_seconds=60)
+    response.headers["Cache-Control"] = "private, no-store"
+
+    return await link_preview(payload.url)
 
 
 @router.get(

@@ -126,6 +126,7 @@ class ArticleService:
                     [*attachments, *article_body_attachments(body)],
                     [publication_image_url(key, "article-images") for key in article.inline_image_keys],
                     session,
+                    retained=[*article.attachments, *article_body_attachments(article.body)],
                 )
                 article.attachments = attachments
 
@@ -254,6 +255,30 @@ class ArticleService:
             raise NotFound("Author not found")
 
         return [(article, [by_id[author_id] for author_id in article.author_ids]) for article in articles]
+
+    async def remove_cover(self, article_id: str, owner: User) -> None:
+        """Detach the owned cover and queue deletion in the same transaction.
+
+        :param article_id: Owned, undeleted article identifier.
+        :param owner: Authenticated article owner.
+        :return: None.
+        """
+        async with transaction(self.resources.mongo) as session:
+            article = await self.owned(article_id, owner, session)
+            if article.thumbnail_key is None:
+                return
+
+            old_key = article.thumbnail_key
+            article.thumbnail_key = None
+            article.updated_at = datetime.now(UTC)
+            await article.save(session=session)
+            await queue_deletion(get_settings().publication_bucket, old_key, session=session)
+            await record_audit(
+                self.audit, "ARTICLE_THUMBNAIL_REMOVED", actor_id=owner.id, target_type="article",
+                target_id=article_id, session=session,
+            )
+
+        await invalidate_public_feed(self.resources.redis)
 
     async def delete(self, resource_id: str, owner: User) -> None:
         """Soft-delete an owned publication and queue its images for cleanup.

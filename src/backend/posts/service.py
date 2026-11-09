@@ -112,6 +112,8 @@ class PostService:
                     payload.attachments,
                     [publication_image_url(key, "post-images") for key in post.image_keys],
                     session,
+                    retained=post.attachments,
+                    post_id=post.id,
                 )
                 post.attachments = payload.attachments
 

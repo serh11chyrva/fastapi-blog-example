@@ -33,14 +33,14 @@ their returned URLs in its body. Request upload URLs with JSON metadata, PUT raw
 to Garage without application cookies, then confirm the upload. URLs last ten minutes.
 Image downloads use `/static/images/` and retain article access checks.
 Posts and articles accept ordered `attachments` discriminated by `type`: image, link, mention,
-hashtag, og_card, article, and embed. Video is reserved and currently returns 422.
+hashtag, og_card, article, post, and embed. Video is reserved and currently returns 422.
 Up to 30 explicit descriptors are accepted; responses append uploaded images without explicit placement.
 Post images are represented only as `type: image` elements in `attachments`; there is no separate `images` field.
-Image references must belong to the publication, mentioned accounts must exist, and referenced articles
-must be published at write time. Article bodies also support inline mention/hashtag nodes and block
-attachment nodes with a complete descriptor in attrs (up to 30 descriptors per body).
-OG metadata is caller-supplied; external URLs are not fetched. Embed descriptors accept HTTPS URLs for
-SoundCloud, Spotify, YouTube, and Twitch, without HTML or automatic player integration.
+Image references must belong to the publication, mentioned accounts must exist, and newly
+referenced publications must be public. Article bodies support inline mention/hashtag nodes and
+block attachment nodes (up to 30 descriptors per body). The authenticated link preview endpoint
+can generate textual OG metadata. The client builds click-to-load players for supported YouTube,
+Vimeo, Spotify, and SoundCloud resources.
 Original publication responses and feed items expose a nonempty `authors` array of public profile cards,
 with the owner first, followed by featured authors in stored order. Responses also expose `owner_id`.
 Only the owner controls edits and private access; featured authors are display credits. Creation leaves
@@ -57,12 +57,14 @@ the original author is not followed. kind=micro_post includes reposts; kind=arti
 GET `/posts/{id}/interactions` or `/articles/{id}/interactions` returns live counts and optional
 viewer flags. Save totals and other accounts' saves are private; GET `/me/saved` returns only yours.
 Viewer-state and saved-list responses use Cache-Control: private, no-store and never enter public feed caches.
-GET `/profiles/{username}/reposts` returns public repost history. Unavailable originals are filtered.
+GET `/profiles/{username}/reposts` returns public repost history. The profile timeline at
+`/users/{username}/timeline` merges public posts, reposts, and authored comments with article cards.
 Post discussions use `/posts/{id}/replies`, with optional parent_id and immutable root_id/depth.
 Read roots first, then request each parent's direct children with bounded pagination at any depth.
 Article `/articles/{id}/comments` are flat and reject parent_id. Both accept trimmed plain text up
 to 5,000 characters. Only the comment author may edit or delete. Deleted entries retain a tombstone
 with null text/author, preserving children. New replies require a live parent in the same post.
+Live entries support idempotent likes, optional viewer flags, and ranked pages.
 Interactions and discussion reads/creates require public originals; drafts and scheduled articles
 return 404 even to their owner. Interaction removal remains available for inaccessible originals.
 All mutations require a session and Origin and commit audit events in the same transaction.
@@ -129,8 +131,9 @@ OPENAPI_TAGS = [
     {
         "name": "Comments",
         "description": (
-            "Discuss posts through threaded replies loaded one level at a time, or articles through flat comments. "
-            "Authors may edit and erase their own text; deleted entries retain navigation tombstones."
+            "Discuss posts through threaded replies or articles through flat comments. "
+            "Like live entries and sort article comments or highlighted root replies by rank. "
+            "Authors may edit and erase their own text; legacy reads retain navigation tombstones."
         ),
     },
     {

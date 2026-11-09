@@ -94,6 +94,63 @@ class RepostPage(BaseModel):
 FeedItem = Annotated[PostFeedItem | ArticleFeedItem | RepostFeedItem, Field(discriminator="kind")]
 
 
+class ArticlePreview(BaseModel):
+    """Public article card without the body or nested attachments."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.ARTICLE_PREVIEW]})
+
+    kind: Literal["article"] = "article"
+    id: str
+    share_url: str
+    authors: list[ProfileUserResponse]
+    title: str
+    summary: str
+    thumbnail_url: str | None
+    published_at: datetime
+
+
+class PostPreview(BaseModel):
+    """Public post card without nested publication references."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.POST_PREVIEW]})
+
+    kind: Literal["micro_post"] = "micro_post"
+    id: str
+    share_url: str
+    authors: list[ProfileUserResponse]
+    text: str
+    thumbnail_url: str | None
+    published_at: datetime
+
+
+PublicationPreview = Annotated[ArticlePreview | PostPreview, Field(discriminator="kind")]
+
+
+class ArticleCommentTimelineItem(BaseModel):
+    """Public article comment rendered above its currently published article."""
+
+    kind: Literal["article_comment"] = "article_comment"
+    id: str
+    author: ProfileUserResponse
+    text: str
+    created_at: datetime
+    article: ArticlePreview
+
+
+ProfileTimelineItem = Annotated[
+    PostFeedItem | RepostFeedItem | ArticleCommentTimelineItem, Field(discriminator="kind")
+]
+
+
+class ProfileTimelinePage(BaseModel):
+    """Chronological profile activity page, newest first."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.PROFILE_TIMELINE]})
+
+    items: list[ProfileTimelineItem]
+    next_cursor: str | None
+
+
 class FeedResponse(BaseModel):
     """Chronological page. Pass `next_cursor` back to continue."""
 

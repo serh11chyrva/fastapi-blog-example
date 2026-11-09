@@ -1,5 +1,7 @@
 import { useState } from "react";
-import type { MicroPost } from "../../shared/api/types";
+import { AttachmentComposer } from "../publications/AttachmentComposer";
+import { Attachments } from "../publications/Attachments";
+import type { Attachment, MicroPost } from "../../shared/api/types";
 import type { FormEvent } from "react";
 import { api, errorMessage } from "../../shared/api/client";
 import { useImageUploader, validateImages } from "../../shared/uploads/uploadImages";
@@ -7,6 +9,7 @@ export function PostComposer({ onPosted }: {
   onPosted: () => void;
 }) {
   const [text, setText] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [images, setImages] = useState<File[]>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -20,7 +23,7 @@ export function PostComposer({ onPosted }: {
     let published = pendingPost;
     try {
       if (images.length) validateImages("/images", images);
-      const post = await api<MicroPost>(pendingPost ? `/posts/${pendingPost.id}` : "/posts", { method: pendingPost ? "PATCH" : "POST", body: JSON.stringify({ text }) });
+      const post = await api<MicroPost>(pendingPost ? `/posts/${pendingPost.id}` : "/posts", { method: pendingPost ? "PATCH" : "POST", body: JSON.stringify({ text, attachments }) });
       published = post;
       setPendingPost(post);
       if (images.length)
@@ -28,6 +31,7 @@ export function PostComposer({ onPosted }: {
       setPendingPost(null);
       setText("");
       setImages([]);
+      setAttachments([]);
       onPosted();
     }
     catch (reason) {
@@ -56,6 +60,15 @@ export function PostComposer({ onPosted }: {
       <div className="grid h-10 w-10 shrink-0 place-items-center bg-neutral-100 font-serif text-lg font-semibold text-black">✎</div>
       <div className="min-w-0 flex-1">
         <textarea className="min-h-20 w-full resize-y border-0 bg-transparent p-1 text-[15px] leading-6 outline-none placeholder:text-slate-400" placeholder="What’s on your mind?" disabled={saving} maxLength={280} value={text} onChange={(event) => setText(event.target.value)} />
+        <AttachmentComposer disabled={saving || attachments.length >= 30}
+          onAdd={(item) => setAttachments((items) => [...items, item])} />
+        {attachments.map((item, index) => <div key={index} className="mb-2">
+          <Attachments items={[item]} />
+          <button type="button" className="text-xs underline" disabled={saving}
+            onClick={() => setAttachments((items) => items.filter((_, position) => position !== index))}>
+            Remove attachment
+          </button>
+        </div>)}
         {images.length > 0 && <p className="mb-3 text-xs text-neutral-500">
           {images.map((file) => file.name).join(" · ")}{" "}
           <button type="button" className="underline" disabled={saving}

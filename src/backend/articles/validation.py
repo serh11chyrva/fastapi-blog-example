@@ -52,7 +52,7 @@ class TiptapMark(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    type: Literal["bold", "italic", "strike", "code", "link"]
+    type: Literal["bold", "italic", "strike", "code", "link", "underline"]
     attrs: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -157,6 +157,23 @@ def validate_tiptap_document(document: ArticleBody) -> None:
 
         if node.marks and node.type not in {"text", "hardBreak"}:
             raise ValueError("Marks apply only to inline content")
+
+        if node.type in {"paragraph", "heading"}:
+            alignment = node.attrs.get("textAlign")
+            if alignment is not None and alignment not in ("left", "center", "right", "justify"):
+                raise ValueError("Invalid text alignment")
+
+        if node.type == "blockquote":
+            citation = node.attrs.get("citation")
+            if citation is not None and (not isinstance(citation, str) or len(citation) > 200):
+                raise ValueError("Quote citation must be text up to 200 characters")
+
+        if node.type == "codeBlock":
+            language = node.attrs.get("language")
+            if language is not None and (
+                not isinstance(language, str) or not re.fullmatch(r"[a-zA-Z0-9_+.#-]{1,32}", language)
+            ):
+                raise ValueError("Invalid code block language")
 
         if node.type == "heading":
             level = node.attrs.get("level", 1)

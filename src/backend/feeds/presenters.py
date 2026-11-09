@@ -2,9 +2,9 @@
 
 from typing import cast
 
-from backend.articles.models import Article
+from backend.articles.models import Article, ArticlePreviewSource
 from backend.articles.urls import article_thumbnail_url
-from backend.feeds.schemas import ArticleFeedItem, FeedItem, PostFeedItem, RepostFeedItem
+from backend.feeds.schemas import ArticleFeedItem, ArticlePreview, PostFeedItem, PostPreview, RepostFeedItem
 from backend.interactions.models import PublicationInteraction
 from backend.posts.models import MicroPost
 from backend.profiles.models import User
@@ -14,7 +14,7 @@ from backend.publications.urls import share_path
 from backend.storage.urls import publication_image_url
 
 
-def feed_item(publication: MicroPost | Article, authors: list[User]) -> FeedItem:
+def feed_item(publication: MicroPost | Article, authors: list[User]) -> PostFeedItem | ArticleFeedItem:
     """Present a publication as the corresponding feed item type.
 
     :param publication: Micro-post or article document to present.
@@ -47,6 +47,41 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> FeedItem
     return ArticleFeedItem(
         **common,
         share_url=share_path(authors[0].username, publication.title, publication.share_id),
+        title=publication.title,
+        summary=publication.summary,
+        thumbnail_url=article_thumbnail_url(publication.thumbnail_key),
+        published_at=publication.published_at,
+    )
+
+
+def publication_preview(
+    publication: MicroPost | Article | ArticlePreviewSource, authors: list[User],
+) -> ArticlePreview | PostPreview:
+    """Build a public card without nested content or viewer state.
+
+    :param publication: Public post or published article.
+    :param authors: Public author accounts in stored order.
+    :return: The compact original card.
+    """
+    if isinstance(publication, MicroPost):
+        return PostPreview(
+            id=str(publication.id),
+            share_url=share_path(authors[0].username, publication.text, publication.share_id),
+            authors=[user_card(author) for author in authors],
+            text=publication.text,
+            thumbnail_url=(
+                publication_image_url(publication.image_keys[0], "post-images") if publication.image_keys else None
+            ),
+            published_at=publication.created_at,
+        )
+
+    if publication.published_at is None:
+        raise ValueError("An article preview requires a publication timestamp")
+
+    return ArticlePreview(
+        id=str(publication.id),
+        share_url=share_path(authors[0].username, publication.title, publication.share_id),
+        authors=[user_card(author) for author in authors],
         title=publication.title,
         summary=publication.summary,
         thumbnail_url=article_thumbnail_url(publication.thumbnail_key),

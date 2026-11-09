@@ -43,6 +43,10 @@ export type OwnerBadge = ProfileBadge & {
 };
 export type Profile = ProfileCard & {
   bio: string;
+  location: string;
+  joined_at: string | null;
+  posts_count: number;
+  banner_url: string | null;
   links: ProfileLink[];
   badges: ProfileBadge[];
   follower_count: number;
@@ -61,7 +65,8 @@ export type Attachment =
   | { type: "hashtag"; tag: string }
   | { type: "og_card"; url: string; title: string; description: string; image_url: string | null; site_name: string | null }
   | { type: "article"; article_id: string }
-  | { type: "embed"; provider: "soundcloud" | "spotify" | "youtube" | "twitch"; url: string }
+  | { type: "post"; post_id: string }
+  | { type: "embed"; provider: "soundcloud" | "spotify" | "youtube" | "twitch" | "vimeo"; url: string }
   | { type: "video"; url: string };
 export type PublicationBase = {
   id: string;
@@ -91,6 +96,21 @@ export type RepostFeedItem = {
   post: PostFeedItem;
 };
 export type FeedItem = OriginalFeedItem | RepostFeedItem;
+type PreviewBase = Pick<PublicationBase, "id" | "authors"> & {
+  share_url: string;
+  thumbnail_url: string | null;
+  published_at: string;
+};
+export type ArticlePreview = PreviewBase & Pick<ArticleFeedItem, "kind" | "title" | "summary">;
+export type PublicationPreview = ArticlePreview | (PreviewBase & Pick<PostFeedItem, "kind" | "text">);
+export type ProfileActivity = PostFeedItem | RepostFeedItem | {
+  kind: "article_comment";
+  id: string;
+  author: ProfileCard;
+  text: string;
+  created_at: string;
+  article: ArticlePreview;
+};
 export type CursorPage<T> = { items: T[]; next_cursor: string | null };
 export type Feed = CursorPage<FeedItem>;
 export type MicroPost = PublicationBase & {
@@ -129,6 +149,8 @@ type CommentContent = {
   created_at: string;
   updated_at: string;
   deleted: boolean;
+  likes_count: number;
+  liked: boolean;
 };
 export type PostReply = CommentContent & {
   post_id: string;
@@ -149,5 +171,3 @@ export type Session = {
   device: string;
   current: boolean;
 };
-  likes_count: number;
-  liked: boolean;

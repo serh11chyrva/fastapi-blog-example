@@ -4,9 +4,11 @@ import re
 
 from beanie import PydanticObjectId
 
-from backend.articles.models import Article
+from backend.articles.models import Article, ArticlePreviewSource
 from backend.articles.repository import ArticleRepository
-from backend.core.errors import NotFound
+from backend.core.errors import InvalidOperation, NotFound
+from backend.feeds.presenters import publication_preview
+from backend.feeds.schemas import PublicationPreview
 from backend.posts.models import MicroPost
 from backend.posts.repository import PostRepository
 from backend.profiles.models import User
@@ -25,6 +27,41 @@ async def load_authors(author_ids: list[PydanticObjectId]) -> list[User]:
         raise NotFound("Author not found")
 
     return [by_id[author_id] for author_id in author_ids]
+
+
+async def publication_previews(refs: list[str]) -> list[PublicationPreview]:
+    """Load bounded public references and their author cards in batches.
+
+    :param refs: Ordered typed references in kind:id format.
+    :return: Compact cards for visible originals, deduplicated in request order.
+    """
+    keys = {}
+    for ref in refs:
+        kind, _, value = ref.partition(":")
+        if kind not in {"article", "micro_post"} or not re.fullmatch(r"[0-9a-fA-F]{24}", value):
+            raise InvalidOperation("Use article:<id> or micro_post:<id> for publication references")
+
+        keys[kind, PydanticObjectId(value)] = None
+
+    article_ids = [value for kind, value in keys if kind == "article"]
+    post_ids = [value for kind, value in keys if kind == "micro_post"]
+    articles = await Article.find({
+        "_id": {"$in": article_ids}, "deleted_at": None, "status": "published", "published_at": {"$ne": None},
+    }).project(ArticlePreviewSource).to_list() if article_ids else []
+    posts = await MicroPost.find({"_id": {"$in": post_ids}, "deleted_at": None}).to_list() if post_ids else []
+    originals: dict[tuple[str, PydanticObjectId], ArticlePreviewSource | MicroPost] = {
+        ("article", item.id): item for item in articles
+    }
+    originals.update({("micro_post", item.id): item for item in posts})
+    authors = {user.id: user for user in await ProfileRepository.users_by_ids(
+        list({author_id for original in originals.values() for author_id in original.author_ids})
+    )}
+
+    return [
+        publication_preview(original, [authors[author_id] for author_id in original.author_ids])
+        for key in keys
+        if (original := originals.get(key)) is not None and all(author_id in authors for author_id in original.author_ids)
+    ]
 
 
 async def shared(username: str, slug: str) -> tuple[MicroPost | Article, list[User]]:

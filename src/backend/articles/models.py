@@ -2,13 +2,24 @@ from datetime import datetime
 from typing import Literal
 from uuid import uuid4
 
-from beanie import Document
+from beanie import Document, PydanticObjectId
 from pydantic import Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from backend.articles.validation import ArticleBody
 from backend.publications.attachments import PublicationAttachments
 from backend.publications.models import PublicationAuthors
+
+
+class ArticlePreviewSource(PublicationAuthors):
+    """Read the persisted fields needed for a public article card."""
+
+    id: PydanticObjectId = Field(alias="_id")
+    share_id: str
+    title: str
+    summary: str = ""
+    thumbnail_key: str | None = None
+    published_at: datetime
 
 
 class Article(Document, PublicationAuthors):
