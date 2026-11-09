@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { useApp } from "../AuthProvider";
-import { Header, MobileNav, Sidebar, RightRail } from "./Navigation";
+import { Footer, Header, MobileNav, Sidebar, RightRail } from "./Navigation";
 export function SiteLayout() {
   const { status } = useApp();
   return <div className="min-h-screen bg-white">
@@ -13,5 +13,6 @@ export function SiteLayout() {
       </section>
       <RightRail authReady={status !== "loading"} />
     </main>
+    <Footer />
   </div>;
 }

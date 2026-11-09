@@ -1,3 +1,4 @@
+import { usePageTitle } from "../../app/usePageTitle";
 import { useParams } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { useEffect, useState } from "react";
@@ -7,6 +8,10 @@ import { EmptyState } from "../../shared/ui/EmptyState";
 import { ArticlePresentation } from "./ArticlePresentation";
 export function ArticlePage() {
   const { articleId = "" } = useParams();
+  return <ArticleContent key={articleId} articleId={articleId} />;
+}
+
+function ArticleContent({ articleId }: { articleId: string }) {
   const { user } = useApp();
   const [article, setArticle] = useState<Article | null>(null);
   const [error, setError] = useState("");
@@ -25,6 +30,7 @@ export function ArticlePage() {
       });
     return () => controller.abort();
   }, [articleId]);
+  usePageTitle(error ? "Article unavailable" : article?.title ?? "Loading article");
   if (error)
     return <EmptyState title="Article unavailable" body={error} />;
   if (!article)

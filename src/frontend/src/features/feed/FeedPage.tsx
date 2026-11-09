@@ -1,3 +1,4 @@
+import { usePageTitle } from "../../app/usePageTitle";
 import { useApp } from "../../app/AuthProvider";
 import { useState } from "react";
 import { useFeed } from "./useFeed";
@@ -8,6 +9,7 @@ import { EmptyState } from "../../shared/ui/EmptyState";
 export function FeedPage({ following = false }: {
   following?: boolean;
 }) {
+  usePageTitle(following ? "Following" : "Explore");
   const { user } = useApp();
   const [kind, setKind] = useState("all");
   const [refreshKey, setRefreshKey] = useState(0);

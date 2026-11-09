@@ -1,4 +1,4 @@
-# Commonplace
+# FastAPI Blog Example
 
 A demonstration microblog built with FastAPI, Beanie, MongoDB Atlas, Redis, React, Tailwind CSS, TipTap, Nginx, and Garage S3-compatible object storage.
 

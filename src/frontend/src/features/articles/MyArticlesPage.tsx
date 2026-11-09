@@ -1,3 +1,4 @@
+import { usePageTitle } from "../../app/usePageTitle";
 import { useApp } from "../../app/AuthProvider";
 import { useState } from "react";
 import { useOffsetList } from "../../shared/hooks/useOffsetList";
@@ -5,6 +6,7 @@ import type { Article } from "../../shared/api/types";
 import { Link, Navigate } from "react-router-dom";
 import { EmptyState } from "../../shared/ui/EmptyState";
 export function MyArticlesPage() {
+  usePageTitle("My articles");
   const { user } = useApp();
   const [filter, setFilter] = useState("all");
   const { items: articles, loading, error, hasMore, loadMore } = useOffsetList<Article>(user ? `/me/articles?status=${filter}` : null);

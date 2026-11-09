@@ -1,4 +1,5 @@
 import { Route, Routes } from "react-router-dom";
+import { usePageTitle } from "./usePageTitle";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { SiteLayout } from "./layouts/SiteLayout";
 import { ReadingLayout } from "./layouts/ReadingLayout";
@@ -14,8 +15,15 @@ import { SessionsPage } from "../features/profiles/sessions/SessionsPage";
 import { SavedPage } from "../features/interactions/SavedPage";
 import { PostPage } from "../features/feed/PostPage";
 import { EmptyState } from "../shared/ui/EmptyState";
+function NotFoundPage() {
+  usePageTitle("Page not found");
+  return <EmptyState title="Page not found" body="The page you are looking for does not exist." />;
+}
+
 export function AppRoutes() {
   return <Routes>
+    <Route path="login" element={<AuthPage />} />
+    <Route path="register" element={<AuthPage />} />
 
 
     <Route element={<SiteLayout />}>
@@ -23,9 +31,6 @@ export function AppRoutes() {
 
       <Route index element={<FeedPage />} />
 
-      <Route path="login" element={<AuthPage />} />
-
-      <Route path="register" element={<AuthPage />} />
 
       <Route path=":handle" element={<ProfilePage />} />
 
@@ -44,7 +49,7 @@ export function AppRoutes() {
 
       </Route>
 
-      <Route path="*" element={<EmptyState title="Page not found" body="The page you are looking for does not exist." />} />
+      <Route path="*" element={<NotFoundPage />} />
 
     </Route>
 

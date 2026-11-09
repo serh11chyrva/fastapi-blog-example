@@ -1,3 +1,4 @@
+import { usePageTitle } from "../../app/usePageTitle";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import type { Article, MicroPost } from "../../shared/api/types";
@@ -8,6 +9,10 @@ import { useApp } from "../../app/AuthProvider";
 import { FeedCard } from "../feed/FeedCard";
 export function SharedPublicationPage() {
   const { handle = "", shareSlug = "" } = useParams();
+  return <SharedPublicationContent key={`${handle}/${shareSlug}`} handle={handle} shareSlug={shareSlug} />;
+}
+
+function SharedPublicationContent({ handle, shareSlug }: { handle: string; shareSlug: string }) {
   const username = handle.replace(/^@/, "");
   const [publication, setPublication] = useState<Article | MicroPost | null>(null);
   const [error, setError] = useState("");
@@ -28,6 +33,8 @@ export function SharedPublicationPage() {
       });
     return () => controller.abort();
   }, [username, shareSlug, version]);
+  usePageTitle(error ? "Publication unavailable" : publication?.kind === "article" ? publication.title
+    : publication ? `Post by ${publication.authors[0]?.display_name ?? "Unknown author"}` : "Loading publication");
   if (error)
     return <EmptyState title="Publication unavailable" body={error} />;
   if (!publication)

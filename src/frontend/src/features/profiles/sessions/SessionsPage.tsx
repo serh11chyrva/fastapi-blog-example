@@ -1,3 +1,4 @@
+import { usePageTitle } from "../../../app/usePageTitle";
 import { useApp } from "../../../app/AuthProvider";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
@@ -5,6 +6,7 @@ import type { Session } from "../../../shared/api/types";
 import { api, errorMessage } from "../../../shared/api/client";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 export function SessionsPage() {
+  usePageTitle("Active sessions");
   const { user, setUser } = useApp();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<Session[]>([]);

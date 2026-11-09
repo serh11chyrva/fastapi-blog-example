@@ -1,3 +1,4 @@
+import { usePageTitle } from "../../app/usePageTitle";
 import { useEffect } from "react";
 import { useApp } from "../../app/AuthProvider";
 import type { SavedPublication } from "../../shared/api/types";
@@ -7,6 +8,7 @@ import { interactionEvent } from "./events";
 import type { InteractionChange } from "./events";
 
 export function SavedPage() {
+  usePageTitle("Saved");
   const { user } = useApp();
   return <SavedList key={user?.id} />;
 }

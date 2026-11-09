@@ -1,3 +1,4 @@
+import { siteName } from "../usePageTitle";
 import { useApp } from "../AuthProvider";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -25,8 +26,8 @@ export function Header({ authReady, fullscreen = false }: {
     <header className="sticky top-0 z-20 border-b border-black/10 bg-white/95 backdrop-blur">
       <div className={`mx-auto flex h-16 items-center justify-between px-5 sm:px-8 ${fullscreen ? "max-w-[1440px]" : "max-w-6xl"}`}>
         <Link to="/" className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center bg-black font-serif text-lg font-bold text-white">c</span>
-          <span className="font-serif text-xl font-semibold tracking-tight text-black">commonplace</span>
+          <span className="grid h-9 w-9 place-items-center bg-black font-serif text-lg font-bold text-white">F</span>
+          <span className="font-serif text-xl font-semibold tracking-tight text-black">{siteName}</span>
         </Link>
         <div className="flex items-center gap-3">
           {fullscreen && <Link to="/" className="button-quiet">← Back to site</Link>}
@@ -51,6 +52,10 @@ export function Header({ authReady, fullscreen = false }: {
     </p>}
   </>;
 }
+export function Footer() {
+  return <footer className="mx-auto w-full max-w-6xl px-5 py-8 text-sm text-neutral-500">{siteName}</footer>;
+}
+
 export function MobileNav() {
   const { user } = useApp();
   return <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pt-3 lg:hidden">

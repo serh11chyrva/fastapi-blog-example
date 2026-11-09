@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from scalar_fastapi import AgentScalarConfig, Theme, add_scalar_reference
 
-API_TITLE = "Commonplace API"
+API_TITLE = "FastAPI Blog Example API"
 API_VERSION = "0.1.0"
 API_SUMMARY = "A session-based microblog and article publishing API."
 OPENAPI_URL = "/api/openapi.json"
@@ -151,7 +151,7 @@ def add_api_reference(app: FastAPI, *, documentation_only: bool = False) -> None
     add_scalar_reference(
         app,
         route=API_REFERENCE_URL,
-        title="Commonplace API Reference",
+        title="API Reference — FastAPI Blog Example",
         theme=Theme.DEFAULT,
         order_schema_properties_by="preserve",
         order_required_properties_first=False,
