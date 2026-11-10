@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import type { ArticleFeedItem, PublicationPreview } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { publicationDate, relativeDate } from "../../shared/ui/dates";
+import { publicationDate } from "../../shared/ui/dates";
+import { RelativeTime } from "../../shared/ui/RelativeTime";
 
 export function PreviewCard({ item, standalone = false }: {
   item: PublicationPreview | ArticleFeedItem;
@@ -13,7 +14,8 @@ export function PreviewCard({ item, standalone = false }: {
     const author = item.authors[0];
     return <Link to={href} className="quote-card">
       {author && <div className="quote-byline"><Avatar name={author.display_name} src={author.avatars.original} size="sm" />
-        <strong>{author.display_name}</strong><span>@{author.username} · {relativeDate(item.published_at)}</span>
+        <strong>{author.display_name}</strong>
+        <span>@{author.username} · <RelativeTime publishedAt={item.published_at} updatedAt={item.updated_at} /></span>
       </div>}
       <p>{item.text}</p>
       {item.thumbnail_url && <img src={item.thumbnail_url} alt="" className="quote-image" loading="lazy" />}

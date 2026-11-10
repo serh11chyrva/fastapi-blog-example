@@ -31,6 +31,7 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> PostFeed
         owner_id=str(publication.owner_id),
         authors=[user_card(author) for author in authors],
         attachments=display_attachments(publication.attachments, image_urls),
+        updated_at=publication.updated_at,
     )
 
     if isinstance(publication, MicroPost):
@@ -73,6 +74,7 @@ def publication_preview(
                 publication_image_url(publication.image_keys[0], "post-images") if publication.image_keys else None
             ),
             published_at=publication.created_at,
+            updated_at=publication.updated_at,
         )
 
     if publication.published_at is None:

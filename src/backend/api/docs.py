@@ -54,11 +54,13 @@ Post-only `/repost` endpoints create or remove public repost events without quot
 Reposts appear in public/following feeds as `kind: repost`, with `reposted_by`, repost `published_at`,
 and an original `post` object. Following feeds select reposts by the followed reposter, even when
 the original author is not followed. kind=micro_post includes reposts; kind=article excludes them.
+Original feed publications expose their own `published_at` and, when available, `updated_at`.
 GET `/posts/{id}/interactions` or `/articles/{id}/interactions` returns live counts and optional
 viewer flags. Save totals and other accounts' saves are private; GET `/me/saved` returns only yours.
 Viewer-state and saved-list responses use Cache-Control: private, no-store and never enter public feed caches.
 GET `/profiles/{username}/reposts` returns public repost history. The profile timeline at
 `/users/{username}/timeline` merges public posts, reposts, and authored comments with article cards.
+Comment events carry their own `created_at` and `updated_at`.
 Post discussions use `/posts/{id}/replies`, with optional parent_id and immutable root_id/depth.
 Read roots first, then request each parent's direct children with bounded pagination at any depth.
 Article `/articles/{id}/comments` are flat and reject parent_id. Both accept trimmed plain text up

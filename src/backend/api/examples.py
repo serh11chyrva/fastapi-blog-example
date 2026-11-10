@@ -243,6 +243,7 @@ FEED_ARTICLE = {
         "authors",
         "attachments",
         "published_at",
+        "updated_at",
     )
 } | {"text": None}
 FEED_POST = {
@@ -255,6 +256,7 @@ FEED_POST = {
         "attachments",
         "owner_id",
         "authors",
+        "updated_at",
     )
 } | {
     "title": None,
@@ -336,13 +338,13 @@ ARTICLE_PREVIEW = {
 }
 POST_PREVIEW = {
     key: FEED_POST[key]
-    for key in ("kind", "id", "share_url", "authors", "text", "thumbnail_url", "published_at")
+    for key in ("kind", "id", "share_url", "authors", "text", "thumbnail_url", "published_at", "updated_at")
 }
 PROFILE_TIMELINE = {
     "items": [
         {
             "kind": "article_comment",
-            **{key: ARTICLE_COMMENT[key] for key in ("id", "author", "text", "created_at")},
+            **{key: ARTICLE_COMMENT[key] for key in ("id", "author", "text", "created_at", "updated_at")},
             "article": ARTICLE_PREVIEW,
         },
         FEED_REPOST,

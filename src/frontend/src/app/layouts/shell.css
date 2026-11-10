@@ -67,7 +67,7 @@
 .sidebar-account .sidebar-link { padding: 0; min-height: 25px; }
 .sidebar-account .text-link { font-size: 11px; justify-self: start; }
 .account-link { display: flex; align-items: center; gap: 10px; }
-.account-link img, .account-link > div { width: 30px; height: 30px; filter: grayscale(1); }
+.account-link img, .account-link > div { width: 30px; height: 30px; }
 .account-link strong, .account-link small { display: block; line-height: 1.5; font-size: 12px; }
 .account-link small { color: var(--quiet); font-size: 10px; }
 .discovery-sidebar { min-width: 0; padding-top: 28px; color: var(--muted); }
@@ -84,7 +84,7 @@
 .discovery-section strong { color: #545449; font-weight: 600; }
 .discovery-section small, .discovery-person small { color: var(--quiet); font-size: 10px; }
 .discovery-person { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.discovery-person > img, .discovery-person > div { width: 30px; height: 30px; flex: none; filter: grayscale(1); }
+.discovery-person > img, .discovery-person > div { width: 30px; height: 30px; flex: none; }
 .discovery-person span { flex: 1; }
 .page-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding: 20px 24px; color: var(--quiet); font-size: 10px; }
 .page-footer a:hover { text-decoration: underline; }

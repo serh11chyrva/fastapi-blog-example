@@ -274,9 +274,9 @@ while requests or reconciliation reads are pending. A local browser event refres
 representations of the same original; user-specific flags reset when the account changes. The
 private Saved page removes unsaved entries locally and is mounted under a protected route.
 
-Feed cards unwrap repost events while retaining the reposter/time banner and original author
-cards, attachments, controls, and ownership checks. Repost changes refresh their containing feed
-or profile list. The public profile timeline merges post authorship, repost activity, and live
+Feed cards unwrap repost events and show the reposter and event time in the original author's byline.
+They retain the original attachments, controls, and ownership checks. Repost changes refresh the
+containing feed or profile list. The public profile timeline merges post authorship, repost activity, and live
 article comments with the same descending event tuple used by public feeds. Article and shared-post
 reading pages reuse these controls and discussions.
 

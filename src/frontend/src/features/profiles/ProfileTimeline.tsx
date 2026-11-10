@@ -3,7 +3,7 @@ import type { ProfileActivity } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { relativeDate } from "../../shared/ui/dates";
+import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { FeedCard } from "../feed/FeedCard";
 import { PostText } from "../feed/PostText";
 import { PreviewCard } from "../publications/PreviewCard";
@@ -17,7 +17,6 @@ export function ProfileTimeline({ username, onChanged }: { username: string; onC
   return <div className="feed-list">
     {list.items.map((item) => item.kind === "article_comment"
       ? <article className="feed-post" key={activityKey(item)}>
-          <div className="repost-byline"><Icon name="comment" width={15} height={15} />Commented on an article</div>
           <div className="post-layout">
             <Link className="post-avatar" to={`/@${item.author.username}`}>
               <Avatar name={item.author.display_name} src={item.author.avatars.original} size="sm" />
@@ -25,9 +24,18 @@ export function ProfileTimeline({ username, onChanged }: { username: string; onC
             <div className="post-content">
               <div className="post-byline">
                 <Link className="post-name" to={`/@${item.author.username}`}>{item.author.display_name}</Link>
-                <Link className="post-meta" to={`${item.article.share_url}#comment-${item.id}`}>
-                  @{item.author.username} · <time dateTime={item.created_at}>{relativeDate(item.created_at)}</time>
-                </Link>
+                <span className="post-meta">@{item.author.username}</span>
+                <span className="post-activity">
+                  <span aria-hidden="true">·</span>
+                  <Icon name="comment" width={15} height={15} />
+                  <span>commented on an article</span>
+                </span>
+                <span className="post-meta">
+                  <span aria-hidden="true">· </span>
+                  <Link to={`${item.article.share_url}#comment-${item.id}`}>
+                    <RelativeTime publishedAt={item.created_at} updatedAt={item.updated_at} />
+                  </Link>
+                </span>
               </div>
               <PostText text={item.text} />
               <PreviewCard item={item.article} />

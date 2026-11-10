@@ -52,9 +52,7 @@ function ProfileContent({ username }: { username: string }) {
 
   const refreshActivity = useCallback(() => {
     setRefreshKey((value) => value + 1);
-    void api<Profile>(profilePath).then((value) => setProfile((current) =>
-      current?.id === value.id ? { ...current, posts_count: value.posts_count } : current)).catch(() => undefined);
-  }, [profilePath]);
+  }, []);
 
   useEffect(() => {
     if (profile?.id !== user?.id || !user) return;
@@ -100,8 +98,6 @@ function ProfileContent({ username }: { username: string }) {
     <section className="profile-section" aria-label="Profile">
       <div className="profile-cover">
         {profile.banner_url && <img src={profile.banner_url} alt="" />}
-        <div className="cover-grid" aria-hidden="true" />
-        <span className="cover-label">{profile.posts_count} {profile.posts_count === 1 ? "post" : "posts"}</span>
       </div>
       <div className="profile-details">
         <div className="profile-controls">

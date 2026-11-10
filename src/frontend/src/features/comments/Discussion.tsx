@@ -7,7 +7,7 @@ import type { DiscussionComment, PublicationKind } from "../../shared/api/types"
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { relativeDate } from "../../shared/ui/dates";
+import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
 
 export function Discussion({ kind, id, deepLink = false }: { kind: PublicationKind; id: string; deepLink?: boolean }) {
@@ -267,7 +267,7 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
         <Avatar src={comment.author.avatars.original} name={comment.author.display_name} size="sm" />
         {comment.author.display_name}
       </Link> : <span className="text-neutral-500">{comment.deleted ? "Deleted comment" : "Unavailable account"}</span>}
-      <time dateTime={comment.created_at}>{relativeDate(comment.created_at)}</time>
+      <RelativeTime publishedAt={comment.created_at} updatedAt={comment.updated_at} />
     </div>
     {editing && !comment.deleted ? <form className="mt-3 space-y-2" onSubmit={(event) => { event.preventDefault(); void change(); }}>
       <label className="form-label block">Edit your comment<textarea className="field mt-2" maxLength={5000} required

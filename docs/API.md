@@ -173,6 +173,8 @@ The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other user
 | PUT | `/users/{username}/follow` | Session | Follow account (idempotent) |
 | DELETE | `/users/{username}/follow` | Session | Unfollow account (idempotent) |
 
+Article comment events in the profile timeline include the comment's `created_at` and `updated_at`.
+
 ### Profile edits and concurrency
 
 Read `GET /me/profile` before editing and send its `revision` with every profile or badge visibility PATCH. Revision is an optimistic concurrency counter, independent of data format `version`. Every successful PATCH increments it, including no-op updates. Attaching an avatar or banner or removing a current banner also increments it once. Stale revisions or concurrent transactional writes return `409` with `{"detail":"Profile changed; reload your profile before saving"}`. Reload and explicitly reconcile edits before retrying; do not automatically resubmit an old form with a new revision. Missing revision returns `422`, including for older clients.
@@ -389,6 +391,8 @@ separate migration before use with this schema.
 
 Feed items are a discriminated union: `micro_post` requires text, `article` requires title and summary, and `repost` wraps an original `post` with `reposted_by`, its own event ID, and repost `published_at`. Original-publication variants retain unused alternative fields as null. `kind=all` and `kind=micro_post` include post reposts; `kind=article` excludes them. In following feeds, reposts are selected by followed reposters rather than the original post author. Originals and repost events are not deduplicated. See [reposts in feeds](INTERACTIONS.md#reposts-in-feeds) for the new event shape.
 
+Original feed publications carry `published_at` and `updated_at`. A cached response from an older version can have a null `updated_at`.
+
 `kind` is `all`, `micro_post`, or `article`. `limit` is 1–50 (default 20). When `next_cursor` is non-null, pass it unchanged as the next `cursor` query parameter. Do not construct or edit cursors.
 
 ```json
@@ -535,8 +539,9 @@ Replace example IDs with an existing account and a published article. Reference 
 inside the publication mutation transaction; invalid or unavailable references return 422.
 An attachment stores the ID of the account or publication. For cards, pass up to 30 repeated
 `ref=article:<id>` or `ref=micro_post:<id>` values to `GET /publications/previews`.
-The response is an array of compact cards in request order. Unavailable originals are omitted
-and nested references are excluded. Retaining an existing reference in an edit is allowed
+The response is an array of compact cards in request order. Micro-post cards include the original
+post's `updated_at`. The response omits unavailable originals and nested references.
+Retaining an existing reference in an edit is allowed
 after its target becomes unavailable. Attachments grant no ownership, private access, featured
 credit, notifications, or automatic hashtag discovery.
 

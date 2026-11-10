@@ -77,6 +77,7 @@ async def profile_timeline(user: User, cursor_text: str | None, limit: int) -> P
         if kind == "article_comment":
             items.append(ArticleCommentTimelineItem(
                 id=event_id, author=actor, text=value["text"], created_at=value["created_at"],
+                updated_at=value["updated_at"],
                 article=cast(ArticlePreview, publication_preview(original, authors)),
             ))
         elif kind == "repost":

@@ -137,13 +137,14 @@ is in the follow filter, following the same rules as original authors.
     }],
     "text": "A reading note.",
     "attachments": [],
-    "published_at": "2026-10-12T10:03:27Z"
+    "published_at": "2026-10-12T10:03:27Z",
+    "updated_at": "2026-10-12T10:06:14Z"
   }
 }
 ```
 
 The outer `id` is the repost edge ID, and outer `published_at` is repost time. The
-inner `post` has the original post's ID, publication time, owner, and author cards.
+inner `post` has the original post's ID, publication and update times, owner, and author cards.
 Feed cursors order by event time, event kind, and event ID, so several reposts of one
 post paginate independently. Clients must handle the new `kind: "repost"` union
 variant and keep passing opaque feed cursors unchanged. Repost mutations invalidate
@@ -248,9 +249,13 @@ readers receive `liked: false` and tombstones return zero likes.
 - Publication cards and published article pages offer Like, Save, and discussion controls. Posts
   additionally offer Repost. Pressed states and counts come from the original's interaction summary.
   Anonymous readers can read discussions and follow the login link to participate.
-- Reposts have a separate banner naming the reposter and showing event time. Their controls act on
-  the original post. Public and following feeds refresh after a repost change. The profile
-  Posts tab merges posts, reposts, and authored article comments.
+- Repost attribution follows the original author's handle. The displayed time is the repost time,
+  and hovering shows the exact repost and original publication timestamps, plus the last update when
+  it differs from publication. Controls act on the original post. Public and following feeds refresh
+  after a repost change. The profile Posts tab merges posts, reposts, and authored article comments,
+  with comment activity labeled after the comment author's handle.
+- Post timestamps use relative time. Hovering shows the exact publication time and the last update
+  when it differs from publication.
 - Saved is a protected page at `/saved`, linked from desktop and mobile site navigation. It lists
   saved posts/articles with their ordinary controls; unsaving removes the item from the shelf.
   Saved/repost lists retain Load more even when unavailable originals empty a visible page.
@@ -267,7 +272,8 @@ readers receive `liked: false` and tombstones return zero likes.
   reaches those entries, they move into the ordinary list without duplicate cards.
 - Publication ownership and author cards use `owner_id`/`authors`, and avatars use `avatars.original`.
   Post images render only from typed `attachments`. There are no legacy flat-author or image-array
-  fallbacks. Article attachments render outside the body unless the same image already occurs within it.
+  fallbacks. Post cards omit separate hashtag and account mention labels from attachments.
+  Article attachments render outside the body unless the same image already occurs within it.
 - Typed TipTap mentions, hashtags, and attachment blocks render and survive editor round trips.
   Account mentions retain their ID label because no public account-by-ID resolver is provided.
   Supported external providers load a player on demand. Link cards and quoted originals can

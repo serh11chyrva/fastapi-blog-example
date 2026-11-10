@@ -1,23 +1,10 @@
 .profile-section { border-bottom: 1px solid var(--line); }
-.profile-cover { height: 174px; position: relative; overflow: hidden; background: linear-gradient(121deg, #252524 63%, #30302e 63%); }
-.profile-cover img, .cover-grid { position: absolute; inset: 0; width: 100%; height: 100%; }
-.profile-cover img { object-fit: cover; filter: grayscale(1) brightness(.62); }
-.cover-grid {
-  background-image: linear-gradient(#ffffff12 1px, transparent 1px), linear-gradient(90deg, #ffffff12 1px, transparent 1px);
-  background-size: 65px 65px;
-}
-.cover-grid::after {
-  content: ""; position: absolute; right: 6%; top: -60%; width: 40%; height: 138%;
-  transform: rotate(23deg); border: 1px solid #ffffff36; background: #ffffff07;
-}
-.cover-label {
-  position: absolute; top: 40px; left: 28px; padding: 5px 12px; border: 1px solid #ffffff47; border-radius: 999px;
-  background: #ffffff16; color: #fff; font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase;
-}
+.profile-cover { height: 174px; background: #252524; }
+.profile-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .profile-details { padding: 0 27px 19px; }
 .profile-controls { display: flex; justify-content: space-between; gap: 12px; height: 62px; }
 .profile-portrait { width: 94px; height: 94px; flex: none; margin: -38px 0 0 -4px; z-index: 1; border: 4px solid #fff; border-radius: 50%; background: var(--soft); }
-.profile-portrait img, .profile-portrait > div { width: 100%; height: 100%; filter: grayscale(1); }
+.profile-portrait img, .profile-portrait > div { width: 100%; height: 100%; }
 .profile-actions { display: flex; align-items: flex-start; justify-content: flex-end; gap: 8px; padding-top: 15px; }
 .profile-actions :is(.button-primary, .button-secondary, .profile-share) { min-height: 40px; border-radius: 12px; }
 .profile-actions .button-primary { padding-inline: 19px; background: #131313; }
@@ -53,17 +40,16 @@
 .feed-post { padding: 18px 24px; border-bottom: 1px solid #23231913; }
 .feed-post .notice-error { margin-top: 9px; }
 .post-layout { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; align-items: start; }
-.post-avatar img, .post-avatar > div { width: 36px; height: 36px; border-radius: 3px; filter: grayscale(1); }
+.post-avatar img, .post-avatar > div { width: 36px; height: 36px; border-radius: 3px; }
 .post-content { min-width: 0; }
-.post-byline, .repost-byline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
-.post-byline { position: relative; min-height: 20px; padding-right: 24px; }
+.post-byline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; position: relative; min-height: 20px; padding-right: 24px; }
 .post-name { color: #161616; font-size: 13px; font-weight: 750; line-height: 19px; }
-.post-name:hover, .post-meta a:hover, a.post-meta:hover { text-decoration: underline; text-underline-offset: 2px; }
+.post-name:hover, .post-meta a:hover, .post-activity a:is(:hover, :focus-visible) { text-decoration: underline; text-underline-offset: 2px; }
 .post-meta, .post-credits { color: var(--muted); font-size: 12px; }
 .post-credits { padding-bottom: 3px; font-size: 11px; }
 .post-credits a { text-decoration: underline; text-underline-offset: 3px; }
-.repost-byline { margin: 0 0 9px 46px; color: var(--muted); font-size: 11px; }
-.repost-byline a { font-weight: 650; }
+.post-activity { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; color: var(--muted); font-size: 11px; }
+.post-activity a { font-weight: 650; overflow-wrap: anywhere; }
 .post-copy { margin: 0 0 12px; color: var(--text); font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .post-copy a, .post-copy strong { color: #30302b; font-weight: 650; }
 .post-copy a:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -107,7 +93,7 @@
 .longread-standalone .longread-copy h2 { font-size: 28px; }
 .quote-byline { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 12px 13px 0; color: var(--muted); font-size: 11px; }
 .quote-byline strong { color: var(--ink); font-size: 12px; }
-.quote-byline img, .quote-byline > div { width: 24px; height: 24px; filter: grayscale(1); }
+.quote-byline img, .quote-byline > div { width: 24px; height: 24px; }
 .quote-card > p { padding: 0 13px; margin: 7px 0 12px; color: var(--text); font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .quote-image { width: 100%; max-height: 230px; object-fit: cover; }
 .og-card { display: grid; grid-template-columns: minmax(0, 1fr); }
@@ -170,7 +156,7 @@
 .discussion-comment { min-width: 0; scroll-margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
 .discussion-comment.is-linked { border-radius: 4px; background: #f8f8f4; padding: 13px 11px; }
 .comment-byline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ink); font-size: 12px; }
-.comment-byline a img, .comment-byline a > div { width: 28px; height: 28px; filter: grayscale(1); }
+.comment-byline a img, .comment-byline a > div { width: 28px; height: 28px; }
 .comment-byline time { color: var(--muted); font-size: 10px; }
 .comment-copy { margin: 7px 0 10px; color: #59594d; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; color: var(--muted); font-size: 11px; }
@@ -179,7 +165,6 @@
 .comment-actions button:hover { color: var(--ink); }
 @media (max-width: 600px) {
   .profile-cover { height: 156px; }
-  .cover-label { top: 27px; left: 20px; }
   .profile-details { padding-inline: 20px; }
   .profile-bio-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .profile-links { gap: 7px; }
@@ -188,7 +173,6 @@
   .feed-post { padding: 15px 16px; }
   .post-layout { grid-template-columns: 32px minmax(0, 1fr); gap: 9px; }
   .post-avatar img, .post-avatar > div { width: 32px; height: 32px; }
-  .repost-byline { margin-left: 41px; }
   .post-byline { gap: 0 6px; }
   .post-meta { font-size: 11px; }
   .post-actions { gap: clamp(10px, 4vw, 19px); }

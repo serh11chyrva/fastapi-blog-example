@@ -44,6 +44,11 @@ class FeedBase(BaseModel):
         description="UTC publication time used for feed ordering; creation time for micro-posts.",
         examples=[examples.ARTICLE_PUBLISHED["published_at"]],
     )
+    updated_at: datetime | None = Field(
+        default=None,
+        description="UTC time the original publication was last updated, if available.",
+        examples=[examples.POST["updated_at"]],
+    )
 
 
 class PostFeedItem(FeedBase):
@@ -121,6 +126,10 @@ class PostPreview(BaseModel):
     text: str
     thumbnail_url: str | None
     published_at: datetime
+    updated_at: datetime = Field(
+        description="UTC time the original post was last updated.",
+        examples=[examples.POST["updated_at"]],
+    )
 
 
 PublicationPreview = Annotated[ArticlePreview | PostPreview, Field(discriminator="kind")]
@@ -134,6 +143,10 @@ class ArticleCommentTimelineItem(BaseModel):
     author: ProfileUserResponse
     text: str
     created_at: datetime
+    updated_at: datetime = Field(
+        description="UTC time the comment was last updated.",
+        examples=[examples.ARTICLE_COMMENT["updated_at"]],
+    )
     article: ArticlePreview
 
 

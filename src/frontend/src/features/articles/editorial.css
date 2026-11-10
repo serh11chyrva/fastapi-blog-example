@@ -70,7 +70,7 @@
 .reader-end-date { display: flex; justify-content: flex-end; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
 .reader-author { display: flex; gap: 17px; padding: 26px 0; }
 .reader-author > a { flex: none; }
-.reader-author img, .reader-author > a > div { width: 56px; height: 56px; filter: grayscale(1); }
+.reader-author img, .reader-author > a > div { width: 56px; height: 56px; }
 .reader-author h2 { margin: 5px 0 5px; color: #3c3c33; font-size: 18px; font-weight: 650; letter-spacing: -.035em; }
 .author-bio, .author-details { color: var(--muted); font-size: 12px; line-height: 1.7; white-space: pre-wrap; }
 .author-details a { text-decoration: underline; text-underline-offset: 3px; }

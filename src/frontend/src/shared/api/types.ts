@@ -79,6 +79,7 @@ export type PostFeedItem = PublicationBase & {
   kind: "micro_post";
   text: string;
   published_at: string;
+  updated_at?: string | null;
 };
 export type ArticleFeedItem = PublicationBase & {
   kind: "article";
@@ -86,6 +87,7 @@ export type ArticleFeedItem = PublicationBase & {
   summary: string;
   thumbnail_url: string | null;
   published_at: string;
+  updated_at?: string | null;
 };
 export type OriginalFeedItem = PostFeedItem | ArticleFeedItem;
 export type RepostFeedItem = {
@@ -102,13 +104,14 @@ type PreviewBase = Pick<PublicationBase, "id" | "authors"> & {
   published_at: string;
 };
 export type ArticlePreview = PreviewBase & Pick<ArticleFeedItem, "kind" | "title" | "summary">;
-export type PublicationPreview = ArticlePreview | (PreviewBase & Pick<PostFeedItem, "kind" | "text">);
+export type PublicationPreview = ArticlePreview | (PreviewBase & Pick<PostFeedItem, "kind" | "text" | "updated_at">);
 export type ProfileActivity = PostFeedItem | RepostFeedItem | {
   kind: "article_comment";
   id: string;
   author: ProfileCard;
   text: string;
   created_at: string;
+  updated_at: string;
   article: ArticlePreview;
 };
 export type CursorPage<T> = { items: T[]; next_cursor: string | null };

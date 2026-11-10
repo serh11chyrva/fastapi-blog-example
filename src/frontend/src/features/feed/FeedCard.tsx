@@ -2,10 +2,10 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
-import type { FeedItem, OriginalFeedItem } from "../../shared/api/types";
+import type { FeedItem, OriginalFeedItem, RepostFeedItem } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { relativeDate } from "../../shared/ui/dates";
+import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { HighlightedReplies } from "../comments/HighlightedReplies";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
@@ -18,18 +18,16 @@ export function FeedCard({ item, onChanged, showDiscussion = false }: {
   onChanged: () => void;
   showDiscussion?: boolean;
 }) {
+  const repost = item.kind === "repost" ? item : undefined;
   const original = item.kind === "repost" ? item.post : item;
   return <article className="feed-post">
-    {item.kind === "repost" && <div className="repost-byline">
-      <Icon name="repost" width={15} height={15} /><Link to={`/@${item.reposted_by.username}`}>{item.reposted_by.display_name}</Link>
-      <span>reposted · <time dateTime={item.published_at}>{relativeDate(item.published_at)}</time></span>
-    </div>}
-    <OriginalCard key={original.id} item={original} onChanged={onChanged} showDiscussion={showDiscussion} />
+    <OriginalCard key={original.id} item={original} repost={repost} onChanged={onChanged} showDiscussion={showDiscussion} />
   </article>;
 }
 
-function OriginalCard({ item, onChanged, showDiscussion }: {
+function OriginalCard({ item, repost, onChanged, showDiscussion }: {
   item: OriginalFeedItem;
+  repost?: RepostFeedItem;
   onChanged: () => void;
   showDiscussion: boolean;
 }) {
@@ -76,8 +74,18 @@ function OriginalCard({ item, onChanged, showDiscussion }: {
     <div className="post-content">
       <div className="post-byline">
         {author && <Link to={`/@${author.username}`} className="post-name">{author.display_name}</Link>}
+        {author && <span className="post-meta">@{author.username}</span>}
+        {repost && <span className="post-activity">
+          {author && <span aria-hidden="true">·</span>}
+          <Icon name="repost" width={15} height={15} />
+          <Link to={`/@${repost.reposted_by.username}`}>{repost.reposted_by.display_name}</Link>
+          <span>reposted</span>
+        </span>}
         <span className="post-meta">
-          {author && `@${author.username} · `}<Link to={page}><time dateTime={item.published_at}>{relativeDate(item.published_at)}</time></Link>
+          {(author || repost) && <span aria-hidden="true">· </span>}
+          <Link to={page}>
+            <RelativeTime publishedAt={item.published_at} updatedAt={item.updated_at} repostedAt={repost?.published_at} />
+          </Link>
         </span>
         <details className="post-menu" ref={menu}>
           <summary className="icon-button" aria-label="More publication actions" title="More actions"><Icon name="more" /></summary>
@@ -101,7 +109,8 @@ function OriginalCard({ item, onChanged, showDiscussion }: {
           <button className="button-primary" disabled={busy || !text.trim()}>Save</button>{" "}
           <button type="button" className="button-quiet" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>
         </form> : <PostText text={item.text} />}
-        <Attachments items={item.attachments} />
+        <Attachments items={item.attachments.filter((attachment) =>
+          attachment.type !== "hashtag" && attachment.type !== "mention")} />
       </> : <PreviewCard item={item} />}
       <PublicationActions key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id}
         onComments={() => setComments((value) => !value)} commentsOpen={comments} onShare={() => void share()} copied={copied}
