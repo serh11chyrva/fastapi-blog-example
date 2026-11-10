@@ -1,0 +1,5 @@
+**
+!src/frontend
+!nginx/default.conf
+src/frontend/node_modules
+src/frontend/dist

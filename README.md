@@ -47,39 +47,54 @@ Use the actual Atlas connection string, preserving its connection options. `MONG
 
 See the official [Atlas connection guide](https://www.mongodb.com/docs/atlas/connect-to-database-deployment/) and [connection string formats](https://www.mongodb.com/docs/manual/reference/connection-string/).
 
-Provision the two private Garage image buckets before starting the API. Run from the repository root (Docker Desktop must be running):
+Place a MaxMind GeoLite2 City database at `data/GeoLite2-City.mmdb` before running either Compose setup below. Compose requires the host file and mounts it read-only at `/data/GeoLite2-City.mmdb`. Replace the file with an updated database and restart the API to reopen it. Outside Docker, the default path is `data/GeoLite2-City.mmdb` relative to the working directory and can be overridden with `GEOIP_CITY_DB_PATH`. If the backend cannot open or query the database, session locations display `Unknown location` and authentication remains available.
+
+Both setups use the same Garage buckets. The provisioning script starts Garage, ensures `blog-avatars` and `blog-publications` exist, grants the configured key access, and configures upload CORS. It reads `GARAGE_ACCESS_KEY` from the process environment or `.env`. Use `-AccessKey` to override it. Provision on first setup and repeat after removing Garage data or changing upload CORS settings. The API requires both buckets on startup and in `/health`.
+
+The upload CORS rule allows the lower-case header name `content-type`, matching browser preflight requests. Garage compares allowed header names literally; using `Content-Type` here causes browser uploads to be rejected before PUT. The provisioning script runs the current workspace CORS setup code inside the API image, so repeating setup also applies CORS fixes without an image rebuild.
+
+### Develop with hot reload
+
+Run these commands from the repository root with Docker Desktop running. Build both development images once when switching from the previous setup. If Nginx is running, stop it with `docker compose stop nginx`.
+
+```powershell
+docker compose up -d redis garage
+docker compose -f docker-compose.yml -f docker-compose.dev.yml build api frontend-dev
+.\scripts\setup-storage.ps1 -Development
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api frontend-dev
+```
+
+Open <http://localhost:5173> for the app and <http://localhost:5173/api/docs> for the API reference. Uvicorn reloads the API worker when Python files under `src/backend/` change. Vite applies changes under `src/frontend/src/` through HMR and proxies `/api` and `/static/images` to the API. Both services mount those source directories read-only. The frontend can start while the API initializes.
+
+For subsequent sessions, run the last `up` command to reuse the existing images. To restart only the app while keeping Redis and Garage running, use:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml restart --no-deps api frontend-dev
+```
+
+Use `stop api frontend-dev` with the same Compose files to stop only the app.
+
+After changing `pyproject.toml` or `uv.lock`, rebuild the API. After changing `package.json`, `package-lock.json`, `index.html`, `vite.config.ts`, or a frontend TypeScript configuration file, rebuild `frontend-dev`. Rebuild only the affected service with `up -d --build --no-deps` and leave Redis and Garage running. For example:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --no-deps frontend-dev
+```
+
+If Docker Desktop on Windows misses frontend file changes, set `FRONTEND_DEV_POLLING=true` in `.env` and rerun the development `up` command to apply it. If you change `FRONTEND_DEV_PORT`, update `FRONTEND_DEV_ORIGIN` and `STORAGE_CORS_ORIGINS` to match, then rerun storage provisioning.
+
+### Run the Nginx stack
+
+If switching from development, stop the Vite service with `docker compose -f docker-compose.yml -f docker-compose.dev.yml stop frontend-dev`. Build the regular API image before provisioning Garage for the first time.
 
 ```powershell
 docker compose build api
 .\scripts\setup-storage.ps1
-```
-
-The idempotent script starts Garage, ensures `blog-avatars` and `blog-publications` exist, grants the configured key access, and configures upload CORS. It reads `GARAGE_ACCESS_KEY` from the process environment or `.env`; `-AccessKey` can override it. Repeat provisioning after removing Garage data. The API requires both buckets on startup and in `/health`.
-
-The upload CORS rule allows the lower-case header name `content-type`, matching browser preflight requests. Garage compares allowed header names literally; using `Content-Type` here causes browser uploads to be rejected before PUT. The provisioning script runs the current workspace CORS setup code inside the API image, so repeating setup also applies CORS fixes without an image rebuild.
-
-Place a MaxMind GeoLite2 City database at `data/GeoLite2-City.mmdb` before starting the API with Compose. Compose mounts this file read-only at `/data/GeoLite2-City.mmdb`; it is not bundled into the image. Replace the file with an updated database and restart the API to reopen it. Outside Docker, the default path is `data/GeoLite2-City.mmdb` relative to the working directory; `GEOIP_CITY_DB_PATH` can override it. If the backend cannot open or query the database, session locations display `Unknown location` and authentication remains available. Compose requires the host file to exist for its bind mount.
-
-Start the remaining services:
-
-```sh
 docker compose up --build -d
 ```
 
-For development with automatic code updates, use the development override instead:
+Open <http://localhost:8080> for the app and <http://localhost:8080/api/docs> for the API reference. Use `docker compose up -d` to reuse existing images or add `--build` to pick up source or dependency changes. The Nginx image serves the static Vite build.
 
-```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d api frontend-dev
-```
-
-Open <http://localhost:5173>. Changes under `src/backend/` restart the API worker automatically, and frontend changes under `src/frontend/` are applied by Vite without rebuilding or restarting containers. The Vite server proxies `/api` and `/static/images` requests to the API container. The development override sets `APP_ORIGIN` to `FRONTEND_DEV_ORIGIN` (default: `http://localhost:5173`). This mode keeps Redis and Garage in Docker, connects to MongoDB Atlas using the same settings, and does not start Nginx unless it was already running.
-
-To return to the regular Nginx setup, run:
-
-```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml stop frontend-dev
-docker compose -f docker-compose.yml up -d api nginx
-```
+### Application data
 
 On startup, Beanie initializes the application's document models and indexes in the configured Atlas database. Database users and cluster access are managed in Atlas. Garage stores all image objects and its metadata under `./data/garage`.
 
@@ -91,16 +106,11 @@ docker compose down --remove-orphans
 
 This preserves the old `./data/mongo` directory and named volumes. Existing local MongoDB data is not migrated to Atlas automatically; export/import it separately if needed. The updated stack does not run MongoDB, replica-set initialization, or Compass Web containers.
 
-Load the feature-rich demo dataset (profiles, images, posts, articles, follows, reactions, discussions, and sessions):
+Load the feature-rich demo dataset after the API starts in either mode. It includes profiles, images, posts, articles, follows, reactions, discussions, and sessions.
 
 ```sh
-docker compose run --rm api python -m backend.seed
+docker compose exec -T api python -m backend.seed
 ```
-
-Open the app and API documentation:
-
-- App: <http://localhost:8080>
-- API docs: <http://localhost:8080/api/docs>
 
 Demo accounts are `alice@example.com`, `ben@example.com`, `casey@example.com`, `dana@example.com`, `elena@example.com`, `farah@example.com`, and `noah@example.com`. New password identities use `DEMO_PASSWORD` from `.env` (the sample is `DemoPassword123!`); existing passwords are preserved. You can also register a new account in the app.
 
@@ -166,7 +176,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module responsibilities, tr
 - Session client type and optional native-app device name are saved at registration/login; older sessions default to web. IP and User-Agent stay internal. `auth/presentation.py` formats public location and device labels, using an application-owned GeoLite2 reader and User-Agent parsing off the event loop.
 - Protected frontend routes wait for session restoration before redirecting. Public profile contracts exclude account email and private badge settings; publication pages cancel stale requests when their address changes.
 - Frontend source lives under `src/frontend/`. `app/` owns a single route tree, layouts, and explicit authentication states; `features/` owns pages and editor workflows, including session settings under `features/profiles/sessions/`; `shared/` owns API contracts, transport, upload handling, pagination hooks, and common UI. Article editing logic lives in a dedicated hook. Lists expose load-more controls, cancel stale requests, and distinguish loading failures from empty results. API errors retain their HTTP status and details. Docker uses a Node.js build stage with cached npm dependencies, Vite production minification and separate React/editor chunks, then copies only static output into Nginx.
-- `docker-compose.dev.yml` mounts API and frontend source for reload/HMR during development; the default Compose setup continues to serve the production frontend from Nginx.
+- The API development image contains Python dependencies and uses the mounted backend source. Its production stage packages the backend. The frontend development image and static build share an npm dependency layer. Build context filters exclude unrelated source and local caches.
 - Tests are grouped by layer: `tests/unit/`, `tests/services/`, and `tests/api/`.
 
 ## API reference

@@ -1,8 +1,15 @@
 # Provision local Garage storage before starting the API. Safe to run repeatedly.
-param([string]$AccessKey = $env:GARAGE_ACCESS_KEY)
+param(
+    [string]$AccessKey = $env:GARAGE_ACCESS_KEY,
+    [switch]$Development
+)
 
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
+$taskComposeOptions = @()
+if ($Development) {
+    $taskComposeOptions = @('-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml')
+}
 Push-Location $taskRoot
 try {
     if (-not $AccessKey) {
@@ -28,7 +35,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Cannot grant permissions for $taskBucket." }
     }
     Get-Content -LiteralPath (Join-Path $taskRoot 'src/backend/storage/setup.py') -Raw |
-        docker compose run --rm --no-deps -T api python -
+        docker compose @taskComposeOptions run --rm --no-deps -T api python -
     if ($LASTEXITCODE -ne 0) { throw 'Storage CORS configuration failed.' }
 }
 finally { Pop-Location }

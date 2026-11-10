@@ -1,6 +1,8 @@
 services:
   api:
-    build: .
+    build:
+      context: .
+      target: production
     environment:
       MONGODB_URL: ${MONGODB_URL:?Set MONGODB_URL to your MongoDB Atlas connection string in .env}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-blog}
