@@ -10,6 +10,12 @@
 - Organize routers, services, repositories, domain models, and configuration in focused package areas. Keep `main.py` focused on application creation and wiring.
 - Keep modules focused and avoid introducing layers that do not support a concrete feature.
 
+## Local Development
+
+- Use the Docker Compose development mode for local application runs. In Zed, select `Run application (dev reload)`. From the repository root, run `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api frontend-dev`.
+- Follow the [first-time setup in README.md](README.md#develop-with-hot-reload) to build the development images and provision Garage. Uvicorn reloads Python changes under `src/backend/`, and Vite applies changes under `src/frontend/src/` through HMR.
+- Keep Redis and Garage running between application restarts. Rebuild only the affected development image when its dependencies or build configuration change.
+
 ## Backend Code Style
 
 - Keep backend code structured into focused classes, functions, and methods with clear responsibilities. Separate logical blocks with blank lines, and follow the existing module organization.

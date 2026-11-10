@@ -226,4 +226,5 @@ src/frontend/node_modules/
 src/frontend/dist/
 
 # Local Zed editor configuration
-.zed/
+.zed/*
+!.zed/tasks.json
