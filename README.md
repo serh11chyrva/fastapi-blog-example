@@ -98,13 +98,7 @@ Open <http://localhost:8080> for the app and <http://localhost:8080/api/docs> fo
 
 On startup, Beanie initializes the application's document models and indexes in the configured Atlas database. Database users and cluster access are managed in Atlas. Garage stores all image objects and its metadata under `./data/garage`.
 
-If upgrading from the previous local MongoDB stack, add `MONGODB_URL` to your existing `.env` and remove the obsolete `MONGO_ROOT_*`, `MONGO_APP_*`, `MONGO_REPLICA_KEY`, `MONGO_PORT`, `COMPASS_WEB_*`, and any legacy `MONGO_EXPRESS_*` variables. Remove the previous containers before starting the updated stack:
-
-```sh
-docker compose down --remove-orphans
-```
-
-This preserves the old `./data/mongo` directory and named volumes. Existing local MongoDB data is not migrated to Atlas automatically; export/import it separately if needed. The updated stack does not run MongoDB, replica-set initialization, or Compass Web containers.
+The default Compose stack contains `api`, `nginx`, `redis`, and `garage`. If Docker Desktop still lists `mongo`, `mongo-keyfile-init`, `mongo-init`, or `compass-web` from an older checkout, remove those containers individually to keep the current services running. Retain the old volumes and `data/mongo/` to preserve local database data.
 
 Load the feature-rich demo dataset after the API starts in either mode. It includes profiles, images, posts, articles, follows, reactions, discussions, and sessions.
 
