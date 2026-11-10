@@ -60,6 +60,7 @@ OWNER_BADGE = {
     "permissions": {"can_disable": True},
 }
 AVATAR_URL = "/static/images/avatars/9a47dc2e381f4b60a75d2c8b613e09af.webp"
+AUTHENTICATED_ACCOUNT = ACCOUNT | {"avatars": {"original": AVATAR_URL}}
 PROFILE = {
     "id": ACCOUNT["id"],
     "username": ACCOUNT["username"],

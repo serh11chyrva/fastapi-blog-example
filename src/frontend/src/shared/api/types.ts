@@ -5,7 +5,7 @@ export type ProfileCard = {
   display_name: string;
   avatars: { original: string | null };
 };
-export type User = Pick<ProfileCard, "id" | "username" | "display_name"> & {
+export type User = ProfileCard & {
   email: string;
 };
 export type ProfileLinkInput = {

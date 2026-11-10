@@ -66,10 +66,24 @@
 .sidebar-account { display: grid; gap: 7px; margin-top: auto; padding: 15px 8px 0; border-top: 1px solid var(--line); color: var(--muted); }
 .sidebar-account .sidebar-link { padding: 0; min-height: 25px; }
 .sidebar-account .text-link { font-size: 11px; justify-self: start; }
-.account-link { display: flex; align-items: center; gap: 10px; }
-.account-link img, .account-link > div { width: 30px; height: 30px; }
-.account-link strong, .account-link small { display: block; line-height: 1.5; font-size: 12px; }
+.account-card { display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 8px; background: var(--soft); }
+.account-link { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; padding: 3px; border-radius: 5px; }
+.account-link img, .account-link > div { width: 32px; height: 32px; flex: none; }
+.account-link > span { min-width: 0; }
+.account-link strong, .account-link small {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.5; font-size: 12px;
+}
+.account-link:hover strong { text-decoration: underline; text-underline-offset: 2px; }
 .account-link small { color: var(--quiet); font-size: 10px; }
+.account-menu { position: relative; flex: none; }
+.account-menu summary { width: 30px; height: 30px; list-style: none; }
+.account-menu summary svg { rotate: 90deg; }
+.account-menu > div {
+  position: absolute; right: 0; bottom: calc(100% + 7px); z-index: 3; min-width: 116px; padding: 4px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--paper); box-shadow: 0 4px 16px #29292415;
+}
+.account-menu button { width: 100%; padding: 7px 9px; border-radius: 4px; text-align: left; font-size: 12px; }
+.account-menu button:hover:not(:disabled) { background: var(--soft); color: var(--ink); }
 .discovery-sidebar { min-width: 0; padding-top: 28px; color: var(--muted); }
 .discovery-search { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 12px; border: 1px solid #deded5; border-radius: 7px; color: var(--quiet); }
 .discovery-search svg { flex: none; }

@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { usePageTitle } from "./usePageTitle";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { SiteLayout } from "./layouts/SiteLayout";
@@ -7,6 +7,7 @@ import { FeedPage } from "../features/feed/FeedPage";
 import { AuthPage } from "../features/auth/AuthPage";
 import { ProfilePage } from "../features/profiles/ProfilePage";
 import { ProfileSettingsPage } from "../features/profiles/ProfileSettingsPage";
+import { SettingsLayout } from "../features/profiles/SettingsLayout";
 import { MyArticlesPage } from "../features/articles/MyArticlesPage";
 import { ArticlePage } from "../features/articles/ArticlePage";
 import { SharedPublicationPage } from "../features/articles/SharedPublicationPage";
@@ -43,9 +44,11 @@ export function AppRoutes() {
 
         <Route path="my-articles" element={<MyArticlesPage />} />
 
-        <Route path="settings/profile" element={<ProfileSettingsPage />} />
-
-        <Route path="settings/sessions" element={<SessionsPage />} />
+        <Route path="settings" element={<SettingsLayout />}>
+          <Route index element={<Navigate to="profile" replace />} />
+          <Route path="profile" element={<ProfileSettingsPage />} />
+          <Route path="sessions" element={<SessionsPage />} />
+        </Route>
 
       </Route>
 

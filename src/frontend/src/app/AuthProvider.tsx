@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { advanceSessionGeneration, api, ApiError, errorMessage, sessionExpiredEvent } from "../shared/api/client";
-import type { User } from "../shared/api/types";
+import type { ProfileCard, User } from "../shared/api/types";
 type AuthState = {
   status: "loading";
   user: null;
@@ -18,6 +18,7 @@ type AuthState = {
 };
 type AuthContextValue = AuthState & {
   setUser: (user: User | null) => void;
+  updateAccountProfile: (profile: ProfileCard) => void;
   retry: () => void;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -59,7 +60,12 @@ export function AuthProvider({ children }: {
     restore.current?.abort();
     setState(user ? { status: "authenticated", user } : { status: "anonymous", user: null });
   };
-  return <AuthContext.Provider value={{ ...state, setUser, retry: () => setAttempt((value) => value + 1) }}>
+  const updateAccountProfile = useCallback(({ id, display_name, avatars }: ProfileCard) => {
+    setState((current) => current.status === "authenticated" && current.user.id === id
+      ? { ...current, user: { ...current.user, display_name, avatars } }
+      : current);
+  }, []);
+  return <AuthContext.Provider value={{ ...state, setUser, updateAccountProfile, retry: () => setAttempt((value) => value + 1) }}>
     {children}
   </AuthContext.Provider>;
 }

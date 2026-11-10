@@ -65,7 +65,7 @@ For command-line examples below, set `BASE=http://localhost:8080` and use a cook
 | --- | --- | --- | --- |
 | POST | `/auth/register` | Public | Create account and session |
 | POST | `/auth/login` | Public | Log in by email or username |
-| GET | `/auth/me` | Session | Get current account |
+| GET | `/auth/me` | Session | Get current account and public avatar |
 | GET | `/auth/sessions` | Session | List active sessions with client type, location, and device |
 | DELETE | `/auth/sessions/{session_id}` | Session | Revoke one of your sessions |
 | POST | `/auth/sessions/logout-others` | Session | Revoke every session except current |
@@ -90,10 +90,12 @@ The username accepts 3–24 ASCII letters, digits, or underscores; an optional l
   "id": "65f0c2a1b2c3d4e5f6071829",
   "email": "reader@example.com",
   "username": "reader_one",
-  "display_name": "Avery Reader"
+  "display_name": "Avery Reader",
+  "avatars": {"original": null}
 }
 ```
 
+Registration, login, and session lookup return `avatars.original` with the current public avatar URL or null.
 If the email or username is already used, registration returns `409 Conflict`. The password is never returned.
 
 ```sh

@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from backend.api import examples
 from backend.auth.client import ClientType
+from backend.profiles.schemas import AvatarResponse
 
 
 class SessionClientRequest(BaseModel):
@@ -182,7 +183,7 @@ class AuthResponse(BaseModel):
 
     model_config = ConfigDict(
         title="Authenticated account",
-        json_schema_extra={"examples": [examples.ACCOUNT]},
+        json_schema_extra={"examples": [examples.AUTHENTICATED_ACCOUNT]},
     )
 
     id: str = Field(
@@ -200,4 +201,7 @@ class AuthResponse(BaseModel):
     display_name: str = Field(
         description="Public name shown on profiles and publications.",
         examples=[examples.ACCOUNT["display_name"]],
+    )
+    avatars: AvatarResponse = Field(
+        description="Public avatar URLs for the current account. The original is null when no avatar is set.",
     )

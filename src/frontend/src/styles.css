@@ -3,6 +3,7 @@
 @import "./features/feed/social.css";
 @import "./features/articles/editorial.css";
 @import "./features/auth/auth.css";
+@import "./features/profiles/settings.css";
 
 :root {
   color-scheme: light;

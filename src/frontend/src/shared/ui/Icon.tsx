@@ -9,6 +9,7 @@ const drawings = {
   bookmark: <path d="M6 4h12v17l-6-4-6 4Z" />,
   book: <><path d="M12 6c-2-2-6-3-9-2v15c3-1 7 0 9 2 2-2 6-3 9-2V4c-3-1-7 0-9 2Zm0 0v15" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2" /></>,
+  device: <><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8m-4-4v4" /></>,
   settings: <><path d="m10 3-.6 2.5-2 .9L5.1 5 3 7.1l1.4 2.3-.9 2L1 12v2.8l2.5.6.9 2L3 19.7 5.1 22l2.3-1.4 2 .9.6 2.5h3l.6-2.5 2-.9L18 22l2.1-2.3-1.4-2.3.9-2 2.4-.6V12l-2.4-.6-.9-2 1.4-2.3L18 5l-2.4 1.4-2-.9L13 3Z" transform="translate(1 -1) scale(.91)" /><circle cx="12" cy="12" r="3" /></>,
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   plus: <path d="M12 4v16M4 12h16" />,

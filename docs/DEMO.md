@@ -83,12 +83,17 @@ links with stable redirects, badge styles, and featured-author credits. The Post
 posts, reposts, and comments with an attached article card. The Articles tab lists authored articles.
 Visit Casey's profile for the publishing workbench comment and follow its link into the article.
 
+Open **Settings → Profile** to crop an avatar or banner before uploading it. Drag a
+profile link's handle or focus it and use the arrow keys to move the link. Select
+**Save profile** to publish the new order.
+
 Alice's profile settings include a visible optional badge, a required Community Guide
 badge, and a hidden Workshop Member badge. Toggle optional visibility or edit a link.
 Open settings in two tabs to explore revision conflicts without overwriting newer changes.
 
-Alice, Ben, and Casey have illustrative web, mobile, and desktop sessions in addition
-to the real browser session created on login. Native examples are labeled Demo phone and
+Open **Settings → Active sessions** to review session details. Alice, Ben, and Casey
+have illustrative web, mobile, and desktop sessions alongside the browser session
+created on login. Native examples are labeled Demo phone and
 Demo laptop. Their tokens are discarded by the seed and are never printed. Location is
 unknown when no real IP metadata is available. Revoke an example or use Log out other
 sessions; the current real browser session remains active.

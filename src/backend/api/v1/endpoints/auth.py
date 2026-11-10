@@ -17,21 +17,23 @@ from backend.auth.sessions import SessionService
 from backend.core.config import get_settings
 from backend.core.resources import get_resources
 from backend.profiles.models import User
+from backend.profiles.presenters import avatars
 
 router = APIRouter(prefix="/auth")
 
 
 def _public_user(user: User) -> AuthResponse:
-    """Present an authenticated account without internal identity fields.
+    """Present the authenticated account and its public profile identity.
 
     :param user: User account used by the operation.
-    :return: The account authentication response.
+    :return: The account authentication response with public avatar URLs.
     """
     return AuthResponse(
         id=str(user.id),
         email=user.email,
         username=user.username,
         display_name=user.display_name,
+        avatars=avatars(user),
     )
 
 
@@ -39,7 +41,7 @@ def _public_user(user: User) -> AuthResponse:
     "/me",
     response_model=AuthResponse,
     summary="Get the current account",
-    description="Returns the account associated with the current session cookie.",
+    description="Returns the account and its public avatar URLs for the current session cookie.",
     tags=["Authentication"],
     responses=documented_responses(401, 503),
 )

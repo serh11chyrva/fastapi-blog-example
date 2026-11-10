@@ -138,10 +138,10 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 ## Features
 
 - Email or `@username` registration and login with opaque, server-side sessions.
-- A session settings page with web/mobile/desktop client types, approximate GeoLite2 locations, readable browser/device labels, last activity, individual revocation, and logout from other sessions.
+- Settings with Profile and Active sessions sections. Active sessions shows web/mobile/desktop client types, approximate GeoLite2 locations, readable browser/device labels, and last activity. It supports individual revocation and logout from other sessions.
 - Append-only audit events for security, profile, follow, and publication actions.
 - Public profiles with bios, locations, post counts, linked activity, versioned links, badges, and uploaded avatars and banners.
-- Own-profile API and settings with private badge preferences, server-enforced visibility, and revision checks that reject stale profile edits.
+- Profile settings with avatar and banner cropping before upload, reorderable public links, and private badge preferences. The profile API enforces visibility and rejects stale edits using revision checks.
 - Follow relationships and chronological public and following feeds.
 - 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
 - Posts and articles support typed attachments, including external link previews, quoted publications, and click-to-load provider players. See [typed publication content](docs/API.md#typed-publication-content).

@@ -17,7 +17,9 @@ export function Brand({ reading = false }: { reading?: boolean }) {
   </Link>;
 }
 
-const publicLinks: { to: string; label: string; icon: IconName }[] = [
+type NavigationLink = { to: string; label: string; icon: IconName; end?: boolean };
+
+const publicLinks: NavigationLink[] = [
   { to: "/", label: "Explore", icon: "home" },
   { to: "/following", label: "Following", icon: "following" },
 ];
@@ -31,14 +33,25 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
   const [logoutError, setLogoutError] = useState("");
   const [logoutBusy, setLogoutBusy] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
+  const accountMenu = useRef<HTMLDetailsElement>(null);
   const profile = user ? `/@${user.username}` : "/login";
   const signIn = { from: location.pathname + location.search + location.hash };
-  const privateLinks: { to: string; label: string; icon: IconName }[] = [
-    { to: "/saved", label: "Bookmarks", icon: "bookmark" },
+  const privateLinks: NavigationLink[] = [
     { to: profile, label: "Profile", icon: "user" },
     { to: "/my-articles", label: "My articles", icon: "book" },
-    { to: "/settings/profile", label: "Settings", icon: "settings" },
+    { to: "/saved", label: "Bookmarks", icon: "bookmark" },
+    { to: "/settings", label: "Settings", icon: "settings", end: false },
   ];
+
+  useEffect(() => {
+    function dismissAccountMenu(event: PointerEvent) {
+      const menu = accountMenu.current;
+      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+    }
+
+    document.addEventListener("pointerdown", dismissAccountMenu);
+    return () => document.removeEventListener("pointerdown", dismissAccountMenu);
+  }, []);
 
   async function logout() {
     setLogoutError("");
@@ -79,22 +92,33 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
     </div>
     <div className="sidebar-controls" id="sidebar-navigation" hidden={collapsed}>
       <nav aria-label="Primary navigation" className="sidebar-links">
-        {navLinks.map(({ to, label, icon }) => <NavLink key={to} end to={to}
+        {navLinks.map(({ to, label, icon, end = true }) => <NavLink key={to} end={end} to={to}
           className={({ isActive }) => `sidebar-link ${isActive ? "is-active" : ""}`}>
           <Icon name={icon} />{label}
         </NavLink>)}
-        {user && <NavLink to="/settings/sessions" className="sidebar-link"><Icon name="settings" />Active sessions</NavLink>}
       </nav>
       <button type="button" className="sidebar-compose" onClick={compose}><Icon name="plus" />New post</button>
       {user && <Link to="/write" className="sidebar-write"><Icon name="write" width={16} height={16} /> Write an article</Link>}
     </div>
     {!collapsed && <div className="sidebar-account">
-      {user ? <>
-        <Link className="account-link" to={profile}><Avatar name={user.display_name} size="sm" />
+      {user ? <div className="account-card">
+        <Link className="account-link" to={profile}>
+          <Avatar src={user.avatars?.original} name={user.display_name} size="sm" />
           <span><strong>{user.display_name}</strong><small>@{user.username}</small></span>
         </Link>
-        <button type="button" className="text-link" onClick={() => void logout()} disabled={logoutBusy}>Sign out</button>
-      </> : status === "loading" ? <small role="status">Restoring session…</small> : <>
+        <details className="account-menu" ref={accountMenu} onBlur={(event) => {
+          if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+        }} onKeyDown={(event) => {
+          if (event.key !== "Escape" || !event.currentTarget.open) return;
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }}>
+          <summary className="icon-button" aria-label="Account actions"><Icon name="more" /></summary>
+          <div>
+            <button type="button" disabled={logoutBusy} onClick={() => void logout()}>Sign out</button>
+          </div>
+        </details>
+      </div> : status === "loading" ? <small role="status">Restoring session…</small> : <>
         <Link to="/login" state={signIn} className="sidebar-link"><Icon name="user" />Sign in</Link>
         <Link to="/register" className="text-link">Create an account</Link>
       </>}
@@ -104,16 +128,16 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
       <NavLink to="/" end aria-label="Explore"><Icon name="home" width={22} height={22} /></NavLink>
       {user && <NavLink to="/following" aria-label="Following"><Icon name="following" width={22} height={22} /></NavLink>}
       <button type="button" aria-label="New post" onClick={compose}><Icon name="plus" width={25} height={25} /></button>
-      {user && <NavLink to="/saved" aria-label="Bookmarks"><Icon name="bookmark" width={22} height={22} /></NavLink>}
       <NavLink to={profile} state={!user ? signIn : undefined} aria-label={user ? "Profile" : "Sign in"}>
         <Icon name="user" width={22} height={22} />
       </NavLink>
+      {user && <NavLink to="/saved" aria-label="Bookmarks"><Icon name="bookmark" width={22} height={22} /></NavLink>}
       <details className="mobile-more">
         <summary aria-label="More navigation"><Icon name="menu" width={21} height={21} /></summary>
         <div>
           {user ? <>
             <Link to="/write">Write an article</Link><Link to="/my-articles">My articles</Link>
-            <Link to="/settings/profile">Profile settings</Link><Link to="/settings/sessions">Active sessions</Link>
+            <Link to="/settings">Settings</Link>
             <button type="button" disabled={logoutBusy} onClick={() => void logout()}>Sign out</button>
             {logoutError && <p className="notice-error" role="alert">{logoutError}</p>}
           </> : <Link to="/register">Create an account</Link>}
