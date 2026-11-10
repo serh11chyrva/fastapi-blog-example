@@ -91,7 +91,7 @@ docker compose down --remove-orphans
 
 This preserves the old `./data/mongo` directory and named volumes. Existing local MongoDB data is not migrated to Atlas automatically; export/import it separately if needed. The updated stack does not run MongoDB, replica-set initialization, or Compass Web containers.
 
-Seed the public demo profiles, posts, articles, follows, and badges:
+Load the feature-rich demo dataset (profiles, images, posts, articles, follows, reactions, discussions, and sessions):
 
 ```sh
 docker compose run --rm api python -m backend.seed
@@ -102,7 +102,9 @@ Open the app and API documentation:
 - App: <http://localhost:8080>
 - API docs: <http://localhost:8080/api/docs>
 
-Demo accounts are `alice@example.com`, `ben@example.com`, and `casey@example.com`. Their local-only password is the value of `DEMO_PASSWORD` in `.env` (the sample is `DemoPassword123!`). You can also register a new account in the app.
+Demo accounts are `alice@example.com`, `ben@example.com`, `casey@example.com`, `dana@example.com`, `elena@example.com`, `farah@example.com`, and `noah@example.com`. New password identities use `DEMO_PASSWORD` from `.env` (the sample is `DemoPassword123!`); existing passwords are preserved. You can also register a new account in the app.
+
+The additive seed provides 37 posts, 13 articles across all publication states, generated profile banners, quoted publications, ranked discussions, and account settings examples. Repeated runs preserve existing publications and never reset the database. See the [demo feature tour](docs/DEMO.md) for accounts, scenarios, and repeat-run behavior.
 
 The Redis port is bound to localhost for development. MongoDB is accessed remotely through the configured Atlas connection string.
 

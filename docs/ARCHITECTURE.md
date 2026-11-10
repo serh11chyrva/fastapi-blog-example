@@ -157,6 +157,15 @@ confirmation removes stale explicit post image descriptors while preserving non-
 Top-level clearing removes descriptors, not uploaded objects. API documentation and schema
 examples describe these semantics. The frontend reads typed attachments directly and no longer expects a separate post images field.
 
+## Demo fixtures
+
+`backend.seed` is the CLI entry point for the additive fixture loader. `demo/` separates
+profile enrichment, publication content, generated PNG media, and social activity.
+Stable fixture IDs preserve owner-edited and deleted publications on reruns. A profile audit
+event marks one-time location and banner enrichment. The regular discussion service creates
+sample likes so reaction edges and counts stay in sync. Private image objects have deterministic
+keys. See [the demo tour](DEMO.md) for coverage and repeat-run behavior.
+
 ## Frontend responsibilities
 
 - `app/` owns authentication state, a single nested route tree, protected routes,

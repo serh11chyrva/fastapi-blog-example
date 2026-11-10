@@ -1,186 +1,79 @@
+"""Load additive demonstration fixtures into the configured application database and image buckets."""
+
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from beanie import init_beanie
 from pymongo import AsyncMongoClient
+from redis.asyncio import Redis
 
-from backend.articles.models import Article
-from backend.auth.models import AuthIdentity
-from backend.auth.security import hash_password
+from backend.comments.migrations import ensure_comment_like_counts
 from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
-from backend.posts.models import MicroPost
+from backend.core.resources import AppResources
+from backend.demo.activity import seed_activity, seed_discussions
+from backend.demo.common import demo_id
+from backend.demo.profiles import seed_profiles
+from backend.demo.publications import seed_publications
+from backend.feeds.cache import invalidate_public_feed
 from backend.profiles.migrations import ensure_profile_schema
-from backend.profiles.models import BadgeAssignment, BadgeDefinition, BadgePayload, Follow, User
-
-DEMO_USERS = [
-    (
-        "alice@example.com",
-        "alice",
-        "Alice Morgan",
-        "A writer interested in thoughtful technology.",
-    ),
-    (
-        "ben@example.com",
-        "ben",
-        "Ben Carter",
-        "Building small things and sharing what I learn.",
-    ),
-    (
-        "casey@example.com",
-        "casey",
-        "Casey Rivera",
-        "Stories, books, and notes from everyday life.",
-    ),
-]
-
-DEMO_POSTS = [
-    (
-        "alice",
-        "A good writing habit starts with a small note and the patience to return tomorrow.",
-    ),
-    (
-        "ben",
-        "Today I shipped the first version of a tiny project. Small releases make learning easier.",
-    ),
-    ("casey", "What is one article you keep recommending to friends?"),
-]
-
-DEMO_ARTICLE_BODY = {
-    "type": "doc",
-    "content": [
-        {
-            "type": "paragraph",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Long-form writing belongs next to quick notes. This demo stores the editor document as structured TipTap JSON.",
-                }
-            ],
-        },
-        {
-            "type": "heading",
-            "attrs": {"level": 2},
-            "content": [{"type": "text", "text": "A small beginning"}],
-        },
-        {
-            "type": "paragraph",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Drafts give ideas room to grow before they are shared with everyone.",
-                }
-            ],
-        },
-    ],
-}
+from backend.storage.s3 import check_storage, create_s3_client
 
 
 async def seed_demo_data() -> None:
-    """Create or update the demo accounts, publications, and badge catalog.
+    """Add missing demo fixtures without clearing data, overwriting publications, or resetting passwords.
+
+    Stable identities make reruns additive, including after partial failures. Existing
+    edited, deleted, expired, or revoked fixture documents are preserved. Missing demo
+    relationships are restored. Generated images use stable keys in the configured
+    private buckets; no remote images or additional Python dependencies are required.
 
     :return: None.
     """
     settings = get_settings()
     client = AsyncMongoClient(settings.mongodb_url, serverSelectionTimeoutMS=8_000, tz_aware=True)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=3)
+    s3 = create_s3_client(settings)
+    s3_public = create_s3_client(settings, public=True)
+    resources = AppResources(client, redis, s3, s3_public)
 
     try:
         await client.admin.command("ping")
+        await redis.ping()
+        await check_storage(s3, settings)
         await init_beanie(database=client[settings.mongodb_database], document_models=DOCUMENT_MODELS)
         await ensure_profile_schema()
-
-        if await BadgeDefinition.find_one(BadgeDefinition.code == "early-reader") is None:
-            await BadgeDefinition(
-                code="early-reader",
-                payload=BadgePayload(label="Early Reader", description="Joined the demo community early."),
-            ).insert()
-
-        users: dict[str, User] = {}
+        await ensure_comment_like_counts()
         now = datetime.now(UTC)
 
-        for email, username, display_name, bio in DEMO_USERS:
-            user = await User.find_one(User.username == username)
+        print("Seeding demo profiles, links, badges, avatars, and banners...", flush=True)
+        users = await seed_profiles(resources, now)
+        print("Seeding posts, articles, galleries, and rich editor content...", flush=True)
+        posts, articles = await seed_publications(resources, users, now)
+        print("Seeding follows, reactions, saved items, reposts, and session examples...", flush=True)
+        await seed_activity(resources, users, posts, articles, now)
+        print("Seeding profile activity, ranked comments, and preserved reply branches...", flush=True)
+        await seed_discussions(resources, users, posts, articles)
+        await invalidate_public_feed(redis)
 
-            if user is None:
-                user = User(
-                    email=email,
-                    username=username,
-                    display_name=display_name,
-                    bio=bio,
-                    created_at=now,
-                    updated_at=now,
-                )
-                user.badges = [BadgeAssignment(code="early-reader", assigned_at=now)]
-                await user.insert()
-
-            users[username] = user
-            identity = await AuthIdentity.find_one(AuthIdentity.user_id == user.id, AuthIdentity.provider == "password")
-
-            if identity is None:
-                await AuthIdentity(
-                    user_id=user.id,
-                    provider="password",
-                    subject=str(user.id),
-                    password_hash=hash_password(settings.demo_password),
-                    created_at=now,
-                ).insert()
-
-        if await MicroPost.count() == 0:
-            for index, (username, text) in enumerate(DEMO_POSTS):
-                created_at = now - timedelta(minutes=(3 - index) * 30)
-                await MicroPost(
-                    owner_id=users[username].id,
-                    text=text,
-                    created_at=created_at,
-                    updated_at=created_at,
-                ).insert()
-
-        if await Article.count() == 0:
-            for username, title, summary in [
-                (
-                    "alice",
-                    "Writing in small steps",
-                    "A few notes on building a sustainable writing practice.",
-                ),
-                (
-                    "casey",
-                    "The value of a first draft",
-                    "Why starting imperfectly is often the most useful thing.",
-                ),
-            ]:
-                await Article(
-                    owner_id=users[username].id,
-                    title=title,
-                    summary=summary,
-                    body=DEMO_ARTICLE_BODY,
-                    status="published",
-                    created_at=now - timedelta(days=1),
-                    updated_at=now - timedelta(days=1),
-                    published_at=now - timedelta(days=1),
-                ).insert()
-
-        for follower, followee in [
-            ("alice", "ben"),
-            ("ben", "alice"),
-            ("casey", "alice"),
-            ("casey", "ben"),
-        ]:
-            if (
-                await Follow.find_one(
-                    Follow.follower_id == users[follower].id,
-                    Follow.followee_id == users[followee].id,
-                )
-                is None
-            ):
-                await Follow(
-                    follower_id=users[follower].id,
-                    followee_id=users[followee].id,
-                    created_at=now,
-                ).insert()
-
-        print("Demo data is ready. Accounts: alice@example.com, ben@example.com, casey@example.com")
-        print("Use the local-only password configured by DEMO_PASSWORD in .env.")
+        origin = settings.app_origin
+        print(f"Demo fixtures are ready: {len(users)} accounts, {len(posts)} posts, {len(articles)} articles.")
+        print("Accounts: " + ", ".join(user.email for user in users.values()))
+        print("New identities use DEMO_PASSWORD. Existing passwords and publication edits are preserved.")
+        print(f"Open the application: {origin}")
+        print(f"Rich note and threaded discussion: {origin}/posts/{posts['note-00'].id}")
+        print(f"Five-image gallery: {origin}/posts/{posts['note-01'].id}")
+        print(f"Rich article and flat comments: {origin}/articles/{articles['reading-room'].id}")
+        workbench = articles["publishing-workbench"]
+        print(f"Publishing workbench: {origin}/articles/{workbench.id}")
+        print(f"Linked demo comment: {origin}/articles/{workbench.id}#comment-{demo_id('workbench-comments')}")
+        print(f"Profile with article-comment activity: {origin}/@casey")
+        print("Sign in as Alice for Saved, private drafts, scheduled articles, and session settings.")
+        print("See docs/DEMO.md for the complete feature tour.")
     finally:
+        await redis.aclose()
+        s3.close()
+        s3_public.close()
         await client.close()
 
 
