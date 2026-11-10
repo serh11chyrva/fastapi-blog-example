@@ -12,7 +12,7 @@ export function MyArticlesPage() {
   const { items: articles, loading, error, hasMore, loadMore } = useOffsetList<Article>(user ? `/me/articles?status=${filter}` : null);
   if (!user)
     return <Navigate to="/login" replace />;
-  return <div className="space-y-5">
+  return <div className="utility-page space-y-5">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p className="eyebrow">Your writing</p>

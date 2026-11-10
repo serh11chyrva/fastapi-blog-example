@@ -61,7 +61,7 @@ export function SessionsPage() {
       setError(errorMessage(reason));
     }
   }
-  return <div className="space-y-4">
+  return <div className="utility-page space-y-4">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p className="eyebrow">Account security</p>

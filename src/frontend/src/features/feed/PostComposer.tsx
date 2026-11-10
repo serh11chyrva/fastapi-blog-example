@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../../shared/ui/Icon";
 import { AttachmentComposer } from "../publications/AttachmentComposer";
 import { Attachments } from "../publications/Attachments";
 import type { Attachment, MicroPost } from "../../shared/api/types";
@@ -55,11 +56,10 @@ export function PostComposer({ onPosted }: {
       setError(errorMessage(reason));
     }
   }
-  return <form onSubmit={submit} className="surface p-4 sm:p-5">
+  return <form onSubmit={submit} className="post-composer">
     <div className="flex gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center bg-neutral-100 font-serif text-lg font-semibold text-black">✎</div>
       <div className="min-w-0 flex-1">
-        <textarea className="min-h-20 w-full resize-y border-0 bg-transparent p-1 text-[15px] leading-6 outline-none placeholder:text-slate-400" placeholder="What’s on your mind?" disabled={saving} maxLength={280} value={text} onChange={(event) => setText(event.target.value)} />
+        <textarea className="min-h-20 w-full resize-y border-0 bg-transparent p-1 text-[15px] leading-6 outline-none placeholder:text-slate-400" placeholder="What’s on your mind?" aria-label="Post text" disabled={saving} maxLength={280} value={text} onChange={(event) => setText(event.target.value)} />
         <AttachmentComposer disabled={saving || attachments.length >= 30}
           onAdd={(item) => setAttachments((items) => [...items, item])} />
         {attachments.map((item, index) => <div key={index} className="mb-2">
@@ -77,11 +77,11 @@ export function PostComposer({ onPosted }: {
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-400">{text.length} / 280</span>
-            <label className="cursor-pointer text-xs font-semibold text-neutral-600 hover:text-black">Add images<input className="sr-only" type="file" disabled={saving} accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { chooseFiles(event.target.files); event.currentTarget.value = ""; }} /></label>
+            <label className="cursor-pointer text-xs font-semibold text-neutral-600 hover:text-black"><Icon name="image" /> Add images<input className="sr-only" type="file" disabled={saving} accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { chooseFiles(event.target.files); event.currentTarget.value = ""; }} /></label>
             <span className="text-xs text-neutral-400">Up to 5</span>
           </div>
           <button className="button-primary" disabled={saving || !text.trim()}>
-            {saving ? "Posting…" : "Share note"}
+            {saving ? "Posting…" : "Post"}
           </button>
         </div>
         {error && <p className="mt-2 text-sm text-slate-700">

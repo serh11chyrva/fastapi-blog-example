@@ -1,18 +1,15 @@
 import { useOffsetList } from "../../shared/hooks/useOffsetList";
-import type { OriginalFeedItem } from "../../shared/api/types";
-import { FeedCard } from "../feed/FeedCard";
+import type { ArticleFeedItem } from "../../shared/api/types";
+import { PreviewCard } from "../publications/PreviewCard";
 
-export function ProfilePublications({ username, kind, onChanged }: {
-  username: string;
-  kind: "micro_post" | "article";
-  onChanged: () => void;
-}) {
-  const list = useOffsetList<OriginalFeedItem>(`/users/${encodeURIComponent(username)}/publications?kind=${kind}`, 20);
-  return <div className="space-y-4">
-    {list.items.map((item) => <FeedCard key={item.id} item={item} onChanged={onChanged} />)}
-    {list.loading && <p role="status">Loading publications…</p>}
-    {list.error && <p className="notice-error" role="alert">{list.error}{" "}<button className="underline" onClick={onChanged}>Retry</button></p>}
-    {!list.loading && !list.error && !list.items.length && <p className="surface p-6 text-sm text-neutral-500">No {kind === "article" ? "articles" : "posts"} yet.</p>}
-    {list.hasMore && <button className="button-secondary w-full" disabled={list.loading} onClick={() => void list.loadMore()}>Load more</button>}
+export function ProfilePublications({ username }: { username: string }) {
+  const path = `/users/${encodeURIComponent(username)}/publications?kind=article`;
+  const list = useOffsetList<ArticleFeedItem>(path, 20);
+  return <div className="articles-panel">
+    {list.items.map((item) => <PreviewCard key={item.id} item={item} standalone />)}
+    {list.loading && <p className="list-status" role="status">Loading articles…</p>}
+    {list.error && <p className="notice-error" role="alert">{list.error}</p>}
+    {!list.loading && !list.error && !list.items.length && <p className="list-status">No articles yet.</p>}
+    {list.hasMore && <button className="list-more" disabled={list.loading} onClick={() => void list.loadMore()}>Load more</button>}
   </div>;
 }

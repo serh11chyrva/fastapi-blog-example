@@ -1,156 +1,200 @@
-import { Link, useParams } from "react-router-dom";
-import { usePageTitle } from "../../app/usePageTitle";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
-import { useEffect, useState } from "react";
-import type { Profile, ProfileCard } from "../../shared/api/types";
-import { useOffsetList } from "../../shared/hooks/useOffsetList";
+import { usePageTitle } from "../../app/usePageTitle";
 import { api, errorMessage } from "../../shared/api/client";
-import { EmptyState } from "../../shared/ui/EmptyState";
+import type { Profile, ProfileCard, ProfileLink } from "../../shared/api/types";
+import { useOffsetList } from "../../shared/hooks/useOffsetList";
 import { Avatar } from "../../shared/ui/Avatar";
+import { EmptyState } from "../../shared/ui/EmptyState";
+import { Icon } from "../../shared/ui/Icon";
+import { publicationEvent } from "../interactions/events";
 import { BadgeIcon } from "./BadgeIcon";
-import { PostComposer } from "../feed/PostComposer";
 import { ProfilePublications } from "./ProfilePublications";
 import { ProfileTimeline } from "./ProfileTimeline";
-export function ProfilePage() {
-  const { handle } = useParams();
-  return <ProfileContent key={handle} />;
+
+function PublicLink({ link }: { link: ProfileLink }) {
+  return <a className="profile-external-link" href={link.redirect_url} target="_blank" rel="noreferrer">
+    <Icon name="link" width={15} height={15} /><span>{link.label}</span>
+    <Icon name="external" width={12} height={12} className="external-indicator" />
+  </a>;
 }
-function ProfileContent() {
+
+export function ProfilePage() {
   const { handle = "" } = useParams();
-  const username = handle.replace(/^@/, "");
+  return <ProfileContent key={handle} username={handle.replace(/^@/, "")} />;
+}
+
+function ProfileContent({ username }: { username: string }) {
   const { user } = useApp();
+  const location = useLocation();
+  const profilePath = `/users/${encodeURIComponent(username)}`;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"micro_post" | "article">("micro_post");
+  const [actionError, setActionError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState<"posts" | "articles">("posts");
   const [refreshKey, setRefreshKey] = useState(0);
   const [networkKind, setNetworkKind] = useState<"followers" | "following" | null>(null);
-  const networkList = useOffsetList<ProfileCard>(networkKind && profile ? `/users/${profile.username}/${networkKind}` : null);
-  const network = networkKind ? networkList.items : null;
+  const linksDialog = useRef<HTMLDialogElement>(null);
+  const networkDialog = useRef<HTMLDialogElement>(null);
+  const network = useOffsetList<ProfileCard>(networkKind ? `${profilePath}/${networkKind}` : null);
+
   useEffect(() => {
     const controller = new AbortController();
-    setProfile(null);
     setError("");
-    setNetworkKind(null);
-    api<Profile>(`/users/${encodeURIComponent(username)}`, { signal: controller.signal })
-      .then((value) => {
-        if (!controller.signal.aborted)
-          setProfile(value);
-      })
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted)
-          setError(reason instanceof Error ? reason.message : "Could not load this page.");
-      });
+    api<Profile>(profilePath, { signal: controller.signal })
+      .then((value) => { if (!controller.signal.aborted) setProfile(value); })
+      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(errorMessage(reason)); });
     return () => controller.abort();
-  }, [username]);
-  function refreshActivity() {
+  }, [profilePath, user?.id]);
+
+  const refreshActivity = useCallback(() => {
     setRefreshKey((value) => value + 1);
-    void api<Profile>(`/users/${encodeURIComponent(username)}`)
-      .then((value) => setProfile((current) => current?.id === value.id
-        ? { ...current, posts_count: value.posts_count } : current))
-      .catch(() => undefined);
-  }
+    void api<Profile>(profilePath).then((value) => setProfile((current) =>
+      current?.id === value.id ? { ...current, posts_count: value.posts_count } : current)).catch(() => undefined);
+  }, [profilePath]);
+
+  useEffect(() => {
+    if (profile?.id !== user?.id || !user) return;
+    window.addEventListener(publicationEvent, refreshActivity);
+    return () => window.removeEventListener(publicationEvent, refreshActivity);
+  }, [profile?.id, user, refreshActivity]);
 
   async function toggleFollow() {
-    if (!profile)
-      return;
+    if (!profile || busy) return;
+    setBusy(true);
+    setActionError("");
     try {
-      await api(`/users/${profile.username}/follow`, { method: profile.is_following ? "DELETE" : "PUT" });
-      setProfile(await api<Profile>(`/users/${profile.username}`));
-    }
-    catch (reason) {
-      setError(errorMessage(reason));
+      await api(`${profilePath}/follow`, { method: profile.is_following ? "DELETE" : "PUT" });
+      setProfile(await api<Profile>(profilePath));
+    } catch (reason) {
+      setActionError(errorMessage(reason));
+    } finally {
+      setBusy(false);
     }
   }
+
+  async function share() {
+    try {
+      await navigator.clipboard.writeText(new URL(location.pathname, window.location.origin).toString());
+      setCopied(true);
+      setActionError("");
+    } catch (reason) { setActionError(errorMessage(reason)); }
+  }
+
   function showNetwork(kind: "followers" | "following") {
     setNetworkKind(kind);
+    networkDialog.current?.showModal();
   }
-  usePageTitle(error ? "Profile unavailable" : profile?.display_name ?? "Loading profile");
-  if (error)
-    return <EmptyState title="Profile unavailable" body={error} />;
-  if (!profile)
-    return <div className="surface p-8 text-center text-sm text-slate-500">Loading profile…</div>;
+
+  usePageTitle(error && !profile ? "Profile unavailable" : profile?.display_name ?? "Loading profile");
+  if (!profile) return error
+    ? <EmptyState title="Profile unavailable" body={error} />
+    : <p className="list-status" role="status">Loading profile…</p>;
+
   const own = user?.id === profile.id;
-  return <div className="space-y-5">
-    <section className="surface overflow-hidden">
-      <div className="h-32 bg-neutral-100 sm:h-44">
-        {profile.banner_url && <img className="h-full w-full object-cover" src={profile.banner_url} alt="" />}
+  const authReturn = { from: location.pathname };
+  return <>
+    <section className="profile-section" aria-label="Profile">
+      <div className="profile-cover">
+        {profile.banner_url && <img src={profile.banner_url} alt="" />}
+        <div className="cover-grid" aria-hidden="true" />
+        <span className="cover-label">{profile.posts_count} {profile.posts_count === 1 ? "post" : "posts"}</span>
       </div>
-      <div className="px-5 pb-6 sm:px-7">
-        <div className="-mt-10 flex flex-wrap items-end justify-between gap-4">
-          <Avatar src={profile.avatars.original} name={profile.display_name} size="lg" />
-          <div className="flex gap-2">
-            {own ? <Link to="/settings/profile" className="button-secondary">Edit profile</Link> : user ? <button className={profile.is_following ? "button-secondary" : "button-primary"} onClick={toggleFollow}>
-              {profile.is_following ? "Following" : "Follow"}
-            </button> : <Link className="button-primary" to="/login">Log in to follow</Link>}
+      <div className="profile-details">
+        <div className="profile-controls">
+          <div className="profile-portrait"><Avatar src={profile.avatars.original} name={profile.display_name} size="lg" /></div>
+          <div className="profile-actions">
+            <button type="button" className="icon-button profile-share" aria-label={copied ? "Profile link copied" : "Share profile"}
+              title={copied ? "Link copied" : "Share profile"} onClick={() => void share()}>
+              <Icon name={copied ? "check" : "share"} />
+            </button>
+            {own ? <Link to="/settings/profile" className="button-secondary">Edit profile</Link> : user
+              ? <button className={profile.is_following ? "button-secondary" : "button-primary"} disabled={busy}
+                  aria-pressed={profile.is_following} onClick={() => void toggleFollow()}>
+                  {profile.is_following ? "Following" : "Follow"}
+                </button>
+              : <Link className="button-primary" to="/login" state={authReturn}>Sign in to follow</Link>}
           </div>
         </div>
-        <h1 className="editorial-title mt-4 text-3xl font-semibold text-black">
-          {profile.display_name}
-        </h1>
-        <p className="text-sm text-slate-500">@{profile.username} · {profile.posts_count} posts</p>
-        {profile.bio && <p className="mt-4 max-w-2xl whitespace-pre-wrap text-[15px] leading-7 text-slate-700">
-          {profile.bio}
-        </p>}
-        <div className="mt-3 flex flex-wrap gap-4 text-sm text-neutral-500">
-          {profile.location && <span>{profile.location}</span>}
-          {profile.joined_at && <time dateTime={profile.joined_at}>
-            Joined {new Date(profile.joined_at).toLocaleDateString("en", { month: "long", year: "numeric" })}
-          </time>}
-        </div>
-        <div className="mt-4 flex gap-5 text-sm">
-          <button onClick={() => void showNetwork("following")}>
-            <strong className="text-slate-900">
-              {profile.following_count}
-            </strong>{" "}
-            <span className="text-slate-500">Following</span>
-          </button>
-          <button onClick={() => void showNetwork("followers")}>
-            <strong className="text-slate-900">
-              {profile.follower_count}
-            </strong>{" "}
-            <span className="text-slate-500">Followers</span>
-          </button>
-        </div>
-        {network && <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="mb-3 text-sm font-semibold text-slate-700">
-            {networkKind === "followers" ? "Followers" : "Following"}
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {network.map((person) => <Link className="flex items-center gap-2 border border-slate-200 px-3 py-2" key={person.id} to={`/@${person.username}`}>
-              <Avatar src={person.avatars.original} name={person.display_name} size="sm" />
-              <span className="text-sm">
-                {person.display_name}
-              </span>
-            </Link>)}
+        <h1>{profile.display_name}</h1>
+        <p className="profile-handle">@{profile.username}</p>
+        <div className="profile-bio-grid">
+          <div>
+            {profile.bio && <p className="profile-bio-copy">{profile.bio}</p>}
+            {profile.badges.length > 0 && <div className="profile-badges">
+              {profile.badges.map((badge) => <span className="badge" key={badge.code}
+                title={badge.payload.description ?? undefined} style={{ backgroundColor: badge.payload.background_color, color: badge.payload.text_color }}>
+                <BadgeIcon badge={badge} />{badge.payload.label}
+              </span>)}
+            </div>}
+            <div className="profile-bio-meta">
+              {profile.location && <span><Icon name="pin" width={14} height={14} />{profile.location}</span>}
+              {profile.joined_at && <span><Icon name="calendar" width={14} height={14} />
+                <time dateTime={profile.joined_at}>Joined {new Date(profile.joined_at).toLocaleDateString("en", { month: "long", year: "numeric" })}</time>
+              </span>}
+            </div>
+            <div className="profile-counts">
+              <button type="button" onClick={() => showNetwork("followers")}>
+                <strong>{profile.follower_count.toLocaleString("en")}</strong> followers
+              </button>
+              <button type="button" onClick={() => showNetwork("following")}>
+                <strong>{profile.following_count.toLocaleString("en")}</strong> following
+              </button>
+            </div>
           </div>
-          {networkList.loading && <p role="status">Loading profiles…</p>}
-          {networkList.error && <div className="notice-error">
-            {networkList.error}
+          {profile.links.length > 0 && <div className="profile-links">
+            {profile.links.slice(0, 3).map((link) => <PublicLink key={link.id} link={link} />)}
+            {profile.links.length > 3 && <button type="button" className="text-link"
+              onClick={() => linksDialog.current?.showModal()}>and {profile.links.length - 3} more…</button>}
           </div>}
-          {networkList.hasMore && <button className="button-secondary mt-3" disabled={networkList.loading} onClick={() => void networkList.loadMore()}>Load more profiles</button>}
-        </div>}
-        {profile.links.length > 0 && <div className="mt-4 flex flex-wrap gap-2">
-          {profile.links.map((link) => <a key={link.id} href={link.redirect_url} data-platform={link.platform} target="_blank" rel="noreferrer" className="pill">↗ {link.label}</a>)}
-        </div>}
-        {profile.badges.length > 0 && <div className="mt-4 flex flex-wrap gap-2">
-          {profile.badges.map((badge) => <span className="badge gap-1.5" key={badge.code} title={badge.payload.description || undefined} style={{ backgroundColor: badge.payload.background_color, color: badge.payload.text_color }}>
-            <BadgeIcon badge={badge} />
-            {badge.payload.label}
-          </span>)}
-        </div>}
-        {error && <p className="mt-3 text-sm text-slate-700">
-          {error}
-        </p>}
+        </div>
+        {actionError && <p className="notice-error" role="alert">{actionError}</p>}
+        {copied && <span className="sr-only" role="status">Profile link copied.</span>}
       </div>
     </section>
-    <div className="flex gap-7 border-b border-neutral-200">
-      <button className={`profile-tab ${tab === "micro_post" ? "active" : ""}`} onClick={() => setTab("micro_post")}>Posts</button>
-      <button className={`profile-tab ${tab === "article" ? "active" : ""}`} onClick={() => setTab("article")}>Articles</button>
+    <div className="rich-tabs" role="tablist" aria-label="Profile sections">
+      {(["posts", "articles"] as const).map((kind) => <button key={kind} type="button" role="tab" id={`tab-${kind}`}
+        aria-controls={`panel-${kind}`} aria-selected={tab === kind} tabIndex={tab === kind ? 0 : -1}
+        onClick={() => setTab(kind)} onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const next = event.key === "Home" ? "posts" : event.key === "End" ? "articles" : kind === "posts" ? "articles" : "posts";
+          setTab(next);
+          document.getElementById(`tab-${next}`)?.focus();
+        }}>
+        {kind === "posts" ? "Posts" : "Articles"}
+      </button>)}
     </div>
-    {tab === "micro_post" && own && <PostComposer onPosted={refreshActivity} />}
-    {tab === "micro_post"
-      ? <ProfileTimeline key={`${profile.username}-${refreshKey}`} username={profile.username} onChanged={refreshActivity} />
-      : <ProfilePublications key={profile.username} username={profile.username} kind="article"
-          onChanged={() => setRefreshKey((value) => value + 1)} />}
-  </div>;
+    <section id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
+      {tab === "posts"
+        ? <ProfileTimeline key={`${profile.username}-${refreshKey}`} username={profile.username} onChanged={refreshActivity} />
+        : <ProfilePublications key={profile.username} username={profile.username} />}
+    </section>
+    <dialog className="design-dialog" ref={linksDialog}>
+      <div className="dialog-heading"><h2>All links</h2>
+        <button type="button" className="icon-button" aria-label="Close links" onClick={() => linksDialog.current?.close()}><Icon name="close" /></button>
+      </div>
+      <div className="dialog-body profile-links">{profile.links.map((link) => <PublicLink key={link.id} link={link} />)}</div>
+    </dialog>
+    <dialog className="design-dialog" ref={networkDialog} onClose={() => setNetworkKind(null)}>
+      <div className="dialog-heading"><h2>{networkKind === "followers" ? "Followers" : "Following"}</h2>
+        <button type="button" className="icon-button" aria-label="Close profiles" onClick={() => networkDialog.current?.close()}><Icon name="close" /></button>
+      </div>
+      <div className="dialog-body profile-links">
+        {network.items.map((person) => <Link className="discovery-person" to={`/@${person.username}`} key={person.id}
+          onClick={() => networkDialog.current?.close()}>
+          <Avatar src={person.avatars.original} name={person.display_name} size="sm" />
+          <span><strong>{person.display_name}</strong><small>@{person.username}</small></span>
+        </Link>)}
+        {network.loading && <p role="status">Loading profiles…</p>}
+        {network.error && <p className="notice-error" role="alert">{network.error}</p>}
+        {!network.loading && !network.error && !network.items.length && <p>No profiles to show.</p>}
+        {network.hasMore && <button type="button" className="button-secondary" disabled={network.loading}
+          onClick={() => void network.loadMore()}>Load more profiles</button>}
+      </div>
+    </dialog>
+  </>;
 }

@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Icon } from "../../shared/ui/Icon";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
 import type { InteractionAction, InteractionSummary, PublicationKind } from "../../shared/api/types";
 import { interactionEvent, notifyInteractionChange, publicationPath } from "./events";
 import type { InteractionChange } from "./events";
 
-export function PublicationActions({ kind, id, onComments, onChanged }: {
+export function PublicationActions({ kind, id, onComments, commentsOpen, onShare, copied, onChanged }: {
   kind: PublicationKind;
   id: string;
   onComments: () => void;
+  commentsOpen?: boolean;
+  onShare?: () => void;
+  copied?: boolean;
   onChanged?: (action: InteractionAction, enabled: boolean) => void;
 }) {
   const { user } = useApp();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [summary, setSummary] = useState<InteractionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<InteractionAction | null>(null);
@@ -55,7 +61,11 @@ export function PublicationActions({ kind, id, onComments, onChanged }: {
 
   async function change(action: InteractionAction, enabled: boolean) {
     const controller = active.current;
-    if (!user || mutation.current || loading || !controller) return;
+    if (!user) {
+      navigate("/login", { state: { from: location.pathname + location.search + location.hash } });
+      return;
+    }
+    if (mutation.current || loading || !controller) return;
     mutation.current = true;
     setPending(action);
     setActionError("");
@@ -78,30 +88,37 @@ export function PublicationActions({ kind, id, onComments, onChanged }: {
     }
   }
 
-  const disabled = !user || !summary || loading || !!loadError || pending !== null;
-  return <div className="mt-4 border-t border-neutral-200 pt-3">
-    <div className="flex flex-wrap items-center gap-2" aria-busy={loading || pending !== null}>
-      <button className="interaction-button" disabled={disabled} aria-pressed={summary?.liked ?? false}
+  const disabled = !!user && (!summary || loading || !!loadError || pending !== null);
+  return <div className="publication-actions">
+    <div className="post-actions" aria-busy={loading || pending !== null}>
+      <button type="button" className="engage engage-like" disabled={disabled} aria-pressed={summary?.liked ?? false}
+        aria-label={summary?.liked ? "Unlike" : "Like"} title={summary?.liked ? "Unlike" : "Like"}
         onClick={() => void change("like", !summary?.liked)}>
-        {summary?.liked ? "♥ Liked" : "♡ Like"} {summary?.likes_count ?? "…"}
+        <Icon name="heart" />{summary?.likes_count ?? "…"}
       </button>
-      <button className="interaction-button" disabled={disabled} aria-pressed={summary?.saved ?? false}
-        onClick={() => void change("save", !summary?.saved)}>
-        {summary?.saved ? "✓ Saved" : "+ Save"}
-      </button>
-      {kind === "micro_post" && <button className="interaction-button" disabled={disabled}
+      {kind === "micro_post" && <button type="button" className="engage engage-repost" disabled={disabled}
+        aria-label={summary?.reposted ? "Undo repost" : "Repost"} title={summary?.reposted ? "Undo repost" : "Repost"}
         aria-pressed={summary?.reposted ?? false} onClick={() => void change("repost", !summary?.reposted)}>
-        {summary?.reposted ? "↻ Reposted" : "↻ Repost"} {summary?.reposts_count ?? "…"}
+        <Icon name="repost" />{summary?.reposts_count ?? "…"}
       </button>}
-      <button className="interaction-button" onClick={onComments}>
-        {kind === "micro_post" ? "Replies" : "Comments"} {summary?.comments_count ?? "…"}
+      <button type="button" className="engage" aria-expanded={commentsOpen} onClick={onComments}
+        aria-label={kind === "micro_post" ? "Replies" : "Comments"} title={kind === "micro_post" ? "Replies" : "Comments"}>
+        <Icon name="comment" />{summary?.comments_count ?? "…"}
       </button>
-      {pending && <span className="text-xs text-neutral-500" role="status">Saving…</span>}
-      {!user && <Link className="text-xs underline" to="/login">Log in to join in</Link>}
+      <span className="actions-spacer" />
+      {onShare && <button type="button" className="engage" onClick={onShare}
+        aria-label={copied ? "Link copied" : "Share"} title={copied ? "Link copied" : "Share"}>
+        <Icon name={copied ? "check" : "share"} />
+      </button>}
+      <button type="button" className="engage engage-save" disabled={disabled} aria-pressed={summary?.saved ?? false}
+        aria-label={summary?.saved ? "Remove bookmark" : "Bookmark"} title={summary?.saved ? "Remove bookmark" : "Bookmark"}
+        onClick={() => void change("save", !summary?.saved)}><Icon name="bookmark" /></button>
     </div>
-    {loadError && <p role="alert" className="mt-2 text-sm">{loadError}{" "}
-      <button className="underline" onClick={() => setVersion((value) => value + 1)}>Retry</button>
+    {copied && <span className="sr-only" role="status">Link copied.</span>}
+    {pending && <span className="sr-only" role="status">Saving…</span>}
+    {loadError && <p className="notice-error" role="alert">{loadError}{" "}
+      <button className="text-link" onClick={() => setVersion((value) => value + 1)}>Retry</button>
     </p>}
-    {actionError && <p role="alert" className="mt-2 text-sm">{actionError}</p>}
+    {actionError && <p className="notice-error" role="alert">{actionError}</p>}
   </div>;
 }

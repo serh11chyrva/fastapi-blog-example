@@ -1,6 +1,7 @@
 import { Extension, Node } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
+import { EditorialCode, EditorialQuote } from "./EditorialBlocks";
 import { ArticleAttachment, ArticleHashtag, ArticleMention } from "./contentNodes";
 const ArticleImage = Node.create({
   name: "image", group: "block", atom: true, draggable: true,
@@ -33,24 +34,16 @@ const ArticleFormatting = Extension.create({
           },
         },
       },
-      {
-        types: ["blockquote"],
-        attributes: {
-          citation: {
-            default: null,
-            parseHTML: (element) => element.dataset.citation ?? null,
-            renderHTML: ({ citation }) => typeof citation === "string" && citation ? { "data-citation": citation } : {},
-          },
-        },
-      },
     ];
   },
 });
 
 export function createEditorExtensions(editable = true) {
   return [
-    StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, trailingNode: false }),
+    StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, trailingNode: false, blockquote: false, codeBlock: false }),
     ArticleFormatting,
+    EditorialQuote,
+    EditorialCode,
     ArticleImage,
     ArticleAttachment,
     ArticleMention,

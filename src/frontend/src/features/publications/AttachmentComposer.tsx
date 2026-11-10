@@ -21,12 +21,12 @@ async function publicationReference(url: URL): Promise<Attachment> {
   return result.kind === "article" ? { type: "article", article_id: result.id } : { type: "post", post_id: result.id };
 }
 
-export function AttachmentComposer({ onAdd, disabled = false, allowQuote = true }: {
+export function AttachmentComposer({ onAdd, disabled = false, initialMode }: {
   onAdd: (attachment: Attachment) => void;
   disabled?: boolean;
-  allowQuote?: boolean;
+  initialMode?: "link" | "player" | "quote";
 }) {
-  const [mode, setMode] = useState("link");
+  const [mode, setMode] = useState<string>(initialMode ?? "link");
   const [url, setUrl] = useState("");
   const [card, setCard] = useState<LinkCard | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,9 +65,7 @@ export function AttachmentComposer({ onAdd, disabled = false, allowQuote = true 
     }
   }
 
-  return <details className="my-3 rounded border border-neutral-200 p-3 text-sm">
-    <summary className="cursor-pointer font-semibold">Add rich content</summary>
-    <div className="mt-3 space-y-2">
+  const fields = <div className="attachment-fields">
       <label className="form-label block">Content type
         <select className="field mt-1" value={mode} disabled={busy || disabled} onChange={(event) => {
           setMode(event.target.value);
@@ -76,7 +74,7 @@ export function AttachmentComposer({ onAdd, disabled = false, allowQuote = true 
         }}>
           <option value="link">Link card</option>
           <option value="player">Embedded player</option>
-          {allowQuote && <option value="quote">Quote a publication</option>}
+          <option value="quote">Quote a publication</option>
         </select>
       </label>
       <label className="form-label block">URL<input className="field mt-1" value={url} maxLength={2048} disabled={busy || disabled}
@@ -96,6 +94,8 @@ export function AttachmentComposer({ onAdd, disabled = false, allowQuote = true 
           onClick={() => add({ ...card, title: card.title.trim() })}>Add link card</button>
       </>}
       {error && <p className="notice-error" role="alert">{error}</p>}
-    </div>
+    </div>;
+  return initialMode ? fields : <details className="attachment-composer">
+    <summary>Add rich content</summary>{fields}
   </details>;
 }

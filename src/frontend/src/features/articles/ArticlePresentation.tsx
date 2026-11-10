@@ -1,38 +1,44 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
-import { Link } from "react-router-dom";
-import type { Article, Profile, ProfileCard } from "../../shared/api/types";
+import { Link, useLocation } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
+import { Footer } from "../../app/layouts/Navigation";
 import { api, errorMessage } from "../../shared/api/client";
+import type { Article, Profile, ProfileCard } from "../../shared/api/types";
+import { Avatar } from "../../shared/ui/Avatar";
+import { Icon } from "../../shared/ui/Icon";
+import { publicationDate } from "../../shared/ui/dates";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
 import { Attachments } from "../publications/Attachments";
-import { PublicationAuthors } from "../publications/PublicationAuthors";
 import { TipTapDocument } from "./TipTapDocument";
 
 function readingSections(body: JSONContent) {
-  const sections: { id: string; label: string; level: number }[] = [];
+  const sections: { id: string; label: string }[] = [];
+  const images = new Set<string>();
   function plainText(node: JSONContent): string {
     return node.text ?? (node.content?.map(plainText).join("") || "");
   }
   function visit(node: JSONContent): JSONContent {
+    if (node.type === "image" && typeof node.attrs?.src === "string") images.add(node.attrs.src);
+    if (node.type === "attachment" && node.attrs?.type === "image") images.add(node.attrs.url);
     if (node.type === "heading") {
       const label = plainText(node).trim();
       if (label) {
         const id = `section-${sections.length + 1}`;
-        sections.push({ id, label, level: Number(node.attrs?.level ?? 1) });
+        sections.push({ id, label });
         return { ...node, attrs: { ...node.attrs, sectionId: id } };
       }
     }
     return node.content ? { ...node, content: node.content.map(visit) } : node;
   }
-
-  return { document: visit(body), sections };
+  return { document: visit(body), sections, images };
 }
 
 function ArticleAuthors({ authors }: { authors: ProfileCard[] }) {
   const { user } = useApp();
-  const username = authors[0]?.username;
+  const [author, ...featured] = authors;
+  const username = author?.username;
   const [profile, setProfile] = useState<Profile>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -61,77 +67,104 @@ function ArticleAuthors({ authors }: { authors: ProfileCard[] }) {
     }
   }
 
-  return <aside className="mt-10 border-y border-neutral-200 py-5" aria-label="About the authors">
-    <p className="eyebrow mb-3">Written by</p>
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <PublicationAuthors authors={authors} />
-      {profile && user && profile.id !== user.id && <button className="button-secondary" disabled={busy}
-        onClick={() => void toggleFollow()}>{profile.is_following ? "Following" : "Follow"}</button>}
+  if (!author) return null;
+  return <aside className="reader-author" aria-label="About the authors">
+    <Link to={`/@${author.username}`}><Avatar src={author.avatars.original} name={author.display_name} size="md" /></Link>
+    <div>
+      <p className="eyebrow">Written by</p>
+      <h2><Link to={`/@${author.username}`}>{author.display_name}</Link></h2>
+      {profile?.bio && <p className="author-bio">{profile.bio}</p>}
+      <p className="author-details">{profile?.location && `${profile.location} · `}@{author.username}</p>
+      {featured.length > 0 && <p className="author-details">With {featured.map((person, index) => <span key={person.id}>
+        {index > 0 && ", "}<Link to={`/@${person.username}`}>{person.display_name}</Link>
+      </span>)}</p>}
+      {profile && user && profile.id !== user.id && <button className="button-secondary reader-follow" disabled={busy}
+        aria-pressed={profile.is_following} onClick={() => void toggleFollow()}>{profile.is_following ? "Following" : "Follow"}</button>}
+      {error && <p role="alert" className="notice-error">{error}</p>}
     </div>
-    {profile?.bio && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-neutral-700">{profile.bio}</p>}
-    {profile?.location && <p className="mt-1 text-sm text-neutral-500">{profile.location}</p>}
-    {error && <p role="alert" className="notice-error mt-3">{error}</p>}
   </aside>;
+}
+
+function ArticleDates({ article }: { article: Article }) {
+  if (!article.published_at) return <span className="article-timestamps">{article.status === "scheduled" && article.scheduled_at
+    ? `Scheduled for ${new Date(article.scheduled_at).toLocaleString()}` : "Private draft"}</span>;
+  return <span className="article-timestamps">
+    <time dateTime={article.published_at}>{publicationDate(article.published_at)}</time>
+    {Date.parse(article.updated_at) > Date.parse(article.published_at) && <> (updated at{" "}
+      <time dateTime={article.updated_at}>{publicationDate(article.updated_at)}</time>)</>}
+  </span>;
+}
+
+function SectionNavigation({ sections }: { sections: ReturnType<typeof readingSections>["sections"] }) {
+  const [current, setCurrent] = useState<string | undefined>();
+  useEffect(() => {
+    if (!sections.length) return;
+    function update() {
+      const active = sections.filter(({ id }) => {
+        const section = document.getElementById(id);
+        return section && section.getBoundingClientRect().top < 150;
+      }).at(-1);
+      setCurrent(active?.id ?? sections[0].id);
+    }
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [sections]);
+  return sections.length > 0 && <nav className="section-nav" aria-label="Article sections">
+    {sections.map(({ id, label }) => <a href={`#${id}`} key={id} aria-label={label}
+      title={label} aria-current={id === current ? "location" : undefined}><span>{label}</span></a>)}
+  </nav>;
 }
 
 export function ArticlePresentation({ article, owner }: { article: Article; owner: boolean }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [comments, setComments] = useState(true);
-  const { document, sections } = useMemo(() => readingSections(article.body), [article.body]);
-  const dateFormat = new Intl.DateTimeFormat("en", { month: "long", day: "numeric", year: "numeric" });
-  const bodyImages = new Set<string>();
-  const pending: JSONContent[] = [article.body];
-  while (pending.length) {
-    const node = pending.pop()!;
-    if (node.type === "image" && typeof node.attrs?.src === "string") bodyImages.add(node.attrs.src);
-    if (node.type === "attachment" && node.attrs?.type === "image") bodyImages.add(node.attrs.url);
-    pending.push(...(node.content ?? []));
-  }
+  const { hash } = useLocation();
+  const { document, sections, images } = useMemo(() => readingSections(article.body), [article.body]);
+
+  useEffect(() => {
+    if (hash.startsWith("#comment-")) setComments(true);
+  }, [hash]);
+
   async function share() {
     try {
-      await navigator.clipboard.writeText(new URL(article.share_url || `/articles/${article.id}`, window.location.origin).toString());
+      await navigator.clipboard.writeText(new URL(article.share_url ?? `/articles/${article.id}`, window.location.origin).toString());
       setCopied(true);
     } catch (reason) { setError(errorMessage(reason)); }
   }
-  return <article className="mx-auto max-w-[760px] pb-20">
-    <div className="mb-8 space-y-4 border-b border-neutral-200 pb-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-neutral-500">{article.published_at ? <>
-          <time dateTime={article.published_at}>{dateFormat.format(new Date(article.published_at))}</time>
-          {Date.parse(article.updated_at) > Date.parse(article.published_at) && <> · Updated{" "}
-            <time dateTime={article.updated_at}>{dateFormat.format(new Date(article.updated_at))}</time>
-          </>}
-        </> : article.status}</p>
-        <div className="flex gap-2">
-          {owner && <Link to={`/articles/${article.id}/edit`} className="button-secondary">Edit</Link>}
-          {article.status === "published" && <button className="button-secondary" onClick={() => void share()}>
-            {copied ? "Link copied" : "Share"}
-          </button>}
-        </div>
+
+  return <article className="reader">
+    <a className="skip-link" href="#article">Skip to article</a>
+    <header className="reader-hero">
+      {article.thumbnail_url && <figure className="article-cover"><img src={article.thumbnail_url} alt="" /></figure>}
+      <div className="reader-meta">
+        {owner && <Link to={`/articles/${article.id}/edit`} className="text-link"><Icon name="write" width={14} height={14} /> Edit article</Link>}
+        <ArticleDates article={article} />
       </div>
+      <h1>{article.title}</h1>
+      {article.summary && <p className="reader-deck">{article.summary}</p>}
+    </header>
+    <SectionNavigation sections={sections} />
+    <div className="reading-prose" id="article">
+      <TipTapDocument body={document} />
+      <Attachments items={article.attachments.filter((item) => item.type !== "image" || !images.has(item.url))} />
     </div>
-    <h1 className="editorial-title break-words text-4xl font-semibold leading-tight text-black sm:text-6xl">{article.title}</h1>
-    {article.thumbnail_url && <img className="mt-8 max-h-[34rem] w-full object-cover" src={article.thumbnail_url} alt={`Cover for ${article.title}`} />}
-    {article.summary && <p className="editorial-title mt-8 text-xl leading-8 text-neutral-600">{article.summary}</p>}
-    {article.status !== "published" && <p className="mt-5 text-sm text-neutral-500">
-      {article.status === "scheduled" ? `Scheduled · ${article.scheduled_at ? new Date(article.scheduled_at).toLocaleString() : ""}` : "Draft · only visible to you"}
-    </p>}
-    {!!sections.length && <nav className="my-8 rounded border border-neutral-200 p-4" aria-label="In this article">
-      <p className="eyebrow mb-2">In this article</p>
-      <ol className="space-y-1 text-sm">
-        {sections.map((section) => <li key={section.id} className={section.level > 2 ? "pl-3" : ""}>
-          <a className="underline underline-offset-2" href={`#${section.id}`}>{section.label}</a>
-        </li>)}
-      </ol>
-    </nav>}
-    <div className="article-body mt-10"><TipTapDocument body={document} /></div>
-    <Attachments items={article.attachments.filter((item) => item.type !== "image" || !bodyImages.has(item.url))} />
-    <ArticleAuthors authors={article.authors} />
-    {error && <p className="notice-error mt-4" role="alert">{error}</p>
-    {article.status === "published" && <>
-      <PublicationActions key={article.id} kind="article" id={article.id} onComments={() => setComments((value) => !value)} />
-      {comments && <Discussion key={article.id} kind="article" id={article.id} deepLink />}
-    </>}
+    <div className="reader-end">
+      <div className="end-mark" aria-hidden="true"><i /><i /><i /></div>
+      <div className="reader-end-date"><ArticleDates article={article} /></div>
+      <ArticleAuthors authors={article.authors} />
+      {error && <p className="notice-error" role="alert">{error}</p>}
+      {article.status === "published" && <>
+        <PublicationActions kind="article" id={article.id} onComments={() => setComments((value) => !value)}
+          commentsOpen={comments} onShare={() => void share()} copied={copied} />
+        {comments && <Discussion key={article.id} kind="article" id={article.id} deepLink />}
+      </>}
+      <Footer reading />
+    </div>
   </article>;
 }

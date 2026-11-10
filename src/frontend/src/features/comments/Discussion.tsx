@@ -6,18 +6,17 @@ import { api, errorMessage } from "../../shared/api/client";
 import type { DiscussionComment, PublicationKind } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { Avatar } from "../../shared/ui/Avatar";
+import { Icon } from "../../shared/ui/Icon";
+import { relativeDate } from "../../shared/ui/dates";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
 
 export function Discussion({ kind, id, deepLink = false }: { kind: PublicationKind; id: string; deepLink?: boolean }) {
   const { user } = useApp();
   const location = useLocation();
   const commentId = deepLink && kind === "article" ? /^#comment-([0-9a-f]{24})$/i.exec(location.hash)?.[1] : undefined;
-  return <section className="mt-7 border-t border-neutral-200 pt-6" aria-label={kind === "micro_post" ? "Post replies" : "Article comments"}>
-    <h2 className="editorial-title text-2xl font-semibold">{kind === "micro_post" ? "Conversation" : "Comments"}</h2>
-    <p className="mt-1 mb-5 text-sm text-neutral-500">
-      {kind === "micro_post" ? "Reply to this note or continue a thread." : "Share a thought about this article."}
-    </p>
-    {!user && <p className="mb-4 text-sm"><Link className="underline" to="/login" state={{ from: location.pathname + location.search + location.hash }}>Log in</Link> to leave a {kind === "micro_post" ? "reply" : "comment"}.</p>}
+  return <section className="discussion" aria-label={kind === "micro_post" ? "Post replies" : "Article comments"}>
+    {!user && <p className="discussion-signin"><Link className="text-link" to="/login"
+      state={{ from: location.pathname + location.search + location.hash }}>Sign in</Link> to join the conversation.</p>}
     <CommentList key={`${kind}:${id}:${user?.id ?? "anonymous"}`} kind={kind} id={id} commentId={commentId} />
   </section>;
 }
@@ -30,6 +29,7 @@ function CommentForm({ path, parentId, label, onCreated, onCancel, mention }: {
   onCancel?: () => void;
   mention?: { username: string } | null;
 }) {
+  const { user } = useApp();
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -64,19 +64,20 @@ function CommentForm({ path, parentId, label, onCreated, onCancel, mention }: {
       if (active.current) setBusy(false);
     }
   }
-  return <form className="my-4 space-y-2" onSubmit={submit}>
-    <label className="form-label block">{label}
-      <textarea ref={input} className="field mt-2 min-h-24 resize-y" maxLength={5000} required value={text}
-        disabled={busy} onChange={(event) => setText(event.target.value)} />
-    </label>
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className="text-xs text-neutral-500">{text.length} / 5,000 · Plain text</span>
-      <div className="flex gap-2">
-        {onCancel && <button type="button" className="button-quiet" disabled={busy} onClick={onCancel}>Cancel</button>}
-        <button className="button-secondary" disabled={busy || !text.trim()}>{busy ? "Sending…" : "Send"}</button>
+  return <form className="discussion-compose" onSubmit={submit}>
+    {user && <Avatar name={user.display_name} size="sm" />}
+    <div className="comment-input">
+      <textarea ref={input} aria-label={label} placeholder={parentId ? "Write your reply…" : "A little thought goes a long way."}
+        maxLength={5000} required value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
+      <div className="comment-compose-actions">
+        <span>{text.length} / 5,000</span>
+        <div>
+          {onCancel && <button type="button" className="button-quiet" disabled={busy} onClick={onCancel}>Cancel</button>}
+          <button className="button-primary" disabled={busy || !text.trim()}>{busy ? "Sending…" : path.endsWith("/comments") ? "Post comment" : "Reply"}</button>
+        </div>
       </div>
+      {error && <p role="alert" className="notice-error">{error}</p>}
     </div>
-    {error && <p role="alert" className="notice-error">{error}</p>}
   </form>;
 }
 
@@ -139,13 +140,13 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
       anchor={comment.id === commentId} onReaction={kind === "article" && sort === "most_liked" ? list.refresh : undefined} />;
   }
   return <div>
-    {kind === "article" && <label className="form-label block">Sort comments{" "}
-      <select className="field mt-1 max-w-xs" value={sort} onChange={(event) =>
+    {!parentId && <div className="discussion-header">
+      <h2>{kind === "article" ? "The conversation" : "Replies"}</h2>
+      {kind === "article" && <select className="discussion-sort" aria-label="Sort comments" value={sort} onChange={(event) =>
         setSort(event.target.value === "newest" ? "newest" : "most_liked")}>
-        <option value="most_liked">Most liked</option>
-        <option value="newest">Newest first</option>
-      </select>
-    </label>}
+        <option value="most_liked">Most liked</option><option value="newest">Newest first</option>
+      </select>}
+    </div>}
     {user && !parentId && <CommentForm path={base} label={kind === "micro_post" ? "Your reply" : "Your comment"}
       onCreated={created} mention={mention} />}
     {commentId && linked?.id === commentId && !listed && <div className="my-4">
@@ -260,29 +261,29 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
     }
   }
   return <article id={anchor ? `comment-${comment.id}` : undefined}
-    className={`min-w-0 scroll-mt-24 border-t border-neutral-100 pt-4 ${anchor ? "bg-neutral-50" : ""}`}>
-    <div className="flex flex-wrap items-center gap-2 text-sm">
+    className={`discussion-comment ${anchor ? "is-linked" : ""}`}>
+    <div className="comment-byline">
       {comment.author ? <Link className="inline-flex items-center gap-2 font-semibold" to={`/@${comment.author.username}`}>
         <Avatar src={comment.author.avatars.original} name={comment.author.display_name} size="sm" />
         {comment.author.display_name}
       </Link> : <span className="text-neutral-500">{comment.deleted ? "Deleted comment" : "Unavailable account"}</span>}
-      <time className="text-xs text-neutral-400" dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString()}</time>
+      <time dateTime={comment.created_at}>{relativeDate(comment.created_at)}</time>
     </div>
     {editing && !comment.deleted ? <form className="mt-3 space-y-2" onSubmit={(event) => { event.preventDefault(); void change(); }}>
       <label className="form-label block">Edit your comment<textarea className="field mt-2" maxLength={5000} required
         value={text} disabled={busy} onChange={(event) => setText(event.target.value)} /></label>
       <button className="button-secondary" disabled={busy || !text.trim()}>Save changes</button>{" "}
       <button type="button" className="button-quiet" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>
-    </form> : <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-neutral-700">
+    </form> : <p className="comment-copy">
       {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : comment.text}
     </p>}
-    <div className="mt-2 flex flex-wrap gap-3 text-xs text-neutral-500">
+    <div className="comment-actions">
       {thread && <button className="underline" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
         {expanded ? "Hide replies" : `View replies (${thread.replies_count})`}
       </button>}
       {!comment.deleted && <button type="button" className="underline" disabled={busy || !user}
-        aria-pressed={comment.liked} onClick={() => void toggleLike()}>
-        {comment.liked ? "♥ Liked" : "♡ Like"} {comment.likes_count}
+        aria-label={comment.liked ? "Unlike comment" : "Like comment"} aria-pressed={comment.liked} onClick={() => void toggleLike()}>
+        <Icon name="heart" width={15} height={15} /> {comment.likes_count}
       </button>}
       {onReply && user && comment.author && !comment.deleted && <button type="button" className="underline"
         onClick={() => { if (comment.author) onReply(comment.author.username); }}>Reply</button>}

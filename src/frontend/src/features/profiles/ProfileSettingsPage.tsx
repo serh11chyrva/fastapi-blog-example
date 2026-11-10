@@ -121,7 +121,7 @@ export function ProfileSettingsPage() {
     }
   }
   function updateLink(index: number, key: "label" | "url", value: string) { setLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item)); }
-  return <div className="space-y-4">
+  return <div className="utility-page space-y-4">
     <div>
       <p className="eyebrow">Your account</p>
       <h1 className="page-title">Profile settings</h1>

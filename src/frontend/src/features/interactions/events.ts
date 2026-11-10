@@ -1,5 +1,6 @@
 import type { InteractionAction, PublicationKind } from "../../shared/api/types";
 
+export const publicationEvent = "publication-created";
 export const interactionEvent = "publication-interactions-changed";
 export type InteractionChange = {
   kind: PublicationKind;

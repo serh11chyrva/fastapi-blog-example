@@ -48,8 +48,8 @@ export function HighlightedReplies({ postId, openDiscussion }: { postId: string;
   }, [visible, postId, user?.id, version]);
 
   return <div ref={marker}>
-    {!!items.length && <aside className="mt-4 space-y-3 rounded bg-neutral-50 p-4" aria-label="Highlighted replies">
-      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Top reply</p>
+    {!!items.length && <aside className="highlighted-replies space-y-2" aria-label="Highlighted replies">
+      <p>Top reply</p>
       {items.slice(0, expanded ? 2 : 1).map((item) => <div className="space-y-1 text-sm" key={item.id}>
         {item.author && <Link to={`/@${item.author.username}`} className="font-semibold">{item.author.display_name}</Link>}
         <p className="line-clamp-3 whitespace-pre-wrap break-words">{item.text}</p>

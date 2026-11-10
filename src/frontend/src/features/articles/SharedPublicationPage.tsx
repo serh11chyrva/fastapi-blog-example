@@ -41,7 +41,7 @@ function SharedPublicationContent({ handle, shareSlug }: { handle: string; share
     return <div className="surface p-8 text-center text-sm text-slate-500">Loading publication…</div>;
   if (publication.kind === "article")
     return <ArticlePresentation key={publication.id} article={publication} owner={user?.id === publication.owner_id} />;
-  return <div className="mx-auto max-w-2xl">
+  return <div className="post-detail">
     <FeedCard key={publication.id} item={{ ...publication, published_at: publication.created_at }}
       showDiscussion onChanged={() => setVersion((value) => value + 1)} />
   </div>;

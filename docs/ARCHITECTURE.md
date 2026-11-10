@@ -169,10 +169,14 @@ keys. See [the demo tour](DEMO.md) for coverage and repeat-run behavior.
 ## Frontend responsibilities
 
 - `app/` owns authentication state, a single nested route tree, protected routes,
-  and site/reading layouts.
+  and two layout shells. The social shell uses a navigation rail, a central timeline,
+  and a discovery rail with live article and author data. Reading and editing share a
+  cover-first editorial shell. Sign-in and registration use a standalone layout.
 - `features/` owns pages and feature workflows. Session settings live under
   `features/profiles/sessions/`. The article editor separates presentation from
-  persistence and upload behavior in `useArticleEditor`.
+  persistence and upload behavior in `useArticleEditor`. TipTap block controls insert and
+  move content in the document, and the code and quote views reuse the same saved nodes
+  in reading and editing. Publication cards and galleries use existing API attachments.
 - `shared/api/` owns transport and explicit frontend contracts. `ApiError` preserves
   HTTP status and error details; TypeScript response types describe the contract
   rather than acting as runtime JSON validation.
@@ -183,8 +187,7 @@ keys. See [the demo tour](DEMO.md) for coverage and repeat-run behavior.
   upload ID and the selected File objects while the form remains mounted. A retry after
   PUT success repeats confirmation without uploading or attaching another image. Only
   a definitive expired/missing upload response discards a pending confirmation; an
-  uncertain result retains it. Cover completion reloads the article because replayed
-  upload responses contain the original saved article snapshot.
+  uncertain result retains it. Completed uploads return the server's stored response.
 
 Image metadata is validated before post creation. A later upload failure explicitly
 reports that the note is already public; retry updates that same note. Avatar and inline
@@ -192,10 +195,9 @@ image forms retain failed selections with explicit retry controls. Pending uploa
 kept in memory and are discarded when their form unmounts; after navigation or reload,
 inspect current attachments before starting a replacement upload.
 
-Draft and schedule actions make an existing article private before saving content or
-cover changes. Local title, cover, and scheduling checks happen before mutations. If
-saving or scheduling subsequently fails, the article remains a private draft. Cover
-confirmation reloads current article data rather than restoring an old upload snapshot.
+The editor saves content and selected media before requesting a publish, schedule,
+or draft transition. If saving fails, the transition is skipped. If the transition
+fails after saving, the editor reloads the current status and displays the error.
 
 Protected routes wait for session restoration. An unavailable authentication service
 has an explicit retry state. Route changes cancel outdated reads, and editor form

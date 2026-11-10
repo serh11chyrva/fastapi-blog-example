@@ -141,7 +141,7 @@ Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically
 - Follow relationships and chronological public and following feeds.
 - 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
 - Posts and articles support typed attachments, including external link previews, quoted publications, and click-to-load provider players. See [typed publication content](docs/API.md#typed-publication-content).
-- Editorial black-and-white UI with separate Posts and Articles profile tabs; article editing and reading use a full-screen writing and reading layout.
+- A compact social layout with separate Posts and Articles profile tabs, a cover-first reading layout, a block-based article editor, and a standalone sign-in page.
 - Responsive English UI; published content and profiles are readable without signing in.
 
 Likes, private saves, and discussions are available in the frontend for posts and published articles. Unquoted post reposts appear in public/following feeds and the profile Posts tab. The private Saved page is available from navigation. Post replies expand as nested threads. Article comments can be sorted by likes or recency and appear on the comment author's profile. Authors can edit and delete their own comments while preserving reply branches. See [interactions and discussions](docs/INTERACTIONS.md).

@@ -27,7 +27,7 @@ function PostContent({ postId }: { postId: string }) {
   usePageTitle(error ? "Post unavailable" : post ? `Post by ${post.authors[0]?.display_name ?? "Unknown author"}` : "Loading post");
   if (error) return <EmptyState title="Note unavailable" body={error} />;
   if (!post) return <p role="status">Loading note…</p>;
-  return <div className="mx-auto max-w-2xl"><FeedCard key={post.id}
+  return <div className="post-detail"><FeedCard key={post.id}
     item={{ ...post, published_at: post.created_at }} showDiscussion onChanged={() => setVersion((value) => value + 1)} />
   </div>;
 }
