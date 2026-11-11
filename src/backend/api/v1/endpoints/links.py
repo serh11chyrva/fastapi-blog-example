@@ -1,13 +1,15 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Query
 from fastapi.responses import RedirectResponse
 
 from backend.api.metadata import Origin, Username, documented_responses
-from backend.auth.dependencies import CurrentUser
+from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.auth.rate_limit import enforce_rate_limit
-from backend.links.preview import LinkPreviewRequest, link_preview
-from backend.links.resolution import LinkResolution, resolve_link
+from backend.links.preview import LinkPreviewRequest
+from backend.links.resolution import LinkResolution
+from backend.links.cache import cached_resolution
+from backend.core.resources import Resources
 from backend.links.service import LinkService
 from backend.profiles.repository import ProfileRepository
 from backend.publications.attachments import OpenGraphAttachment
@@ -30,6 +32,7 @@ service = LinkService()
 )
 async def preview_link(
     _origin: Origin, payload: LinkPreviewRequest, request: Request, response: Response, current_user: CurrentUser,
+    resources: Resources,
 ) -> OpenGraphAttachment:
     """Return safe metadata for an authenticated publication editor.
 
@@ -38,12 +41,13 @@ async def preview_link(
     :param request: Request used for the account and IP rate limit.
     :param response: HTTP response for the private cache policy.
     :param current_user: Authenticated editor requesting the card.
+    :param resources: Application cache infrastructure.
     :return: Ready-to-store link attachment, with hostname fallback when unavailable.
     """
     await enforce_rate_limit(request, "link-preview", str(current_user.id), limit=20, window_seconds=60)
     response.headers["Cache-Control"] = "private, no-store"
 
-    return await link_preview(payload.url)
+    return (await cached_resolution(resources.redis, payload.url)).card
 
 
 @router.post(
@@ -53,7 +57,7 @@ async def preview_link(
     responses=documented_responses(401, 403, 422, 429, 503),
 )
 async def resolve_external_link(
-    _origin: Origin, payload: LinkPreviewRequest, request: Request, current_user: CurrentUser,
+    _origin: Origin, payload: LinkPreviewRequest, request: Request, current_user: CurrentUser, resources: Resources,
 ) -> LinkResolution:
     """Resolve an editor URL without accepting iframe markup.
 
@@ -61,10 +65,35 @@ async def resolve_external_link(
     :param payload: Public URL to resolve.
     :param request: Request used for rate limiting.
     :param current_user: Authenticated editor.
-    :return: Safe card or verified player presentation.
+    :param resources: Application cache infrastructure.
+    :return: Cached card/player or a pending hostname fallback.
     """
     await enforce_rate_limit(request, "link-preview", str(current_user.id), limit=20, window_seconds=60)
-    return await resolve_link(payload.url)
+    return await cached_resolution(resources.redis, payload.url)
+
+
+@router.get(
+    "/links/resolved", response_model=LinkResolution, tags=["Links"],
+    summary="Read cached external link metadata",
+    description="Returns cached metadata without fetching the destination in the request. Cache misses queue background work.",
+    responses=documented_responses(422, 429, 503),
+)
+async def read_resolved_link(
+    request: Request, response: Response, resources: Resources, current_user: OptionalUser,
+    url: str = Query(max_length=2048),
+) -> LinkResolution:
+    """Read a cached presentation for authenticated or anonymous publication readers.
+
+    :param request: Incoming request used for rate limits.
+    :param response: Response receiving a cache policy.
+    :param resources: Application Redis infrastructure.
+    :param current_user: Optional current account for rate-limit isolation.
+    :param url: Public URL whose metadata is requested.
+    :return: Cached player/card or a pending fallback.
+    """
+    await enforce_rate_limit(request, "link-read", str(current_user.id) if current_user else "anonymous", limit=240, window_seconds=60)
+    response.headers["Cache-Control"] = "no-store"
+    return await cached_resolution(resources.redis, url)
 
 
 @router.get(

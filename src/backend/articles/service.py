@@ -16,6 +16,7 @@ from backend.core.config import get_settings
 from backend.core.errors import InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
+from backend.links.cache import enqueue_attachments
 from backend.feeds.cache import invalidate_public_feed
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
@@ -107,6 +108,7 @@ class ArticleService:
                 session=session,
             )
 
+        await enqueue_attachments(self.resources.redis, [*article.attachments, *article_body_attachments(article.body)])
         return article
 
     async def edit_article(self, article_id: str, payload: ArticleUpdate, owner: User) -> Article:
@@ -156,6 +158,7 @@ class ArticleService:
 
         await invalidate_public_feed(self.resources.redis)
 
+        await enqueue_attachments(self.resources.redis, [*article.attachments, *article_body_attachments(article.body)])
         return article
 
     async def transition(

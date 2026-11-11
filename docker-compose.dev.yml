@@ -25,3 +25,13 @@ services:
       - ./src/frontend/src:/app/src:ro
     depends_on:
       - api
+
+  link-preview-worker:
+    image: ${COMPOSE_PROJECT_NAME}-api-dev:local
+    pull_policy: never
+    build:
+      target: development
+    environment:
+      PYTHONPATH: /app/src
+    volumes:
+      - ./src/backend:/app/src/backend:ro

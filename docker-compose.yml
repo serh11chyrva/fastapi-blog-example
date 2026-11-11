@@ -39,9 +39,24 @@ services:
       start_period: 25s
     restart: unless-stopped
 
+  link-preview-worker:
+    build:
+      context: .
+      target: production
+    command: ["python", "-m", "backend.links.worker"]
+    environment:
+      MONGODB_URL: ${MONGODB_URL:?Set MONGODB_URL in .env}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   redis:
     image: redis:8-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     healthcheck:
@@ -110,3 +125,6 @@ configs:
       admin_token = "${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}"
       metrics_token = "${GARAGE_ADMIN_TOKEN:?Set GARAGE_ADMIN_TOKEN in .env}"
 
+
+volumes:
+  redis-data:

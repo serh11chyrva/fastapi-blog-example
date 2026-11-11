@@ -13,6 +13,7 @@ from backend.core.config import get_settings
 from backend.core.errors import Conflict, InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
+from backend.links.cache import enqueue_attachments
 from backend.feeds.cache import invalidate_public_feed
 from backend.posts.models import MicroPost
 from backend.posts.content import validate_post_content
@@ -105,6 +106,7 @@ class PostService:
 
         await invalidate_public_feed(self.resources.redis)
 
+        await enqueue_attachments(self.resources.redis, post.attachments)
         return post
 
     async def create_draft(self, key: UUID, owner: User) -> MicroPost:
@@ -130,6 +132,7 @@ class PostService:
             if existing is None or existing.deleted_at is not None:
                 raise NotFound("This draft expired; start a new post") from None
             return existing
+        await enqueue_attachments(self.resources.redis, post.attachments)
         return post
 
     async def edit_post(self, post_id: str, payload: MicroPostCreate, owner: User) -> MicroPost:

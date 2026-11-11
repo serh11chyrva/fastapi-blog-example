@@ -79,3 +79,20 @@ Scalar loads its assets from a CDN. To try the application endpoints, start the 
 - [API guide](docs/API.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Interactions and discussions](docs/INTERACTIONS.md)
+
+### Link metadata worker
+
+Start the background preview resolver with the development services:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api frontend-dev link-preview-worker
+```
+
+The worker uses the backend image; rebuild that image only for dependency or build
+changes. Restart `link-preview-worker` after changing worker Python code. Redis now
+uses AOF persistence in `redis-data` for queued URLs and cached metadata. Do not remove
+that volume during routine restarts. Missing/stale URLs enqueue automatically; existing
+saved links are resolved lazily when displayed. Worker downtime leaves usable link
+cards and does not block publication saves. Four fetches run concurrently, each bounded
+by 20 seconds, with at most three attempts per queued failure. Cached metadata refreshes
+after six hours (five minutes for fallback results) and remains usable for one day.

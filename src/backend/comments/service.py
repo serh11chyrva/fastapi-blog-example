@@ -12,6 +12,7 @@ from backend.posts.service import PostService
 from backend.posts.content import validate_post_content
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.storage.urls import publication_image_url
+from backend.links.cache import enqueue_attachments
 from backend.feeds.cache import invalidate_public_feed
 from backend.comments.presenters import comment_responses
 from backend.comments.repository import CommentRepository, Discussion, DiscussionSort
@@ -107,6 +108,7 @@ class CommentService:
             )
 
         await invalidate_public_feed(self.resources.redis)
+        await enqueue_attachments(self.resources.redis, comment.attachments)
         return comment
 
     async def change(

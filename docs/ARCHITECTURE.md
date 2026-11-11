@@ -314,3 +314,8 @@ content. Player URLs are constructed independently from recognized resource IDs.
 Provider contracts: [SoundCloud](https://developers.soundcloud.com/docs/oembed),
 [Spotify](https://developer.spotify.com/documentation/embeds/reference/oembed), and
 [Vimeo](https://developer.vimeo.com/api/oembed/videos).
+
+`links/cache.py` serves stale metadata and queues missing destinations in a persistent
+Redis sorted set. Worker leases expire after 60 seconds; queue entries remain until
+results are cached and acknowledged together. AOF and the named Redis volume preserve
+queued work across restarts. External fetching never runs inside save transactions.
