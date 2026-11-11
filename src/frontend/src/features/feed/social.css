@@ -82,22 +82,26 @@
 .attachment-tag { display: inline-flex; align-items: center; padding: 2px 5px; border-radius: 3px; background: #f3f3ee; color: #56564d; font-size: 11px; }
 .attachment-placeholder { border: 1px solid var(--line); border-radius: 7px; padding: 11px; color: var(--muted); font-size: 12px; }
 .longread-card, .quote-card, .og-card, .embed-card { display: block; overflow: hidden; border: 1px solid #3030211f; border-radius: 12px; background: #fff; }
-.post-content > .longread-card { margin-top: 7px; }
+.article-surface { min-width: 0; border-radius: 12px; }
+.post-content > .article-surface { margin-top: 7px; }
 .longread-card:hover, .quote-card:hover, .og-card:hover { border-color: #b9b9aa; }
-.longread-image { display: block; width: 100%; aspect-ratio: 2.55; object-fit: cover; filter: grayscale(1); background: var(--soft); }
-.longread-cover { position: relative; }
-.longread-cover::after { content: ""; position: absolute; inset: auto 0 0; height: 36px; background: linear-gradient(to bottom, #ffffff00, #ffffff14 28%, #ffffffc7 78%, #fff); pointer-events: none; }
-.longread-copy { display: grid; gap: 7px; padding: 14px 16px; }
-.longread-copy h2 { color: var(--ink); font: 400 25px/1.13 var(--reading-font); letter-spacing: -.035em; overflow-wrap: anywhere; }
-.longread-copy time { color: var(--quiet); font-size: 10px; }
-.longread-copy p { color: #717166; font: 14px/22px var(--ui-font); }
-.article-excerpt { max-height: 110px; overflow: hidden; }
-.article-excerpt[data-overflow="true"] { mask-image: linear-gradient(to bottom, #000 38%, transparent 100%); }
-.longread-link { display: inline-flex; align-items: center; gap: 6px; justify-self: start; margin-top: 3px; color: #4c4c42; font-size: 11px; font-weight: 650; }
+.longread-image { display: block; width: 100%; height: 180px; max-height: 50dvh; object-fit: cover; filter: grayscale(1); background: var(--soft); }
+.longread-cover { display: block; position: relative; isolation: isolate; overflow: hidden; }
+.longread-cover::after { content: ""; position: absolute; inset: auto 0 0; height: 36px; background: linear-gradient(to bottom, #ffffff00 0%, #ffffff00 28%, #ffffffc7 78%, #fff 100%); pointer-events: none; z-index: 1; }
+.longread-body { position: relative; padding: 12px 16px 16px; background: #fff; }
+.longread-title-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 14px; margin-bottom: 12px; }
+.longread-title-row h2 { margin: 0; color: var(--ink); font: 400 27px/30px var(--reading-font); letter-spacing: -.045em; overflow-wrap: anywhere; }
+.longread-title-row h2 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.longread-title-row time { padding-bottom: 2px; color: #939387; font: 11px/18px var(--ui-font); white-space: nowrap; justify-self: end; }
+.article-excerpt { position: relative; max-height: 110px; overflow: hidden; margin: 0; color: #717166; font: 14px/22px var(--ui-font); -webkit-mask-image: linear-gradient(to bottom, #000 38%, transparent 100%); mask-image: linear-gradient(to bottom, #000 38%, transparent 100%); }
+.article-excerpt p { margin: 0 0 10px; }
+.article-bottom { display: flex; justify-content: flex-start; margin-top: 14px; }
+.article-read-button { display: inline-flex; align-items: center; gap: 10px; color: #33332c; font: 800 15px/22px var(--ui-font); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.article-read-button:hover { color: #000; text-decoration-thickness: 2px; }
 .articles-panel { display: grid; gap: 18px; padding: 20px 24px; }
-.longread-standalone .longread-image { aspect-ratio: 2.3; }
-.longread-standalone .longread-copy { padding: 18px; }
-.longread-standalone .longread-copy h2 { font-size: 28px; }
+.longread-standalone .longread-image { height: 206px; }
+.longread-standalone .longread-body { padding: 12px 18px 18px; }
+.longread-standalone .longread-title-row h2 { font-size: 29px; line-height: 32px; }
 .quote-byline { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 12px 13px 0; color: var(--muted); font-size: 11px; }
 .quote-byline strong { color: var(--ink); font-size: 12px; }
 .quote-byline img, .quote-byline > div { width: 24px; height: 24px; }
@@ -189,7 +193,8 @@
   .post-byline { gap: 0 6px; }
   .post-meta { font-size: 11px; }
   .post-actions { gap: clamp(10px, 4vw, 19px); }
-  .longread-copy h2 { font-size: 22px; }
+  .longread-title-row { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .longread-title-row time { justify-self: start; }
   .articles-panel { padding: 14px 16px; }
 }
 
