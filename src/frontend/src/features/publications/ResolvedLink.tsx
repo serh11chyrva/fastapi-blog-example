@@ -10,6 +10,7 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
   const marker = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [item.url]);
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry?.isIntersecting) { setVisible(true); observer.disconnect(); }
@@ -21,7 +22,7 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
   const resolved = result?.attachment;
   const source = resolved?.type === "embed" && result?.player_url && embedSource(resolved)
     ? result.player_url : null;
-  const card = result?.status === "pending" && item.type === "og_card" ? item
+  const card = result?.status !== "ready" && item.type === "og_card" ? item
     : result?.card ?? (item.type === "og_card" ? item : null);
   const hostname = new URL(item.url).hostname;
   const audio = resolved?.type === "embed" && ["spotify", "soundcloud"].includes(resolved.provider);
@@ -33,7 +34,7 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
         allowFullScreen onError={() => setFailed(true)} />
       <a className="embed-link" href={item.url} target="_blank" rel="noopener noreferrer">Open original<Icon name="external" /></a>
     </div> : <a href={item.url} target="_blank" rel="noopener noreferrer" className={`og-card ${card?.image_url ? "has-thumbnail" : ""}`}>
-      {card?.image_url && <img src={card.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; }} />}
+      {card?.image_url && <img key={card.image_url} src={card.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; }} />}
       <div className="og-copy">
         <small>{card?.site_name || hostname}<Icon name="external" width={13} height={13} /></small>
         <strong>{card?.title || (item.type === "link" ? item.label : null) || hostname}</strong>

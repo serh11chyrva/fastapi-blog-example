@@ -55,13 +55,17 @@ async def run_worker() -> None:
 
     :return: None; the process runs until cancelled.
     """
-    redis = Redis.from_url(get_settings().redis_url, decode_responses=True)
+    redis = Redis.from_url(
+        get_settings().redis_url, decode_responses=True, socket_connect_timeout=3, socket_timeout=5,
+    )
     try:
         while True:
             try:
                 urls = await redis.zrangebyscore(QUEUE, "-inf", time.time(), start=0, num=4)
                 if urls:
-                    await asyncio.gather(*(process_link(redis, url) for url in urls))
+                    results = await asyncio.gather(*(process_link(redis, url) for url in urls), return_exceptions=True)
+                    if any(isinstance(result, BaseException) for result in results):
+                        logger.warning("Link worker batch interrupted; unacknowledged jobs remain queued")
             except asyncio.CancelledError:
                 raise
             except Exception:

@@ -216,10 +216,11 @@ async def link_preview(url: str) -> OpenGraphAttachment:
             try:
                 image = checked_url(urljoin(response[1], raw_image))
                 image_parts = urlsplit(image)
-                await PublicResolver().resolve(image_parts.hostname, 443 if image_parts.scheme == "https" else 80)
+                async with asyncio.timeout(3):
+                    await PublicResolver().resolve(image_parts.hostname, 443 if image_parts.scheme == "https" else 80)
                 if len(image) > 2048:
                     image = None
-            except (ValueError, InvalidOperation, OSError):
+            except (ValueError, InvalidOperation, OSError, TimeoutError):
                 image = None
     return OpenGraphAttachment(
         url=url, title=(metadata.values.get("og:title") or " ".join(metadata.title.split()) or host)[:300],

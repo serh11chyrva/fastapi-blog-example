@@ -339,3 +339,9 @@ inside the visible viewport. Slash insertion applies to an empty top-level
 paragraph; block movement selects the moved node through ProseMirror's valid
 selection resolution. Gallery resize preserves the current carousel slide, and
 removing the final image releases the viewer's page-scroll lock.
+
+Link resolution bounds preview-image DNS lookup to three seconds and Redis socket
+operations to five seconds in the worker. Each batch settles before the next starts,
+including when Redis fails, so unfinished jobs cannot exceed the four-job concurrency
+limit. Saved card text remains visible during pending resolution or fallback; a
+changed URL resets a previous player's error state.
