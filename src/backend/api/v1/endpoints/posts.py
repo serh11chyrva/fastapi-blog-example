@@ -10,7 +10,7 @@ from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser
 from backend.core.resources import Resources
 from backend.posts.presenters import post_response
-from backend.posts.schemas import MicroPostCreate, MicroPostResponse
+from backend.posts.schemas import MicroPostCreate, MicroPostResponse, PostDraftRequest
 from backend.posts.service import PostService
 from backend.publications.queries import load_authors
 
@@ -28,6 +28,28 @@ def get_posts_service(resources: Resources, audit: Audit) -> PostService:
 
 
 Posts = Annotated[PostService, Depends(get_posts_service)]
+
+
+@router.post(
+    "/posts/drafts", response_model=MicroPostResponse, status_code=201, tags=["Micro-posts"],
+    summary="Reserve a private post upload target",
+    description="Use a fresh UUID key for each compose attempt and retain it on retries. "
+    "Upload images to the returned post ID, then PATCH the completed content to publish. "
+    "Unpublished targets expire after 24 hours without changes and never appear in public reads.",
+    responses=documented_responses(401, 403, 404, 503),
+)
+async def create_post_draft(
+    _origin: Origin, payload: PostDraftRequest, current_user: CurrentUser, posts: Posts,
+) -> MicroPostResponse:
+    """Create or retrieve the owner's private staging publication.
+
+    :param _origin: Validated mutation origin.
+    :param payload: Stable client retry key.
+    :param current_user: Account owning the staging target.
+    :param posts: Request-scoped post service.
+    :return: The private target or its already published result.
+    """
+    return post_response(await posts.create_draft(payload.key, current_user), [current_user])
 
 
 @router.post(

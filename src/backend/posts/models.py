@@ -28,6 +28,8 @@ class MicroPost(Document, PublicationAuthors):
     legacy_source: str | None = None
     likes_count: int = 0
     reply_revision: int = 0
+    pending: bool = False
+    draft_key: str | None = None
     interaction_revision: int = 0
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     text: str
@@ -41,6 +43,11 @@ class MicroPost(Document, PublicationAuthors):
 
         name = "micro_posts"
         indexes = [
+            IndexModel(
+                [("draft_key", ASCENDING)], unique=True,
+                partialFilterExpression={"draft_key": {"$type": "string"}}, name="post_draft_key",
+            ),
+            IndexModel([("pending", ASCENDING), ("updated_at", ASCENDING)], name="post_pending_expiry"),
             IndexModel(
                 [("legacy_source", ASCENDING)], unique=True,
                 partialFilterExpression={"legacy_source": {"$type": "string"}}, name="post_legacy_source",

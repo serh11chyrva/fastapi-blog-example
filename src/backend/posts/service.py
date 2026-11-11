@@ -1,9 +1,11 @@
 """Ownership-aware posts operations with audited transactions."""
 
 from datetime import UTC, datetime
+from uuid import UUID
 
 from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.errors import DuplicateKeyError
 
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
@@ -100,6 +102,31 @@ class PostService:
 
         return post
 
+    async def create_draft(self, key: UUID, owner: User) -> MicroPost:
+        """Reserve a private upload target, returning the same target on retries.
+
+        :param key: Client-generated key retained for one compose attempt.
+        :param owner: Authenticated account owning the private target.
+        :return: The staging post, or its published result after a completed retry.
+        """
+        draft_key = f"{owner.id}:{key}"
+        existing = await MicroPost.find_one({"draft_key": draft_key})
+        if existing is not None:
+            if existing.deleted_at is not None:
+                raise NotFound("This draft expired; start a new post")
+            return existing
+        now = datetime.now(UTC)
+        post = MicroPost(owner_id=owner.id, text="", pending=True, draft_key=draft_key,
+                         created_at=now, updated_at=now)
+        try:
+            await post.insert()
+        except DuplicateKeyError:
+            existing = await MicroPost.find_one({"draft_key": draft_key})
+            if existing is None or existing.deleted_at is not None:
+                raise NotFound("This draft expired; start a new post") from None
+            return existing
+        return post
+
     async def edit_post(self, post_id: str, payload: MicroPostCreate, owner: User) -> MicroPost:
         """Replace owned post text and supplied attachments in one audited transaction.
 
@@ -122,6 +149,9 @@ class PostService:
                 post.attachments = payload.attachments
 
             post.text = payload.text
+            if post.pending:
+                post.pending = False
+                post.created_at = datetime.now(UTC)
             post.updated_at = datetime.now(UTC)
             await post.save(session=session)
             await record_audit(

@@ -5,6 +5,7 @@ from loguru import logger
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.articles.models import Article
+from backend.core.config import get_settings
 from backend.posts.models import MicroPost
 from backend.profiles.models import User
 from backend.storage.models import ObjectCleanup
@@ -66,6 +67,13 @@ async def run_storage_cleanup(client: S3Client) -> None:
     """
     while True:
         try:
+            cutoff = datetime.now(UTC) - timedelta(hours=24)
+            async for draft in MicroPost.find({"pending": True, "deleted_at": None, "updated_at": {"$lt": cutoff}}):
+                for key in draft.image_keys:
+                    await queue_deletion(get_settings().publication_bucket, key)
+                await MicroPost.find({"_id": draft.id, "pending": True, "updated_at": draft.updated_at}).update_many(
+                    {"$set": {"deleted_at": datetime.now(UTC)}},
+                )
             jobs = (
                 await ObjectCleanup.find(ObjectCleanup.not_before <= datetime.now(UTC))
                 .sort("not_before")

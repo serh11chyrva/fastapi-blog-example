@@ -70,7 +70,10 @@ async def read_image(
         cache_control = "no-store"
     elif collection == "post-images":
         attached = await MicroPost.find_one({"image_keys": key, "deleted_at": None})
-        if attached is not None:
+        if attached is not None and attached.pending:
+            if current_user is None or current_user.id != attached.owner_id:
+                attached = None
+        elif attached is not None:
             await public_publication("micro_post", str(attached.id))
         cache_control = "private, no-store"
         bucket = settings.publication_bucket

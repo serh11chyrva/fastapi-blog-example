@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -7,6 +8,13 @@ from backend.api import examples
 from backend.posts.models import ReplyMetadata
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment, PublicationAttachments
+
+
+class PostDraftRequest(BaseModel):
+    """Client-generated retry key for an owner-only upload staging post."""
+
+    model_config = ConfigDict(extra="forbid")
+    key: UUID
 
 
 class MicroPostCreate(BaseModel):

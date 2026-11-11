@@ -11,13 +11,14 @@ def visible_post_stages(prefix: str = "") -> list[dict[str, Any]]:
     """
     path = f"{prefix}." if prefix else ""
     return [
+        {"$match": {f"{path}pending": {"$ne": True}}},
         {"$lookup": {
             "from": "articles", "localField": f"{path}reply.publication_id", "foreignField": "_id",
             "as": "_reply_article", "pipeline": [{"$match": {"deleted_at": None, "status": "published"}}],
         }},
         {"$lookup": {
             "from": "micro_posts", "localField": f"{path}reply.publication_id", "foreignField": "_id",
-            "as": "_reply_post", "pipeline": [{"$match": {"deleted_at": None, "reply": None}}],
+            "as": "_reply_post", "pipeline": [{"$match": {"deleted_at": None, "reply": None, "pending": {"$ne": True}}}],
         }},
         {"$match": {"$or": [
             {f"{path}reply": None},

@@ -45,6 +45,9 @@ async def public_publication(
     if publication is None or publication.deleted_at is not None:
         raise NotFound("Publication not found")
 
+    if isinstance(publication, MicroPost) and publication.pending:
+        raise NotFound("Publication not found")
+
     if isinstance(publication, Article) and publication.status != "published":
         raise NotFound("Publication not found")
 

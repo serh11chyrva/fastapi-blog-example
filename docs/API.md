@@ -661,3 +661,11 @@ Replies are posts with immutable `reply` metadata (`kind`, `publication_id`, `pa
 available and include the live post in `publication`; ordinary post URLs and interaction
 routes also apply. Article replies support child threads. Feed cursors issued before
 this migration are invalid; restart pagination. See [migration operations](MIGRATIONS.md).
+
+### Private post upload targets
+
+`POST /posts/drafts` accepts `{ "key": "a-client-generated-UUID" }`. Reuse the key
+on retries; the response identifies an owner-only staging post. Existing image upload
+routes accept this target. PATCH the final content to publish it, or DELETE it to
+abandon it. Inactive unpublished targets expire after 24 hours. They are excluded
+from feeds, profiles, previews, shared links, interactions, and public image reads.
