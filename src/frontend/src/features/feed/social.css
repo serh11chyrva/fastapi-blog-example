@@ -206,7 +206,12 @@
 .carousel-track{position:relative;display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
 .carousel-track::-webkit-scrollbar{display:none}.carousel-slide{flex:0 0 84%;min-width:0;overflow:hidden;scroll-snap-align:start;border-radius:10px;background:var(--soft)}
 .carousel-slide:last-child{scroll-snap-align:end}.carousel-track.single-image .carousel-slide{flex-basis:100%}
-.carousel-slide img{display:block;width:100%;height:clamp(190px,35vw,370px);object-fit:cover}
+.carousel-slide{height:auto;aspect-ratio:3/2;flex-shrink:0}
+.carousel-slide[style]{aspect-ratio:auto}
+.carousel-slide img{display:block;width:100%;height:100%;object-fit:contain}
+.carousel-track.single-image .carousel-slide{aspect-ratio:auto}
+.carousel-track.single-image .carousel-slide img{width:100%;height:auto}
+.carousel-slide .image-unavailable{min-width:0;min-height:0;width:100%;height:100%;aspect-ratio:3/2}
 .carousel-circle,.viewer-nav{display:grid;place-items:center;position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border:1px solid #2d2d1e14;border-radius:50%;background:#fffffaed;color:#49493e;box-shadow:0 2px 12px #14140a1c;opacity:0;pointer-events:none;transition:opacity .16s}
 .carousel-prev{left:11px}.carousel-next{right:11px}.carousel-viewport:hover .carousel-circle:not(:disabled),.carousel-viewport:focus-within .carousel-circle:not(:disabled){opacity:1;pointer-events:auto}
 .carousel-circle:disabled,.viewer-nav:disabled{visibility:hidden}.gallery-count{margin:6px 0 0;color:#38382b70;font-size:11px}

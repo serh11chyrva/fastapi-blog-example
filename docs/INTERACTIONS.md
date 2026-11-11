@@ -309,3 +309,10 @@ Font License); article titles retain Georgia. Article covers fade into the white
 card over 36px. Excerpts are limited to 110px and fade only when text overflows.
 Carousel edges fade over 24px only while more content exists in that direction;
 the overlays do not intercept input. Publication date formatting is unchanged.
+
+Single gallery photos use the full post width and their natural height. Multiple
+photos share a frame height derived from the first image at 84% of the viewport
+width, capped at 600px and 70% of the viewport height. Slides use proportional
+widths up to the gallery width and contain the complete image without cropping.
+Unknown dimensions reserve a 3:2 frame; a failed first photo yields to the first
+available photo. Image loading and resizing retain the selected slide.

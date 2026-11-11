@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Attachment } from "../../shared/api/types";
 import { Icon } from "../../shared/ui/Icon";
 
@@ -13,11 +13,16 @@ export function MediaGallery({ images }: { images: Image[] }) {
   const [slide, setSlide] = useState(0);
   const [failed, setFailed] = useState<string[]>([]);
   const [edges, setEdges] = useState({ previous: false, next: false });
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  const [viewport, setViewport] = useState({ width: 0, height: window.innerHeight });
   const selectedRef = useRef(0);
   const slideRef = useRef(0);
   const count = images.length;
   const active = images[Math.min(selected, count - 1)];
   const signature = images.map((image) => image.url).join("|");
+  const reference = images.find((image) => !failed.includes(image.url));
+  const firstRatio = reference ? ratios[reference.url] ?? 1.5 : 1.5;
+  const height = Math.min(viewport.width * .84 / firstRatio, 600, viewport.height * .7);
 
   const updateEdges = useCallback(() => {
     const element = track.current;
@@ -50,11 +55,30 @@ export function MediaGallery({ images }: { images: Image[] }) {
     slideRef.current = Math.min(slideRef.current, Math.max(0, count - 1));
     if (!count) { dialog.current?.close(); restore(); }
     const element = track.current;
-    const observer = new ResizeObserver(() => { go(slideRef.current, false); updateEdges(); });
+    const resize = () => {
+      const width = element?.clientWidth ?? 0;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      setViewport((value) => value.width === width && value.height === viewportHeight
+        ? value : { width, height: viewportHeight });
+      go(slideRef.current, false);
+      updateEdges();
+    };
+    const observer = new ResizeObserver(resize);
     if (element) observer.observe(element);
-    return () => observer.disconnect();
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
+    resize();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+    };
   }, [signature, count, go, restore, updateEdges]);
   useEffect(() => () => restore(), [restore]);
+  useLayoutEffect(() => {
+    go(slideRef.current, false);
+    updateEdges();
+  }, [height, ratios, signature, go, updateEdges]);
 
   function show(index: number, trigger: HTMLElement) {
     selectedRef.current = index; setSelected(index); opener.current = trigger;
@@ -68,6 +92,11 @@ export function MediaGallery({ images }: { images: Image[] }) {
     setSelected(selectedRef.current);
   }
   function imageError(url: string) { setFailed((items) => items.includes(url) ? items : [...items, url]); }
+  function imageLoaded(url: string, element: HTMLImageElement) {
+    if (!element.naturalWidth || !element.naturalHeight) return;
+    const ratio = element.naturalWidth / element.naturalHeight;
+    setRatios((value) => value[url] === ratio ? value : { ...value, [url]: ratio });
+  }
 
   if (!active) return null;
   return <div className="photo-carousel" data-can-prev={edges.previous} data-can-next={edges.next}>
@@ -89,18 +118,24 @@ export function MediaGallery({ images }: { images: Image[] }) {
             const best = Math.min((element.children[nearest] as HTMLElement).offsetLeft, element.scrollWidth - element.clientWidth);
             if (Math.abs(offset - element.scrollLeft) < Math.abs(best - element.scrollLeft)) nearest = index;
           });
+          const end = element.scrollWidth - element.clientWidth;
+          if (end > 1 && element.scrollLeft >= end - 1) nearest = count - 1;
           slideRef.current = nearest; setSlide(nearest);
         }}>
         {images.map((image, index) => <button key={image.url} type="button" className="carousel-slide"
+          style={count > 1 && height > 0 ? {
+            height, flexBasis: Math.min(height * (ratios[image.url] ?? 1.5), viewport.width),
+          } : undefined}
           aria-label={`View photo ${index + 1} of ${count}${image.alt ? `: ${image.alt}` : ""}`}
           onClick={(event) => show(index, event.currentTarget)}>
           {failed.includes(image.url) ? <span className="image-unavailable">Image unavailable</span>
-            : <img src={image.url} alt={image.alt} loading="lazy" onError={() => imageError(image.url)} />}
+            : <img src={image.url} alt={image.alt} loading="lazy"
+                onLoad={(event) => imageLoaded(image.url, event.currentTarget)} onError={() => imageError(image.url)} />}
         </button>)}
       </div>
       {count > 1 && <>
-        <button type="button" className="carousel-circle carousel-prev" aria-label="Previous image" disabled={slide === 0} onClick={() => go(slide - 1)}><Icon name="left" /></button>
-        <button type="button" className="carousel-circle carousel-next" aria-label="Next image" disabled={slide === count - 1} onClick={() => go(slide + 1)}><Icon name="right" /></button>
+        <button type="button" className="carousel-circle carousel-prev" aria-label="Previous image" disabled={!edges.previous} onClick={() => go(slide - 1)}><Icon name="left" /></button>
+        <button type="button" className="carousel-circle carousel-next" aria-label="Next image" disabled={!edges.next} onClick={() => go(slide + 1)}><Icon name="right" /></button>
       </>}
     </div>
     {count > 1 && <p className="gallery-count" aria-live="polite">{slide + 1} / {count}</p>}
