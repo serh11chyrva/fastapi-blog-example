@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { ReplyPublication } from "./ReplyPublication";
 import { useApp } from "../../app/AuthProvider";
 import { api } from "../../shared/api/client";
 import type { CursorPage, PostReply } from "../../shared/api/types";
@@ -50,12 +50,9 @@ export function HighlightedReplies({ postId, openDiscussion }: { postId: string;
   return <div ref={marker}>
     {!!items.length && <aside className="highlighted-replies space-y-2" aria-label="Highlighted replies">
       <p>Top reply</p>
-      {items.slice(0, expanded ? 2 : 1).map((item) => <div className="space-y-1 text-sm" key={item.id}>
-        {item.author && <Link to={`/@${item.author.username}`} className="font-semibold">{item.author.display_name}</Link>}
-        <p className="line-clamp-3 whitespace-pre-wrap break-words">{item.text}</p>
-        <span className="mr-3 text-neutral-500">♡ {item.likes_count}</span>
-        <button type="button" className="underline" onClick={openDiscussion}>Open discussion</button>
-      </div>)}
+      {items.slice(0, expanded ? 2 : 1).map((item) => item.publication &&
+        <ReplyPublication key={item.id} post={item.publication} onComments={openDiscussion}
+          onChanged={() => setVersion((value) => value + 1)} />)}
       {items.length > 1 && <button type="button" className="text-sm underline" aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}>{expanded ? "Hide additional reply" : "Show another reply"}</button>}
     </aside>}

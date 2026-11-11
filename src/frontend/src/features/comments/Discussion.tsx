@@ -6,7 +6,7 @@ import { api, errorMessage } from "../../shared/api/client";
 import type { DiscussionComment, PublicationKind } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { Avatar } from "../../shared/ui/Avatar";
-import { Icon } from "../../shared/ui/Icon";
+import { ReplyPublication } from "./ReplyPublication";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
 
@@ -35,7 +35,7 @@ function CommentForm({ path, parentId, label, onCreated, onCancel, mention }: {
   useEffect(() => {
     if (!mention) return;
     const prefix = `@${mention.username} `;
-    setText((draft) => draft.startsWith(prefix) ? draft : `${prefix}${draft}`.slice(0, 5000));
+    setText((draft) => draft.startsWith(prefix) ? draft : `${prefix}${draft}`.slice(0, 280));
     input.current?.focus();
   }, [mention]);
   const [busy, setBusy] = useState(false);
@@ -65,12 +65,12 @@ function CommentForm({ path, parentId, label, onCreated, onCancel, mention }: {
     }
   }
   return <form className="discussion-compose" onSubmit={submit}>
-    {user && <Avatar name={user.display_name} size="sm" />}
+    {user && <Avatar name={user.display_name} src={user.avatars.original} size="sm" />}
     <div className="comment-input">
       <textarea ref={input} aria-label={label} placeholder={parentId ? "Write your reply…" : "A little thought goes a long way."}
-        maxLength={5000} required value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
+        maxLength={280} required value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
       <div className="comment-compose-actions">
-        <span>{text.length} / 5,000</span>
+        <span>{text.length} / 280</span>
         <div>
           {onCancel && <button type="button" className="button-quiet" disabled={busy} onClick={onCancel}>Cancel</button>}
           <button className="button-primary" disabled={busy || !text.trim()}>{busy ? "Sending…" : path.endsWith("/comments") ? "Post comment" : "Reply"}</button>
@@ -89,7 +89,6 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
   const { user } = useApp();
   const base = `${publicationPath(kind, id)}/${kind === "micro_post" ? "replies" : "comments"}`;
   const [sort, setSort] = useState<"most_liked" | "newest">("most_liked");
-  const [mention, setMention] = useState<{ username: string } | null>(null);
   const [recent, setRecent] = useState<DiscussionComment[]>([]);
   const [linked, setLinked] = useState<DiscussionComment | null>(null);
   const [linkError, setLinkError] = useState("");
@@ -124,7 +123,7 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
   const visibleRecent = recent.filter((comment) => !list.items.some((item) => item.id === comment.id));
   function update(updated: DiscussionComment) {
     const apply = (items: DiscussionComment[]) => items.flatMap((item) => item.id !== updated.id ? [item]
-      : updated.deleted && kind === "article" ? [] : [updated]);
+      : [updated]);
     list.setItems(apply);
     setRecent(apply);
     setLinked((item) => item?.id === updated.id ? updated : item);
@@ -136,7 +135,7 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
   }
   function renderComment(comment: DiscussionComment) {
     return <CommentItem key={comment.id} comment={comment} kind={kind} publicationId={id}
-      base={base} onUpdate={update} onReply={kind === "article" ? (username) => setMention({ username }) : undefined}
+      base={base} onUpdate={update}
       anchor={comment.id === commentId} onReaction={kind === "article" && sort === "most_liked" ? list.refresh : undefined} />;
   }
   return <div>
@@ -148,7 +147,7 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
       </select>}
     </div>}
     {user && !parentId && <CommentForm path={base} label={kind === "micro_post" ? "Your reply" : "Your comment"}
-      onCreated={created} mention={mention} />}
+      onCreated={created} />}
     {commentId && linked?.id === commentId && !listed && <div className="my-4">
       <p className="text-xs font-semibold text-neutral-600">Linked comment</p>
       {renderComment(linked)}
@@ -171,13 +170,12 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
   </div>;
 }
 
-function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, onReaction, anchor }: {
+function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction, anchor }: {
   comment: DiscussionComment;
   kind: PublicationKind;
   publicationId: string;
   base: string;
   onUpdate: (comment: DiscussionComment) => void;
-  onReply?: (username: string) => void;
   onReaction?: () => void;
   anchor: boolean;
 }) {
@@ -195,7 +193,7 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
     active.current = true;
     return () => { active.current = false; };
   }, []);
-  const thread = "post_id" in comment ? comment : null;
+  const thread = comment;
   const own = !!user && user.id === comment.author?.id && !comment.deleted;
   async function change(remove = false) {
     if (pending.current || (!remove && !text.trim())) return;
@@ -207,7 +205,7 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
       if (remove) {
         await api(`${base}/${comment.id}`, { method: "DELETE" });
         if (!active.current) return;
-        onUpdate({ ...comment, deleted: true, text: null, author: null, likes_count: 0, liked: false, updated_at: new Date().toISOString() });
+        onUpdate({ ...comment, deleted: true, text: null, author: null, publication: null, likes_count: 0, liked: false, updated_at: new Date().toISOString() });
       } else {
         const updated = await api<DiscussionComment>(`${base}/${comment.id}`, { method: "PATCH", body: JSON.stringify({ text }) });
         if (!active.current) return;
@@ -222,27 +220,6 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
       if (active.current) setBusy(false);
     }
   }
-  async function toggleLike() {
-    if (!user || pending.current || comment.deleted) return;
-    pending.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      await api(`${base}/${comment.id}/like`, { method: comment.liked ? "DELETE" : "PUT" });
-      if (!active.current) return;
-      const updated = await api<DiscussionComment>(`${base}/${comment.id}`);
-      if (!active.current) return;
-      onUpdate(updated);
-      onReaction?.();
-      notifyInteractionChange({ kind, id: publicationId });
-    } catch (reason) {
-      if (active.current) setError(errorMessage(reason));
-    } finally {
-      pending.current = false;
-      if (active.current) setBusy(false);
-    }
-  }
-
   async function reload() {
     if (pending.current) return;
     pending.current = true;
@@ -262,6 +239,9 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
   }
   return <article id={anchor ? `comment-${comment.id}` : undefined}
     className={`discussion-comment ${anchor ? "is-linked" : ""}`}>
+    {!editing && !comment.deleted && comment.publication ? <ReplyPublication post={comment.publication}
+      commentsOpen={expanded} onComments={() => { setExpanded((value) => !value); setReplying(true); }}
+      onChanged={() => { void reload(); onReaction?.(); notifyInteractionChange({ kind, id: publicationId }); }} /> : <>
     <div className="comment-byline">
       {comment.author ? <Link className="inline-flex items-center gap-2 font-semibold" to={`/@${comment.author.username}`}>
         <Avatar src={comment.author.avatars.original} name={comment.author.display_name} size="sm" />
@@ -270,23 +250,18 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
       <RelativeTime publishedAt={comment.created_at} updatedAt={comment.updated_at} />
     </div>
     {editing && !comment.deleted ? <form className="mt-3 space-y-2" onSubmit={(event) => { event.preventDefault(); void change(); }}>
-      <label className="form-label block">Edit your comment<textarea className="field mt-2" maxLength={5000} required
+      <label className="form-label block">Edit your comment<textarea className="field mt-2" maxLength={280} required
         value={text} disabled={busy} onChange={(event) => setText(event.target.value)} /></label>
       <button className="button-secondary" disabled={busy || !text.trim()}>Save changes</button>{" "}
       <button type="button" className="button-quiet" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>
     </form> : <p className="comment-copy">
       {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : comment.text}
     </p>}
+    </>}
     <div className="comment-actions">
       {thread && <button className="underline" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
         {expanded ? "Hide replies" : `View replies (${thread.replies_count})`}
       </button>}
-      {!comment.deleted && <button type="button" className="underline" disabled={busy || !user}
-        aria-label={comment.liked ? "Unlike comment" : "Like comment"} aria-pressed={comment.liked} onClick={() => void toggleLike()}>
-        <Icon name="heart" width={15} height={15} /> {comment.likes_count}
-      </button>}
-      {onReply && user && comment.author && !comment.deleted && <button type="button" className="underline"
-        onClick={() => { if (comment.author) onReply(comment.author.username); }}>Reply</button>}
       {thread && user && !comment.deleted && <button className="underline" aria-expanded={replying} onClick={() => setReplying((value) => !value)}>Reply</button>}
       {own && <>
         <button className="underline" disabled={busy} onClick={() => { setText(comment.text ?? ""); setEditing(true); }}>Edit</button>
@@ -305,7 +280,7 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReply, on
         notifyInteractionChange({ kind, id: publicationId });
       }} />}
     {expanded && thread && <div className={thread.depth < 4 ? "mt-4 border-l border-neutral-200 pl-3 sm:pl-5" : "mt-4 border-t border-neutral-200"}>
-      <CommentList kind="micro_post" id={publicationId} parentId={comment.id} newComments={recentReplies}
+      <CommentList kind={kind} id={publicationId} parentId={comment.id} newComments={recentReplies}
         onRecentUpdate={(updated) => setRecentReplies((items) => items.map((item) => item.id === updated.id ? updated : item))} />
     </div>}
   </article>;

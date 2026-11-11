@@ -69,6 +69,7 @@ export type Attachment =
   | { type: "embed"; provider: "soundcloud" | "spotify" | "youtube" | "twitch" | "vimeo"; url: string }
   | { type: "video"; url: string };
 export type PublicationBase = {
+  reply?: ReplyMetadata | null;
   id: string;
   share_url: string | null;
   owner_id: string;
@@ -105,18 +106,14 @@ type PreviewBase = Pick<PublicationBase, "id" | "authors"> & {
 };
 export type ArticlePreview = PreviewBase & Pick<ArticleFeedItem, "kind" | "title" | "summary">;
 export type PublicationPreview = ArticlePreview | (PreviewBase & Pick<PostFeedItem, "kind" | "text" | "updated_at">);
-export type ProfileActivity = PostFeedItem | RepostFeedItem | {
-  kind: "article_comment";
-  id: string;
-  author: ProfileCard;
-  text: string;
-  created_at: string;
-  updated_at: string;
-  article: ArticlePreview;
+export type ProfileActivity = PostFeedItem | RepostFeedItem;
+export type ReplyMetadata = {
+  kind: PublicationKind; publication_id: string; parent_id: string | null; root_id: string; depth: number;
 };
 export type CursorPage<T> = { items: T[]; next_cursor: string | null };
 export type Feed = CursorPage<FeedItem>;
 export type MicroPost = PublicationBase & {
+  reply: ReplyMetadata | null;
   kind: "micro_post";
   text: string;
   created_at: string;
@@ -156,13 +153,15 @@ type CommentContent = {
   liked: boolean;
 };
 export type PostReply = CommentContent & {
-  post_id: string;
+  post_id: string | null;
+  article_id: string | null;
+  publication: MicroPost | null;
   parent_id: string | null;
   root_id: string;
   depth: number;
   replies_count: number;
 };
-export type ArticleComment = CommentContent & { article_id: string };
+export type ArticleComment = PostReply;
 export type DiscussionComment = PostReply | ArticleComment;
 export type Session = {
   id: string;

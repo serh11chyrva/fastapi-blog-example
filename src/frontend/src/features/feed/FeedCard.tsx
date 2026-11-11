@@ -9,9 +9,8 @@ import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { HighlightedReplies } from "../comments/HighlightedReplies";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
-import { Attachments } from "../publications/Attachments";
 import { PreviewCard } from "../publications/PreviewCard";
-import { PostText } from "./PostText";
+import { PostContent } from "./PostContent";
 
 export function FeedCard({ item, onChanged, showDiscussion = false }: {
   item: FeedItem;
@@ -108,9 +107,7 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
             value={text} disabled={busy} onChange={(event) => setText(event.target.value)} /></label>
           <button className="button-primary" disabled={busy || !text.trim()}>Save</button>{" "}
           <button type="button" className="button-quiet" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>
-        </form> : <PostText text={item.text} />}
-        <Attachments items={item.attachments.filter((attachment) =>
-          attachment.type !== "hashtag" && attachment.type !== "mention")} />
+        </form> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
       </> : <PreviewCard item={item} />}
       <PublicationActions key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id}
         onComments={() => setComments((value) => !value)} commentsOpen={comments} onShare={() => void share()} copied={copied}

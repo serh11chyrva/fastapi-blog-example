@@ -267,3 +267,7 @@ Request failures remain visible with retry/refresh controls. Viewer changes rese
 requests for previous routes/pages are aborted or ignored on completion. Interaction summaries
 stay outside public feed data and use no-store fetches. Frontend controls do not grant access to
 private articles or moderation rights; the backend remains authoritative for all mutations.
+
+Reply cards now share post content and interaction controls, including avatars, reposts,
+bookmarks, and the comment icon. Profile replies use ordinary feed cards with original
+publication context. Article and post children load incrementally, retaining tombstones.
