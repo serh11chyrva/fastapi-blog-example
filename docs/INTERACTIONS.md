@@ -230,6 +230,10 @@ deletions preserve tombstones and descendants. See [migration operations](MIGRAT
 
 ## Frontend flows
 
+Profile badges appear beside the public display name, wrapping with long names or
+multiple badges. Badge labels, icons, colors, and descriptions remain visible; the
+account handle stays on its own line below the name.
+
 - Publication cards and published article pages offer Like, Save, and discussion controls. Posts
   additionally offer Repost. Pressed states and counts come from the original's interaction summary.
   Anonymous readers can read discussions and follow the login link to participate.

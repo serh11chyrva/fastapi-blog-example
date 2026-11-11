@@ -115,17 +115,19 @@ function ProfileContent({ username }: { username: string }) {
               : <Link className="button-primary" to="/login" state={authReturn}>Sign in to follow</Link>}
           </div>
         </div>
-        <h1>{profile.display_name}</h1>
+        <div className="profile-name-row">
+          <h1>{profile.display_name}</h1>
+          {profile.badges.length > 0 && <div className="profile-badges" aria-label="Profile badges">
+            {profile.badges.map((badge) => <span className="badge" key={badge.code}
+              title={badge.payload.description ?? undefined} style={{ backgroundColor: badge.payload.background_color, color: badge.payload.text_color }}>
+              <BadgeIcon badge={badge} />{badge.payload.label}
+            </span>)}
+          </div>}
+        </div>
         <p className="profile-handle">@{profile.username}</p>
         <div className="profile-bio-grid">
           <div>
             {profile.bio && <p className="profile-bio-copy">{profile.bio}</p>}
-            {profile.badges.length > 0 && <div className="profile-badges">
-              {profile.badges.map((badge) => <span className="badge" key={badge.code}
-                title={badge.payload.description ?? undefined} style={{ backgroundColor: badge.payload.background_color, color: badge.payload.text_color }}>
-                <BadgeIcon badge={badge} />{badge.payload.label}
-              </span>)}
-            </div>}
             <div className="profile-bio-meta">
               {profile.location && <span><Icon name="pin" width={14} height={14} />{profile.location}</span>}
               {profile.joined_at && <span><Icon name="calendar" width={14} height={14} />

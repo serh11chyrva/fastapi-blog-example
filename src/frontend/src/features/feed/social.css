@@ -14,7 +14,10 @@
 .profile-bio-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 168px); gap: 20px; margin-top: 14px; }
 .profile-bio-grid:not(:has(.profile-links)) { grid-template-columns: minmax(0, 1fr); }
 .profile-bio-copy { color: var(--text); font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
-.profile-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.profile-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.profile-name-row h1 { min-width: 0; }
+.profile-badges { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.profile-badges .badge { max-width: 100%; overflow-wrap: anywhere; }
 .profile-bio-meta { display: flex; flex-wrap: wrap; gap: 6px 15px; margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 18px; }
 .profile-bio-meta span { display: inline-flex; align-items: center; gap: 5px; }
 .profile-bio-meta svg { color: var(--quiet); }
