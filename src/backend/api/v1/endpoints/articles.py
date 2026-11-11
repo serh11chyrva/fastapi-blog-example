@@ -185,7 +185,7 @@ async def get_article(article_id: ArticleId, current_user: OptionalUser, article
     response_model=ArticleResponse,
     summary="Edit your article",
     description=(
-        "Partial update of title, summary, TipTap JSON body, or typed attachments; only the owner may edit. "
+        "Summary is generated from the first 280 characters of body text. Partial update of title, TipTap JSON body, or typed attachments; only the owner may edit. "
         "Omitted or null attachments are preserved; [] clears explicit descriptors. "
         "References are checked in the write transaction."
     ),

@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 
 from backend.articles.models import Article
+from backend.articles.summary import article_summary
 from backend.articles.schemas import ArticleCreate
 from backend.articles.validation import ArticleBody
 from backend.core.config import get_settings
@@ -175,14 +176,14 @@ async def seed_publications(
                 [publication_image_url(image, "article-images") for image in inline_keys], reference_id,
                 showcase=showcase,
             )
-            payload = ArticleCreate(title=title, summary=f"A practical story about {title.lower()}.", body=body)
+            payload = ArticleCreate(title=title, body=body)
             created_at = now - timedelta(days=3, hours=index)
             published_at = now - timedelta(minutes=25 if showcase else 20 + index * 75) if status == "published" else None
             updated_at = published_at + timedelta(minutes=5) if showcase and published_at else created_at
             article = Article(
                 id=resource_id, owner_id=users[username].id,
                 featured_author_ids=[users["dana"].id, users["farah"].id] if index == 0 else [],
-                title=payload.title, summary=payload.summary, body=payload.body,
+                title=payload.title, summary=article_summary(payload.body), body=payload.body,
                 thumbnail_key=cover, inline_image_keys=inline_keys, status=status,
                 attachments=[HashtagAttachment(tag="FieldNotes"), LinkAttachment(url="https://docs.python.org/3/")],
                 created_at=created_at, updated_at=updated_at,

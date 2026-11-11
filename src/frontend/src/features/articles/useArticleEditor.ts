@@ -13,7 +13,6 @@ export function useArticleEditor() {
   const { user } = useApp();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
   const [body, setBody] = useState<JSONContent>({ type: "doc", content: [{ type: "paragraph" }] });
   const [article, setArticle] = useState<Article | null>(null);
   const [error, setError] = useState("");
@@ -48,7 +47,6 @@ export function useArticleEditor() {
         }
         setArticle(value);
         setTitle(value.title);
-        setSummary(value.summary);
         setBody(value.body);
         if (value.scheduled_at) {
           const local = new Date(value.scheduled_at);
@@ -86,11 +84,11 @@ export function useArticleEditor() {
   }
   async function persist(): Promise<Article> {
     validateContent();
-    const payload = { title, summary, body };
+    const payload = { title, body };
     let saved = article;
     if (!saved) {
       saved = await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
-    } else if (title.trim() !== saved.title || summary.trim() !== saved.summary || JSON.stringify(body) !== JSON.stringify(saved.body)) {
+    } else if (title.trim() !== saved.title || JSON.stringify(body) !== JSON.stringify(saved.body)) {
       saved = await api<Article>(`/articles/${saved.id}`, { method: "PATCH", body: JSON.stringify(payload) });
     }
     setArticle(saved);
@@ -202,5 +200,5 @@ export function useArticleEditor() {
     }
   }
   useEffect(() => { editor?.setEditable(!saving); }, [editor, saving]);
-  return { loading, loadError, title, setTitle, summary, setSummary, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
+  return { loading, loadError, title, setTitle, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
 }

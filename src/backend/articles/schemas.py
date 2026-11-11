@@ -13,7 +13,7 @@ class ArticleCreate(BaseModel):
     """Article draft whose body is a validated TipTap JSON document."""
 
     model_config = ConfigDict(
-        title="New article draft",
+        title="New article draft", extra="forbid",
         json_schema_extra={"examples": [examples.ARTICLE_CREATE, examples.ARTICLE_RICH_CREATE]},
     )
 
@@ -27,12 +27,6 @@ class ArticleCreate(BaseModel):
         max_length=160,
         description="Article title, trimmed and nonblank, up to 160 characters.",
         examples=[examples.ARTICLE_CREATE["title"]],
-    )
-    summary: str = Field(
-        default="",
-        max_length=320,
-        description="Short feed preview, up to 320 characters. Trimmed; may be empty.",
-        examples=[examples.ARTICLE_CREATE["summary"]],
     )
     body: ArticleBody = Field(
         description=(
@@ -61,16 +55,6 @@ class ArticleCreate(BaseModel):
 
         return value
 
-    @field_validator("summary")
-    @classmethod
-    def trim_summary(cls, value: str) -> str:
-        """Trim surrounding whitespace from the article summary.
-
-        :param value: Article summary to trim when supplied.
-        :return: The trimmed article summary.
-        """
-        return value.strip()
-
     @field_validator("body")
     @classmethod
     def validate_body(cls, value: ArticleBody) -> ArticleBody:
@@ -88,7 +72,7 @@ class ArticleUpdate(BaseModel):
     """Partial article update. The author can edit drafts and publications."""
 
     model_config = ConfigDict(
-        title="Article changes",
+        title="Article changes", extra="forbid",
         json_schema_extra={"examples": [examples.ARTICLE_UPDATE]},
     )
 
@@ -103,12 +87,6 @@ class ArticleUpdate(BaseModel):
         max_length=160,
         description="Replacement title, trimmed and nonblank. Omit or use null to keep the current title.",
         examples=[examples.ARTICLE_UPDATE["title"]],
-    )
-    summary: str | None = Field(
-        default=None,
-        max_length=320,
-        description="Replacement feed preview. Use an empty string to clear it; omit or use null to keep it.",
-        examples=[examples.ARTICLE_UPDATE["summary"]],
     )
     body: ArticleBody | None = Field(
         default=None,
@@ -133,16 +111,6 @@ class ArticleUpdate(BaseModel):
             raise ValueError("Title cannot be empty")
 
         return value
-
-    @field_validator("summary")
-    @classmethod
-    def trim_summary(cls, value: str | None) -> str | None:
-        """Trim an article summary while retaining an omitted value.
-
-        :param value: Article summary to trim when supplied.
-        :return: The trimmed summary, or None for an omitted update.
-        """
-        return value.strip() if value is not None else None
 
     @field_validator("body")
     @classmethod
@@ -229,8 +197,9 @@ class ArticleResponse(BaseModel):
         examples=[examples.ARTICLE_CREATE["title"]],
     )
     summary: str = Field(
-        description="Short feed preview; may be empty.",
-        examples=[examples.ARTICLE_CREATE["summary"]],
+        max_length=280,
+        description="Read-only first 280 characters of normalized article body text; may be empty.",
+        examples=[examples.ARTICLE["summary"]],
     )
     body: ArticleBody = Field(
         description="Validated TipTap JSON document used to render the full article.",

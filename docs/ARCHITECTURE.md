@@ -1,5 +1,11 @@
 # Application architecture
 
+Article previews are derived on the server from the first 280 characters of normalized
+TipTap body text. Formatting does not split words; block boundaries separate text.
+The write API does not accept `summary`. To backfill existing previews, run
+`docker compose exec api uv run python -m backend.migrate summaries`.
+This explicit conversion is resumable and preserves article timestamps.
+
 Backend source lives in `src/backend/`; frontend source lives in `src/frontend/`.
 Feature packages own their behavior and persisted models. Shared infrastructure
 does not own feature policy.

@@ -137,7 +137,6 @@ ARTICLE_BODY = {
 }
 ARTICLE_CREATE = {
     "title": "A reading habit that fits into a busy week",
-    "summary": "How a paperback by the coffee machine helped me read twelve books in six months.",
     "body": ARTICLE_BODY,
 }
 ARTICLE_UPDATE = ARTICLE_CREATE | {"title": "Ten pages before the first meeting"}
@@ -146,6 +145,7 @@ ARTICLE = {
     "kind": "article",
     "share_url": "/@maya_bennett/a-reading-habit-that-fits-into-a-busy-week--c7412d809e364a5bb18762f90d3ea458",
     **ARTICLE_CREATE,
+    "summary": " ".join(node["text"] for block in ARTICLE_BODY["content"] for node in block.get("content", []) if node.get("type") == "text")[:280],
     "thumbnail_url": None,
     "inline_image_urls": [],
     "attachments": [],

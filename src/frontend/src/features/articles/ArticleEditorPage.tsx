@@ -12,7 +12,7 @@ export function ArticleEditorPage() {
 }
 
 function ArticleEditorForm() {
-  const { loading, loadError, title, setTitle, summary, setSummary, article, error, saving, setThumbnailFile, thumbnailPreview,
+  const { loading, loadError, title, setTitle, article, error, saving, setThumbnailFile, thumbnailPreview,
     publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
   const workspace = useRef<HTMLDivElement>(null);
   const publishDialog = useRef<HTMLDialogElement>(null);
@@ -84,8 +84,6 @@ function ArticleEditorForm() {
       </div>
       <div className="dialog-body">
         <p className="writer-state">Status · {status}</p>
-        <label className="form-label">Summary<textarea className="field" disabled={saving} maxLength={320}
-          placeholder="A short introduction for readers" value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
         {article?.scheduled_at && <p className="writer-state">Scheduled for {new Date(article.scheduled_at).toLocaleString()}</p>}
         <label className="form-label">Schedule for<input className="field" type="datetime-local" disabled={saving}
           value={publishAt} onChange={(event) => setPublishAt(event.target.value)} /></label>

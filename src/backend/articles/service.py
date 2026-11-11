@@ -8,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from backend.articles.models import Article
 from backend.articles.repository import ArticleRepository, ArticleStatus
 from backend.articles.schemas import ArticleCreate, ArticleUpdate
+from backend.articles.summary import article_summary
 from backend.articles.validation import article_body_attachments, article_image_keys
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
@@ -84,7 +85,7 @@ class ArticleService:
         article = Article(
             owner_id=owner.id,
             title=payload.title,
-            summary=payload.summary,
+            summary=article_summary(payload.body),
             body=payload.body,
             attachments=payload.attachments,
             created_at=now,
@@ -139,8 +140,7 @@ class ArticleService:
             if payload.title is not None:
                 article.title = payload.title
 
-            if payload.summary is not None:
-                article.summary = payload.summary
+            article.summary = article_summary(article.body)
 
             article.updated_at = datetime.now(UTC)
             await article.save(session=session)

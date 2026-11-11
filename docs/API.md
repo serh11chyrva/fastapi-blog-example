@@ -483,7 +483,6 @@ The scheduler checks every 15 seconds. Returning to draft clears a pending sched
 ```json
 {
   "title": "Notes on building a reading habit",
-  "summary": "A few practical ideas for making time to read.",
   "body": {
     "type": "doc",
     "content": [
@@ -495,7 +494,9 @@ The scheduler checks every 15 seconds. Returning to draft clears a pending sched
 }
 ```
 
-Article response adds `id`, `kind: "article"`, `status`, `owner_id`, `authors`, `created_at`, `updated_at`, and nullable `published_at`. `PATCH` accepts any subset of `title`, `summary`, `body`, and `attachments`. Omitted or null article fields preserve their current values; `attachments: []` clears explicit descriptors. Published articles are publicly readable. Draft reads by anyone except the owner return `404`.
+Article summaries are read-only, generated on save from the first 280 characters of normalized body text.
+
+Article response adds `id`, `kind: "article"`, `status`, `owner_id`, `authors`, `created_at`, `updated_at`, and nullable `published_at`. `PATCH` accepts any subset of `title`, `body`, and `attachments`. Omitted or null article fields preserve their current values; `attachments: []` clears explicit descriptors. Published articles are publicly readable. Draft reads by anyone except the owner return `404`.
 
 ## Typed publication content
 
