@@ -333,3 +333,9 @@ and retry state are retained on failure. A private Untitled draft can stage the 
 inline image before the author supplies a title. Removing an inline node does not
 immediately delete its owned image inventory, preserving undo and later reinsertion.
 Quote citations, code languages, and alignment remain part of persisted node attributes.
+
+Editor block menus move keyboard focus to their first available action and stay
+inside the visible viewport. Slash insertion applies to an empty top-level
+paragraph; block movement selects the moved node through ProseMirror's valid
+selection resolution. Gallery resize preserves the current carousel slide, and
+removing the final image releases the viewer's page-scroll lock.

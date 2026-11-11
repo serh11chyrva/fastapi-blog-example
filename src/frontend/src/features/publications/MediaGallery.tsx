@@ -13,6 +13,7 @@ export function MediaGallery({ images }: { images: Image[] }) {
   const [slide, setSlide] = useState(0);
   const [failed, setFailed] = useState<string[]>([]);
   const selectedRef = useRef(0);
+  const slideRef = useRef(0);
   const count = images.length;
   const active = images[Math.min(selected, count - 1)];
   const signature = images.map((image) => image.url).join("|");
@@ -24,7 +25,7 @@ export function MediaGallery({ images }: { images: Image[] }) {
     const child = element.children[next] as HTMLElement | undefined;
     if (child) element.scrollTo({ left: Math.min(child.offsetLeft, element.scrollWidth - element.clientWidth),
       behavior: smooth && !window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "smooth" : "instant" });
-    setSlide(next);
+    slideRef.current = next; setSlide(next);
   }, [count]);
 
   const restore = useCallback(() => {
@@ -37,12 +38,13 @@ export function MediaGallery({ images }: { images: Image[] }) {
   useEffect(() => {
     selectedRef.current = Math.min(selectedRef.current, Math.max(0, count - 1));
     setSelected(selectedRef.current);
-    if (!count) dialog.current?.close();
+    slideRef.current = Math.min(slideRef.current, Math.max(0, count - 1));
+    if (!count) { dialog.current?.close(); restore(); }
     const element = track.current;
-    const observer = new ResizeObserver(() => go(selectedRef.current, false));
+    const observer = new ResizeObserver(() => go(slideRef.current, false));
     if (element) observer.observe(element);
     return () => observer.disconnect();
-  }, [signature, count, go]);
+  }, [signature, count, go, restore]);
   useEffect(() => () => restore(), [restore]);
 
   function show(index: number, trigger: HTMLElement) {
@@ -77,7 +79,7 @@ export function MediaGallery({ images }: { images: Image[] }) {
             const best = Math.min((element.children[nearest] as HTMLElement).offsetLeft, element.scrollWidth - element.clientWidth);
             if (Math.abs(offset - element.scrollLeft) < Math.abs(best - element.scrollLeft)) nearest = index;
           });
-          setSlide(nearest);
+          slideRef.current = nearest; setSlide(nearest);
         }}>
         {images.map((image, index) => <button key={image.url} type="button" className="carousel-slide"
           aria-label={`View photo ${index + 1} of ${count}${image.alt ? `: ${image.alt}` : ""}`}

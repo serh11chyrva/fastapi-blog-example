@@ -3,6 +3,7 @@ import type { RefObject } from "react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
 import type { Transaction } from "@tiptap/pm/state";
+import { Selection, TextSelection } from "@tiptap/pm/state";
 import { Icon } from "../../shared/ui/Icon";
 import { AttachmentComposer } from "../publications/AttachmentComposer";
 
@@ -16,9 +17,10 @@ export function moveArticleBlock(editor: Editor, source: number, target: number)
   if (!moving || !destination || source === target) return;
   const { tr } = editor.state;
   const position = source < target ? destination.from + destination.node.nodeSize - moving.node.nodeSize : destination.from;
-  editor.view.dispatch(tr.delete(moving.from, moving.from + moving.node.nodeSize).insert(position, moving.node));
+  tr.delete(moving.from, moving.from + moving.node.nodeSize).insert(position, moving.node);
+  tr.setSelection(Selection.near(tr.doc.resolve(Math.min(position + 1, tr.doc.content.size))));
+  editor.view.dispatch(tr.scrollIntoView());
   editor.commands.focus();
-  editor.commands.setTextSelection(Math.min(position + 1, editor.state.doc.content.size));
 }
 
 export type InsertionRange = { from: number; to: number };
@@ -42,6 +44,7 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
 }) {
   const insertion = useRef<InsertionRange | null>(null);
   const selection = useRef<InsertionRange | null>(null);
+  const menuElement = useRef<HTMLDivElement>(null);
   const [gaps, setGaps] = useState<{ top: number; from: number }[]>([]);
   const [menuTop, setMenuTop] = useState(0);
   const [link, setLink] = useState<string | null>(null);
@@ -74,7 +77,7 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     setPosition({
       top: Math.max(0, top - boundary.top), index, after: from + doc.child(index).nodeSize,
       selectionTop: first.top - boundary.top - 43, selectionLeft: Math.max(0, Math.min(first.left - boundary.left, boundary.width - 285)),
-      selected: !selection.empty && !editor.isActive("codeBlock"),
+      selected: selection instanceof TextSelection && !selection.empty && !editor.isActive("codeBlock"),
     });
   }, [editor, workspace]);
 
@@ -94,7 +97,8 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     function keydown(event: KeyboardEvent) {
       if (!editor || disabled) return;
       const current = editor.state.selection;
-      if (event.key === "/" && current.empty && current.$from.parent.type.name === "paragraph" && !current.$from.parent.textContent) {
+      if (event.key === "/" && current.empty && current.$from.depth === 1
+        && current.$from.parent.type.name === "paragraph" && !current.$from.parent.textContent) {
         event.preventDefault(); event.stopPropagation();
         insertion.current = { from: current.$from.before(), to: current.$from.after() };
         const area = workspace.current!.getBoundingClientRect();
@@ -123,7 +127,18 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     };
   }, [editor, update, workspace, disabled]);
 
+  useEffect(() => {
+    if (!menu || disabled) return;
+    menuElement.current?.querySelector<HTMLButtonElement>("button:not(.icon-button):not(:disabled)")?.focus({ preventScroll: true });
+  }, [menu, menuTop, disabled]);
+
   if (!editor || !position || disabled) return null;
+
+  const areaTop = workspace.current?.getBoundingClientRect().top ?? 0;
+  const minTop = Math.max(0, 12 - areaTop);
+  const maxTop = Math.max(minTop, window.innerHeight - areaTop - 180);
+  const floatingTop = Math.max(minTop, Math.min(menuTop, maxTop));
+  const menuStyle = { top: floatingTop, maxHeight: Math.max(0, window.innerHeight - areaTop - floatingTop - 12), overflowY: "auto" as const };
 
   function add(node: JSONContent) {
     if (!editor || !position) return;
@@ -189,7 +204,7 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
         <Icon name="plus" width={17} height={17} />
       </button>
     </div>
-    {menu && <div className="block-menu" style={{ top: menuTop, maxHeight: Math.max(120, window.innerHeight - (workspace.current?.getBoundingClientRect().top ?? 0) - menuTop - 12), overflowY: "auto" }} onKeyDown={(event) => {
+    {menu && <div ref={menuElement} className="block-menu" style={menuStyle} onKeyDown={(event) => {
       if (event.key === "Escape") { setMenu(undefined); editor.commands.focus(); }
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
@@ -216,7 +231,7 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
         <button type="button" onClick={() => { setMenu(undefined); setRich("quote"); }}><Icon name="book" width={16} height={16} />Publication</button>
       </>}
     </div>}
-    {rich && <div className="block-menu rich-block-menu" style={{ top: menuTop, maxHeight: Math.max(120, window.innerHeight - (workspace.current?.getBoundingClientRect().top ?? 0) - menuTop - 12), overflowY: "auto" }} onKeyDown={(event) => {
+    {rich && <div className="block-menu rich-block-menu" style={menuStyle} onKeyDown={(event) => {
       if (event.key === "Escape") { setRich(undefined); editor.commands.focus(); }
     }}>
       <div className="block-menu-heading">Add rich content
