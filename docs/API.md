@@ -669,3 +669,13 @@ on retries; the response identifies an owner-only staging post. Existing image u
 routes accept this target. PATCH the final content to publish it, or DELETE it to
 abandon it. Inactive unpublished targets expire after 24 hours. They are excluded
 from feeds, profiles, previews, shared links, interactions, and public image reads.
+
+### Short-publication content rules
+
+Posts and replies accept empty text only when the saved state contains an attachment.
+Choose one gallery (one to five images), one player, one link card, or one publication
+reference. This limit does not apply to article body blocks. On PATCH, omitted text and
+attachments are preserved. `retain_image_urls: []` removes the entire gallery; a list
+retains and orders only the owned images listed. `image_draft_id` transfers a completed
+private gallery atomically on save. `expected_updated_at` returns 409 on a stale edit.
+Removing the final attachment from a textless post is rejected.

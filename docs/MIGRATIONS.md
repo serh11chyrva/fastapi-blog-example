@@ -30,3 +30,8 @@ restore; restoring an old backup alone loses those changes.
 
 Run `backend.migrate summaries` to backfill article previews. It is repeatable and
 does not change article timestamps. Conversion invalidates public feed caches.
+
+Run `backend.migrate attachments` with writes paused after discussion conversion.
+Mixed legacy posts retain their image gallery; otherwise their first supported card,
+player, or publication is retained. Original descriptors are kept in
+`post_attachment_backups`; completed posts are not rewritten on repeat runs.

@@ -8,6 +8,10 @@ from beanie import PydanticObjectId
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.posts.models import MicroPost, ReplyMetadata
+from backend.posts.service import PostService
+from backend.posts.content import validate_post_content
+from backend.publications.attachment_validation import validate_attachment_references
+from backend.storage.urls import publication_image_url
 from backend.feeds.cache import invalidate_public_feed
 from backend.comments.presenters import comment_responses
 from backend.comments.repository import CommentRepository, Discussion, DiscussionSort
@@ -53,7 +57,14 @@ class CommentService:
         async with transaction(self.resources.mongo) as session:
             publication = await public_publication(kind, publication_id, session, touch=True)
             now = datetime.now(UTC)
-            reply_id = PydanticObjectId()
+            draft = None
+            if payload.image_draft_id:
+                draft = await PostService(self.resources, self.audit).owned(payload.image_draft_id, owner, session)
+                if not draft.pending:
+                    if draft.reply is not None and draft.reply.publication_id == publication.id:
+                        return draft
+                    raise InvalidOperation("Choose a private upload draft")
+            reply_id = draft.id if draft else PydanticObjectId()
             parent = None
             original = publication.reply if isinstance(publication, MicroPost) else None
             if parent_id is not None:
@@ -66,6 +77,8 @@ class CommentService:
                 await parent.update({"$inc": {"reply_revision": 1}}, session=session)
             comment = MicroPost(
                 id=reply_id, owner_id=owner.id, text=payload.text, created_at=now, updated_at=now,
+                attachments=payload.attachments, image_keys=draft.image_keys if draft else [],
+                draft_key=draft.draft_key if draft else None,
                 reply=ReplyMetadata(
                     kind=original.kind if original else kind,
                     publication_id=original.publication_id if original else publication.id,
@@ -75,7 +88,14 @@ class CommentService:
                 ),
             )
 
-            await comment.insert(session=session)
+            validate_post_content(comment.text, comment.attachments, comment.image_keys)
+            await validate_attachment_references(
+                comment.attachments, [publication_image_url(key, "post-images") for key in comment.image_keys], session,
+            )
+            if draft:
+                await comment.replace(session=session)
+            else:
+                await comment.insert(session=session)
             await record_audit(
                 self.audit,
                 "COMMENT_CREATED",
@@ -106,40 +126,15 @@ class CommentService:
         :param payload: Replacement text, or None to soft-delete; repeated deletion is idempotent.
         :return: The changed discussion entry, committed with its audit event.
         """
-        async with transaction(self.resources.mongo) as session:
-            publication = await public_publication(kind, publication_id, session, touch=True)
-            comment = await self.repository.get(kind, publication.id, object_id(comment_id), session)
-
-            if comment is None or comment.owner_id != owner.id:
-                raise NotFound("Comment not found")
-
-            if comment.deleted_at is not None:
-                if payload is None:
-                    return comment
-
-                raise NotFound("Comment not found")
-
-            comment.updated_at = datetime.now(UTC)
-
-            if payload is None:
-                comment.text = ""
-                comment.deleted_at = comment.updated_at
-            else:
-                comment.text = payload.text
-
-            await comment.save(session=session)
-            await record_audit(
-                self.audit,
-                "COMMENT_DELETED" if payload is None else "COMMENT_EDITED",
-                actor_id=owner.id,
-                target_type="post_reply" if kind == "micro_post" else "article_comment",
-                target_id=comment_id,
-                metadata={"publication_id": publication_id},
-                session=session,
-            )
-
-        await invalidate_public_feed(self.resources.redis)
-        return comment
+        item = await self.get(kind, publication_id, comment_id)
+        service = PostService(self.resources, self.audit)
+        if item.owner_id != owner.id:
+            raise NotFound("Comment not found")
+        if payload is None:
+            if item.deleted_at is None:
+                await service.delete(str(item.id), owner)
+            return await MicroPost.get(item.id)
+        return await service.edit_post(str(item.id), payload, owner)
 
     async def set_like(
         self, kind: PublicationKind, publication_id: str, comment_id: str, owner: User, enabled: bool,

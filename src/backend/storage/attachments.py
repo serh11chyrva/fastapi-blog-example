@@ -13,6 +13,8 @@ from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.core.errors import InvalidOperation, NotFound
 from backend.posts.models import MicroPost
+from backend.posts.content import validate_post_content
+from backend.publications.access import public_publication
 from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostResponse
 from backend.profiles.models import AvatarImage, User
@@ -76,6 +78,8 @@ class ImageAttachments:
         if publication is None or publication.deleted_at is not None or publication.owner_id != owner.id:
             raise NotFound("Resource not found")
 
+        if isinstance(publication, MicroPost) and publication.reply is not None:
+            await public_publication(publication.reply.kind, str(publication.reply.publication_id), session)
         return publication
 
     async def apply(
@@ -115,6 +119,7 @@ class ImageAttachments:
             old_keys = target.image_keys
             target.image_keys = keys
             target.attachments = [item for item in target.attachments if not isinstance(item, ImageAttachment)]
+            validate_post_content(target.text, target.attachments, target.image_keys)
             action, target_type = "MICRO_POST_IMAGES_CHANGED", "micro_post"
         elif upload.purpose == "article-covers":
             old_keys = [target.thumbnail_key] if target.thumbnail_key else []

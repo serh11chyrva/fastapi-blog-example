@@ -2,38 +2,17 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.api import examples
-from backend.posts.schemas import MicroPostResponse
+from backend.posts.schemas import MicroPostCreate, MicroPostResponse
 from backend.profiles.schemas import ProfileUserResponse
 
 
-class CommentText(BaseModel):
-    """Accept nonblank plain text without attachment or HTML interpretation."""
+class CommentText(MicroPostCreate):
+    """Accept the same text and attachment content as an ordinary post."""
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [examples.COMMENT_CREATE]})
-
-    text: str = Field(
-        min_length=1,
-        max_length=280,
-        description="Plain text, trimmed and nonblank, up to 280 characters.",
-    )
-
-    @field_validator("text")
-    @classmethod
-    def trim_text(cls, value: str) -> str:
-        """Trim comment text and reject whitespace-only content.
-
-        :param value: Supplied plain-text comment or reply content.
-        :return: Nonempty text without surrounding whitespace.
-        """
-        value = value.strip()
-
-        if not value:
-            raise ValueError("Comment text cannot be empty")
-
-        return value
 
 
 class PostReplyCreate(CommentText):

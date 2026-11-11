@@ -5,11 +5,13 @@ from backend.comments.models import ArticleComment, CommentLike, PostReply
 from backend.comments.conversion import ReplyMapping
 from backend.interactions.models import PublicationInteraction
 from backend.posts.models import MicroPost
+from backend.posts.migrations import AttachmentBackup
 from backend.profiles.models import BadgeAssignment, BadgeDefinition, Follow, User
 from backend.storage.models import ImageUpload, ObjectCleanup
 
 DOCUMENT_MODELS = [
     ReplyMapping,
+    AttachmentBackup,
     User,
     BadgeDefinition,
     AuthIdentity,

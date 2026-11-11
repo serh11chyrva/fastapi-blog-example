@@ -10,14 +10,16 @@ from pymongo.errors import DuplicateKeyError
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.core.config import get_settings
-from backend.core.errors import NotFound
+from backend.core.errors import Conflict, InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.feeds.cache import invalidate_public_feed
 from backend.posts.models import MicroPost
+from backend.posts.content import validate_post_content
 from backend.posts.repository import PostRepository
 from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
+from backend.publications.attachments import ImageAttachment
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.publications.queries import load_authors
 from backend.publications.access import public_publication
@@ -81,6 +83,9 @@ class PostService:
         :param owner: Authenticated account owning or initiating the operation.
         :return: The persisted micro-post.
         """
+        if payload.image_draft_id or payload.retain_image_urls:
+            raise InvalidOperation("Publish uploaded images by updating their staging post")
+        validate_post_content(payload.text, payload.attachments, [])
         now = datetime.now(UTC)
         post = MicroPost(
             owner_id=owner.id, text=payload.text, attachments=payload.attachments, created_at=now, updated_at=now
@@ -138,6 +143,28 @@ class PostService:
         async with transaction(self.resources.mongo) as session:
             post = await self.owned(post_id, owner, session)
 
+            if payload.expected_updated_at is not None and payload.expected_updated_at != post.updated_at:
+                raise Conflict("This post changed; reload before saving")
+            old_keys = list(post.image_keys)
+            if payload.image_draft_id is not None:
+                draft = await self.owned(payload.image_draft_id, owner, session)
+                if draft.id == post.id or not draft.pending or not draft.image_keys:
+                    raise InvalidOperation("Choose a completed private image upload")
+                post.image_keys = list(draft.image_keys)
+                draft.image_keys = []
+                draft.deleted_at = datetime.now(UTC)
+                await draft.save(session=session)
+            elif payload.retain_image_urls is not None:
+                inventory = {publication_image_url(key, "post-images"): key for key in post.image_keys}
+                if len(set(payload.retain_image_urls)) != len(payload.retain_image_urls) or any(
+                    url not in inventory for url in payload.retain_image_urls
+                ):
+                    raise InvalidOperation("Retained images must belong to this post")
+                post.image_keys = [inventory[url] for url in payload.retain_image_urls]
+            available = {publication_image_url(key, "post-images") for key in post.image_keys}
+            post.attachments = [item for item in post.attachments
+                                if not isinstance(item, ImageAttachment) or item.url in available]
+
             if "attachments" in payload.model_fields_set:
                 await validate_attachment_references(
                     payload.attachments,
@@ -148,12 +175,16 @@ class PostService:
                 )
                 post.attachments = payload.attachments
 
-            post.text = payload.text
+            if "text" in payload.model_fields_set:
+                post.text = payload.text
+            validate_post_content(post.text, post.attachments, post.image_keys)
             if post.pending:
                 post.pending = False
                 post.created_at = datetime.now(UTC)
             post.updated_at = datetime.now(UTC)
             await post.save(session=session)
+            for key in set(old_keys) - set(post.image_keys):
+                await queue_deletion(get_settings().publication_bucket, key, session=session)
             await record_audit(
                 self.audit,
                 "MICRO_POST_EDITED",

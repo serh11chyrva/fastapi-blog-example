@@ -113,8 +113,8 @@ async def get_micro_post(post_id: PostId, posts: Posts) -> MicroPostResponse:
     response_model=MicroPostResponse,
     summary="Edit your micro-post",
     description=(
-        "Only the owner may edit a post. Text is required; supplied attachments replace explicit descriptors. "
-        "Omitted attachments are preserved. Image uploads remain managed by the upload endpoints."
+        "Only the owner may edit a post. Omitted text is preserved; supplied attachments replace descriptors. "
+        "Text may be empty when an attachment remains. retain_image_urls removes images; image_draft_id replaces a gallery. expected_updated_at rejects stale edits."
     ),
     tags=["Micro-posts"],
     responses=documented_responses(401, 403, 404, 409, 503),

@@ -21,34 +21,42 @@ class MicroPostCreate(BaseModel):
     """Text and optional ordered attachments for a public micro-post."""
 
     model_config = ConfigDict(
-        title="Micro-post content",
+        title="Micro-post content", extra="forbid",
         json_schema_extra={"examples": [examples.POST_CREATE, examples.POST_RICH_CREATE]},
     )
 
     attachments: PublicationAttachments = Field(
         default_factory=list,
-        description="Ordered typed content, up to 30 descriptors. Images must already belong to the post. "
+        description="One attachment choice: up to five gallery images, or one player, card, or publication. "
         "Video is reserved and rejected. On edit, omission preserves attachments; [] clears explicit descriptors.",
     )
     text: str = Field(
-        min_length=1,
+        default="",
         max_length=280,
-        description="Complete post text, up to 280 characters. Surrounding whitespace is trimmed; blank text is rejected.",
+        description="Post text, up to 280 characters. Blank text requires an attachment in the final saved state.",
         examples=[examples.POST_TEXT],
+    )
+
+    retain_image_urls: list[str] | None = Field(
+        default=None, max_length=5, description="On edit, keep only these owned gallery images; [] removes all.",
+    )
+    image_draft_id: str | None = Field(
+        default=None, pattern=r"^[0-9a-fA-F]{24}$",
+        description="Owned private staging post whose images atomically replace this gallery on save.",
+    )
+    expected_updated_at: datetime | None = Field(
+        default=None, description="On edit, reject a stale draft with 409 instead of overwriting newer changes.",
     )
 
     @field_validator("text")
     @classmethod
     def validate_text(cls, value: str) -> str:
-        """Trim micro-post text and reject whitespace-only input.
+        """Trim micro-post text; final-state validation requires text or an attachment.
 
-        :param value: Micro-post text to trim and require to be nonblank.
-        :return: The trimmed nonempty micro-post text.
+        :param value: Micro-post text to trim.
+        :return: The trimmed micro-post text, possibly empty.
         """
         value = value.strip()
-
-        if not value:
-            raise ValueError("Post text cannot be empty")
 
         return value
 
