@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { EditorContent } from "@tiptap/react";
 import { usePageTitle } from "../../app/usePageTitle";
@@ -13,13 +13,28 @@ export function ArticleEditorPage() {
 
 function ArticleEditorForm() {
   const { loading, loadError, title, setTitle, article, error, saving, setThumbnailFile, thumbnailPreview,
-    publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
+    publishAt, setPublishAt, imageInput, chooseInlineImage, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
+  const [dropTop, setDropTop] = useState<number | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
   const publishDialog = useRef<HTMLDialogElement>(null);
   usePageTitle(loading ? "Loading editor" : loadError ? "Editor unavailable" : article ? `Edit ${article.title}` : "Write an article");
   if (loading) return <p className="list-status" role="status">Loading article…</p>;
   if (loadError) return <p className="notice-error" role="alert">{loadError}</p>;
 
+  function dropGap(clientY: number) {
+    if (!editor || !workspace.current) return null;
+    const gaps: { index: number; y: number }[] = [];
+    editor.state.doc.forEach((node, from, index) => {
+      const element = editor.view.nodeDOM(from);
+      if (element instanceof HTMLElement) {
+        const rect = element.getBoundingClientRect();
+        gaps.push({ index, y: rect.top });
+        if (index === editor.state.doc.childCount - 1) gaps.push({ index: index + 1, y: rect.bottom });
+      }
+    });
+    return gaps.reduce<{ index: number; y: number } | null>((best, gap) =>
+      !best || Math.abs(gap.y - clientY) < Math.abs(best.y - clientY) ? gap : best, null);
+  }
   const preview = thumbnailPreview || article?.thumbnail_url;
   const status = article?.status ?? "draft";
   return <article className="writer">
@@ -53,17 +68,24 @@ function ArticleEditorForm() {
         if (event.dataTransfer.types.includes(articleBlockDragType)) {
           event.preventDefault();
           event.dataTransfer.dropEffect = "move";
+          const gap = dropGap(event.clientY);
+          if (gap) setDropTop(gap.y - (workspace.current?.getBoundingClientRect().top ?? 0));
         }
       }}
+      onDragEnd={() => setDropTop(null)}
+      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTop(null); }}
       onDropCapture={(event) => {
         const raw = event.dataTransfer.getData(articleBlockDragType);
         if (!raw || !editor || saving) return;
         event.preventDefault();
         event.stopPropagation();
-        const position = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
-        if (position) moveArticleBlock(editor, Number(raw), Math.min(editor.state.doc.resolve(position.pos).index(0), editor.state.doc.childCount - 1));
+        const gap = dropGap(event.clientY);
+        const source = Number(raw);
+        if (gap && Number.isInteger(source)) moveArticleBlock(editor, source, gap.index > source ? gap.index - 1 : gap.index);
+        setDropTop(null);
       }}>
-      <EditorToolbar editor={editor} workspace={workspace} disabled={saving} onAddImage={() => imageInput.current?.click()} />
+      <EditorToolbar editor={editor} workspace={workspace} disabled={saving} onAddImage={chooseInlineImage} />
+      {dropTop !== null && <div className="editor-drop-indicator" style={{ top: dropTop }} aria-hidden="true" />}
       <EditorContent editor={editor} />
       <input ref={imageInput} disabled={saving} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
         const file = event.target.files?.[0];

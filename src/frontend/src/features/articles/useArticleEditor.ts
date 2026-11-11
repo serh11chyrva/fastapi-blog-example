@@ -5,6 +5,8 @@ import type { JSONContent } from "@tiptap/core";
 import type { Article } from "../../shared/api/types";
 import { useEditor } from "@tiptap/react";
 import { createEditorExtensions } from "./editorExtensions";
+import type { InsertionRange } from "./EditorToolbar";
+import type { Transaction } from "@tiptap/pm/state";
 import { fromEditorBody, toEditorBody } from "./contentNodes";
 import { api, errorMessage } from "../../shared/api/client";
 import { useImageUploader, validateImages } from "../../shared/uploads/uploadImages";
@@ -24,6 +26,7 @@ export function useArticleEditor() {
   const [thumbnailPreview, setThumbnailPreview] = useState("");
   const [publishAt, setPublishAt] = useState("");
   const imageInput = useRef<HTMLInputElement>(null);
+  const imagePosition = useRef<InsertionRange | null>(null);
   const editor = useEditor({
     extensions: createEditorExtensions(),
     content: toEditorBody(body),
@@ -77,6 +80,21 @@ export function useArticleEditor() {
     if (editor && JSON.stringify(fromEditorBody(editor.getJSON())) !== JSON.stringify(body))
       editor.commands.setContent(toEditorBody(body), { emitUpdate: false });
   }, [editor, body]);
+  useEffect(() => {
+    if (!editor) return;
+    function mapImage({ transaction }: { transaction: Transaction }) {
+      if (imagePosition.current) imagePosition.current = {
+        from: transaction.mapping.map(imagePosition.current.from, -1),
+        to: transaction.mapping.map(imagePosition.current.to, 1),
+      };
+    }
+    editor.on("transaction", mapImage);
+    return () => { editor.off("transaction", mapImage); };
+  }, [editor]);
+  function chooseInlineImage(range: InsertionRange) {
+    imagePosition.current = range;
+    imageInput.current?.click();
+  }
   function validateContent() {
     if (!title.trim())
       throw new Error("Add a title before saving your article.");
@@ -112,7 +130,14 @@ export function useArticleEditor() {
         url: string;
         alt_text: string;
       }>(`/articles/${saved.id}/images`, [file]);
-      editor?.chain().focus().insertContent({ type: "image", attrs: { src: uploaded.url, alt: uploaded.alt_text } }).run();
+      if (editor) {
+        const range = imagePosition.current ?? { from: editor.state.selection.from, to: editor.state.selection.to };
+        imagePosition.current = null;
+        editor.chain().focus().insertContentAt(range, [
+          { type: "image", attrs: { src: uploaded.url, alt: uploaded.alt_text } }, { type: "paragraph" },
+        ]).run();
+        editor.commands.setTextSelection(Math.min(range.from + 2, editor.state.doc.content.size));
+      }
       setPendingInlineImage(null);
     }
     catch (reason) {
@@ -200,5 +225,5 @@ export function useArticleEditor() {
     }
   }
   useEffect(() => { editor?.setEditable(!saving); }, [editor, saving]);
-  return { loading, loadError, title, setTitle, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
+  return { loading, loadError, title, setTitle, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, chooseInlineImage, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
 }

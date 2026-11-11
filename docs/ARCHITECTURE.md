@@ -319,3 +319,9 @@ Provider contracts: [SoundCloud](https://developers.soundcloud.com/docs/oembed),
 Redis sorted set. Worker leases expire after 60 seconds; queue entries remain until
 results are cached and acknowledged together. AOF and the named Redis volume preserve
 queued work across restarts. External fetching never runs inside save transactions.
+
+The article toolbar retains insertion/selection ranges across menu focus and maps
+pending image positions through TipTap transactions. Empty-paragraph slash commands
+open block insertion; gap controls add before, between, or after blocks. Dragging shows
+a destination indicator and Alt+ArrowUp/ArrowDown moves the active block. Formatting
+restores the selected range before applying marks, alignment, or link changes.

@@ -159,3 +159,10 @@
   .block-tools { left: -39px; gap: 0; }
   .block-tools button { width: 21px; }
 }
+
+.editor-insert-gap{position:absolute;left:-28px;width:28px;height:20px;transform:translateY(-50%);z-index:2}
+.editor-insert-gap button{display:grid;place-items:center;width:22px;height:22px;border:1px solid #d4d4c7;border-radius:50%;background:white;color:#777765;opacity:0}
+.editor-insert-gap:hover button,.editor-insert-gap:focus-within button{opacity:1}
+.editor-drop-indicator{position:absolute;left:0;right:0;height:2px;background:#727867;pointer-events:none;z-index:5}
+.block-menu{max-width:calc(100vw - 45px)}
+@media(hover:none){.editor-insert-gap button{opacity:.7}}
