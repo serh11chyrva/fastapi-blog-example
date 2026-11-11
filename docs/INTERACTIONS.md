@@ -335,8 +335,9 @@ Publication cards use locally bundled Inter (licensed under the included SIL Ope
 Font License); article titles retain Georgia. Article covers fade into the white
 card over 36px with a concentrated transition near the bottom. Article previews use
 the reference's cover, title/date row, excerpt block, and underlined Read article
-footer. Excerpts are limited to 110px and always fade through their own text, including
-short summaries, as in the supplied article card. Cover and title/footer links open
+footer. Excerpts are limited to 66px (three lines at 22px): the first two lines stay
+readable and the third fades to fully transparent before the bottom edge, hiding
+the summary's continuation. Cover and title/footer links open
 the article; the excerpt remains selectable text.
 Carousel edges fade over 24px only while more content exists in that direction;
 the overlays do not intercept input. Publication date formatting is unchanged.

@@ -93,8 +93,8 @@
 .longread-title-row h2 { margin: 0; color: var(--ink); font: 400 27px/30px var(--reading-font); letter-spacing: -.045em; overflow-wrap: anywhere; }
 .longread-title-row h2 a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .longread-title-row time { padding-bottom: 2px; color: #939387; font: 11px/18px var(--ui-font); white-space: nowrap; justify-self: end; }
-.article-excerpt { position: relative; max-height: 110px; overflow: hidden; margin: 0; color: #717166; font: 14px/22px var(--ui-font); -webkit-mask-image: linear-gradient(to bottom, #000 38%, transparent 100%); mask-image: linear-gradient(to bottom, #000 38%, transparent 100%); }
-.article-excerpt p { margin: 0 0 10px; }
+.article-excerpt { position: relative; max-height: 66px; overflow: hidden; margin: 0; color: #717166; font: 14px/22px var(--ui-font); -webkit-mask-image: linear-gradient(to bottom, #000 44px, transparent 60px); mask-image: linear-gradient(to bottom, #000 44px, transparent 60px); }
+.article-excerpt p { margin: 0; }
 .article-bottom { display: flex; justify-content: flex-start; margin-top: 14px; }
 .article-read-button { display: inline-flex; align-items: center; gap: 10px; color: #33332c; font: 800 15px/22px var(--ui-font); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
 .article-read-button:hover { color: #000; text-decoration-thickness: 2px; }
