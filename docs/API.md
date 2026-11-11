@@ -243,10 +243,9 @@ Public profile example:
 
 The timeline returns `{items, next_cursor}` in descending event time, kind, and ID order.
 The default limit is 20 and the maximum is 50. Continue with the opaque cursor
-from the preceding page. An unknown profile returns 404. Each item is a `micro_post`,
-`repost`, or `article_comment`. Comment items carry the author, text, creation timestamp,
-and a compact article card. The article card's `share_url` plus `#comment-{id}` opens
-the discussion at that comment. Deleted entries and unavailable articles are omitted.
+from the preceding page. An unknown profile returns 404. Each item is a `micro_post` or `repost`. Replies are ordinary micro-posts with immutable
+`reply` context. The client resolves that context into a badge and original-publication
+card. Deleted entries and replies to unavailable originals are omitted.
 The public profile's `posts_count` counts visible posts crediting the user as an author.
 
 ### Stable links and redirects
@@ -455,7 +454,7 @@ Create request and representative response:
 }
 ```
 
-Text must be nonblank and at most 280 characters before trimming surrounding whitespace. `PATCH` still requires `text`; an omitted `attachments` field preserves existing descriptors, while `[]` clears them and `null` returns 422. Creation defaults to no explicit descriptors. A missing, deleted, or non-owned post returns `404` for edit/delete.
+Text is trimmed and limited to 280 characters. Empty text requires an attachment in the final saved state. `PATCH` may omit `text` to preserve it; an omitted `attachments` field preserves existing descriptors, while `[]` clears them and `null` returns 422. Creation defaults to no explicit descriptors. A missing, deleted, or non-owned post returns `404` for edit/delete.
 
 ## Articles
 
@@ -501,9 +500,10 @@ Article response adds `id`, `kind: "article"`, `status`, `owner_id`, `authors`, 
 ## Typed publication content
 
 Posts and articles store an ordered `attachments` array. Each object is a strict discriminated
-union selected by `type`; unknown types and fields return 422. Up to 30 explicit descriptors
-are allowed per publication. Existing documents default to `attachments: []` without a migration.
-Post text remains required (1–280 characters, nonblank); attachments do not replace it.
+union selected by `type`; unknown types and fields return 422. Articles allow up to 30
+explicit descriptors. Posts and replies allow one gallery of up to five images or
+one player, card, link, or publication reference. Mention and hashtag descriptors
+are article-only. Empty post text is allowed with a valid attachment.
 The composer and editor support link cards, publication references, and embedded provider players. The editor preserves supported TipTap nodes during save and reload.
 
 | Type | Fields | Behavior |
@@ -515,30 +515,26 @@ The composer and editor support link cards, publication references, and embedded
 | `og_card` | `url`, `title` (1–300), optional `description` (up to 1,000, default empty), `image_url`, `site_name` (1–200) | Caller-supplied or server-generated preview metadata |
 | `article` | `article_id` | 24-character ObjectId of an existing published, undeleted article |
 | `post` | `post_id` | 24-character ObjectId of an existing public micro-post |
-| `embed` | `provider`, `url` | HTTPS resource descriptor for `soundcloud`, `spotify`, `youtube`, `vimeo`, or `twitch` |
+| `embed` | `provider`, `url` | HTTPS resource descriptor for `soundcloud`, `spotify`, `youtube`, or `vimeo`; legacy `twitch` descriptors remain readable as cards |
 | `video` | `url` | Reserved schema variant; all writes currently return 422, including TipTap nodes |
 
 External URLs are limited to 2,048 characters and require HTTP(S), a hostname, no credentials,
 and no whitespace, control characters, or backslashes. Embed URLs additionally require HTTPS,
-the standard port, and a hostname allowed for the provider. The app offers click-to-load players
-for supported YouTube, Vimeo, Spotify, and SoundCloud resource URLs. Other accepted provider URLs
-open as links. Clients render metadata as text and build player URLs from recognized resource IDs.
+the standard port, and a concrete supported resource path. A background worker confirms
+YouTube, Vimeo, Spotify, and SoundCloud resources before returning a player URL.
+Players load near the viewport without an extra activation button; media does not
+autoplay. Homepages, unavailable resources, and unsupported providers use cards.
 
 ```json
 {
   "text": "Notes for the reading group.",
   "attachments": [
-    {"type":"link","url":"https://example.com/notes","label":"Reading notes"},
-    {"type":"mention","user_id":"68eb7491d37a2f06b8ce9540"},
-    {"type":"hashtag","tag":"reading"},
-    {"type":"og_card","url":"https://example.com/notes","title":"Reading notes","description":"Ideas to revisit"},
-    {"type":"article","article_id":"68ebb250c39a6184f027de93"},
-    {"type":"embed","provider":"youtube","url":"https://www.youtube.com/watch?v=jfKfPfyJRdk"}
+    {"type":"og_card","url":"https://example.com/notes","title":"Reading notes","description":"Ideas to revisit"}
   ]
 }
 ```
 
-Replace example IDs with an existing account and a published article. Reference checks occur
+Use existing public publication IDs when attaching a post or article. Reference checks occur
 inside the publication mutation transaction; invalid or unavailable references return 422.
 An attachment stores the ID of the account or publication. For cards, pass up to 30 repeated
 `ref=article:<id>` or `ref=micro_post:<id>` values to `GET /publications/previews`.
@@ -549,28 +545,32 @@ after its target becomes unavailable. Attachments grant no ownership, private ac
 credit, notifications, or automatic hashtag discovery.
 
 Images still use the existing prepare/PUT/confirm upload protocol, with five images per post
-and 30 inline images per article. Create a publication first, upload images, then optionally add
-`image` descriptors to place images among other attachment types or provide alternate text.
+and 30 inline images per article. Reserve a private post with `/posts/drafts`, upload
+images, then PATCH its complete content to publish. Articles upload into an owned
+draft. Optional `image` descriptors provide alternate text or gallery ordering.
 Repeating an image URL within explicit/body descriptors is rejected. Upload inventories
 (`image_keys` / `inline_image_keys` in storage) and their cleanup/authorization indexes remain authoritative.
 Post responses expose images only as `type: "image"` entries in `attachments`; the separate `images`
 field is removed, including in feeds, profile publications, shared-post reads, and upload confirmation
 responses. Article responses retain their separate `inline_image_urls` upload inventory.
-Clearing explicit descriptors does not delete uploaded files. Replacing post images through
-upload confirmation removes old image descriptors, preserves other descriptors, and queues the
-replaced files for cleanup as before.
+Clearing explicit descriptors alone does not delete uploaded files. Send
+`retain_image_urls` to remove post images, or transfer a private `image_draft_id`
+to replace a gallery atomically. Direct upload confirmation rejects mixed gallery
+and non-image attachments; use staging to change attachment types.
 
 Post, article, shared-publication, feed, and profile-publication responses expose `attachments`.
 They retain explicit descriptor order, then append typed descriptors for uploaded images without
-explicit placement (including legacy images). Consequently a response can exceed 30 descriptors:
-the limit applies to explicit stored descriptors. Article body descriptors remain in the body and
+explicit placement (including legacy images). Article responses can consequently
+exceed 30 descriptors: their limit applies to explicit stored descriptors. Posts
+and replies remain limited to one attachment choice. Article body descriptors remain in the body and
 are not copied into the top-level list. Article covers remain a separate `thumbnail_url`.
 
 ### External link preview
 
 Send `{"url":"https://example.com/"}` to `POST /links/preview` with a session and Origin.
-The result is a ready-to-store `og_card`. The fetch is limited to public HTTP(S) hosts on
-standard ports, up to three redirects, five seconds, and 512 KiB of HTML. The endpoint
+The result is a cached, ready-to-store `og_card`, or a hostname card while background
+resolution is queued. The worker fetches public HTTP(S) hosts on standard ports,
+with up to three redirects, five seconds per request, and 512 KiB per response. The endpoint
 accepts up to 20 requests per minute per account and IP. A blocked destination returns 422,
 rate limiting returns 429, and unavailable metadata falls back to the original hostname.
 The fetch never proxies the page body or downloads Open Graph images.
@@ -615,7 +615,7 @@ and these rules are exposed in the Scalar reference at `/api/docs`.
 ## Likes, saves, reposts, and discussions
 
 The backend now provides likes and private saves for public posts and published articles,
-public unquoted post reposts in feeds, nested post replies, and flat article comments.
+public unquoted post reposts in feeds, and publication-backed post and article reply trees.
 See [the interaction and discussion reference](INTERACTIONS.md) for endpoint tables,
 request/response examples, cursor rules, privacy, ownership, tombstones, and concurrency guarantees.
 Scalar at `/api/docs` includes the new Interactions and Comments endpoint groups.

@@ -20,7 +20,7 @@ service = LinkService()
 
 @router.post(
     "/links/preview", response_model=OpenGraphAttachment,
-    summary="Preview an external link", description="Fetch bounded public HTML and return a text-only card.",
+    summary="Preview an external link", description="Read cached card metadata and queue a background refresh on a cache miss.",
     tags=["Links"],
     responses=documented_responses(
         401, 403, 422, 429, 503,
@@ -53,7 +53,7 @@ async def preview_link(
 @router.post(
     "/links/resolve", response_model=LinkResolution, tags=["Links"],
     summary="Resolve a link to a player or card",
-    description="Confirm a concrete provider resource using bounded metadata; unsupported or unavailable resources become cards.",
+    description="Read cached provider metadata or return a pending card while a worker resolves the URL.",
     responses=documented_responses(401, 403, 422, 429, 503),
 )
 async def resolve_external_link(

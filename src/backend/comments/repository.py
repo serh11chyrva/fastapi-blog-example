@@ -1,4 +1,4 @@
-"""Bounded Beanie discussion queries with separate flat and threaded policies."""
+"""Bounded Beanie queries over publication-backed discussion trees."""
 
 from typing import Any, Literal
 
@@ -52,11 +52,11 @@ class CommentRepository:
         sort: DiscussionSort = "oldest",
         likes_count: int | None = None,
     ) -> list[Discussion]:
-        """Read a bounded flat page or one direct-child level, retaining tombstones.
+        """Read one bounded discussion level, retaining tombstones in oldest order.
 
         :param kind: Discussion model selected by the publication type.
         :param publication_id: Containing post or article identifier.
-        :param parent_id: Parent reply for a post level; None selects roots and is ignored for articles.
+        :param parent_id: Parent reply for either discussion type; None selects roots or reply-publication children.
         :param cursor: Last comment ObjectId from the preceding page.
         :param limit: Requested page size; one additional row is read to detect continuation.
         :param sort: Legacy oldest order or a live-only newest or ranked order.
@@ -107,7 +107,7 @@ class CommentRepository:
 
     @staticmethod
     async def live_count(kind: PublicationKind, publication_id: PydanticObjectId) -> int:
-        """Count nondeleted discussion entries across all post levels or one flat article.
+        """Count live entries across an original discussion or direct children of a reply.
 
         :param kind: Publication type selecting the discussion collection.
         :param publication_id: Containing publication identifier.

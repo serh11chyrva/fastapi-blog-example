@@ -11,6 +11,7 @@ from backend.core.resources import AppResources
 from backend.demo.common import demo_id, insert_fixture
 from backend.demo.media import ensure_image
 from backend.posts.models import MicroPost
+from backend.posts.content import validate_post_content
 from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
 from backend.publications.attachments import (
@@ -19,7 +20,6 @@ from backend.publications.attachments import (
     HashtagAttachment,
     ImageAttachment,
     LinkAttachment,
-    MentionAttachment,
     OpenGraphAttachment,
     PostAttachment,
 )
@@ -208,10 +208,7 @@ async def seed_publications(
             continue
 
         username = {35: "alice", 36: "dana"}.get(index, writers[index % len(writers)])
-        attachments = [
-            HashtagAttachment(tag="FieldNotes"),
-            MentionAttachment(user_id=str(users[writers[(index + 1) % len(writers)]].id)),
-        ]
+        attachments = []
         image_keys = []
 
         if index in {0, 1, 6, 12}:
@@ -224,18 +221,15 @@ async def seed_publications(
                 for number, image in enumerate(image_keys)
             ]
 
-        if index == 0:
-            attachments += [
-                LinkAttachment(url="https://developer.mozilla.org/", label="Documentation worth reading"),
-                OpenGraphAttachment(
-                    url="https://docs.python.org/3/", title="A small guide to Python",
-                    description="Caller-supplied preview metadata with a locally generated illustration.",
-                    image_url=get_settings().app_origin + publication_image_url(image_keys[0], "post-images"),
-                    site_name="FastAPI Blog Example demo",
-                ),
-            ]
-            if reference_id:
-                attachments.append(ArticleAttachment(article_id=reference_id))
+        if index == 7:
+            attachments.append(OpenGraphAttachment(
+                url="https://docs.python.org/3/", title="A small guide to Python",
+                description="Documentation worth keeping close to the editor.", site_name="Python",
+            ))
+        if index == 8:
+            attachments.append(LinkAttachment(url="https://developer.mozilla.org/", label="Reading notes"))
+        if index == 9 and reference_id:
+            attachments.append(ArticleAttachment(article_id=reference_id))
 
         if 2 <= index <= 5:
             provider, url = PLAYER_RESOURCES[index - 2]
@@ -256,7 +250,10 @@ async def seed_publications(
                 attachments.append(PostAttachment(post_id=str(original.id)))
             created_at = now - timedelta(minutes=12)
 
+        if index in {1, 7}:
+            text = ""
         payload = MicroPostCreate(text=text, attachments=attachments)
+        validate_post_content(payload.text, payload.attachments, image_keys)
         post = MicroPost(
             id=resource_id, owner_id=users[username].id,
             featured_author_ids=[users["elena"].id] if index == 1 else [],

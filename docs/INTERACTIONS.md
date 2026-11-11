@@ -2,7 +2,7 @@
 
 All routes below use the `/api/v1` prefix. The backend implements likes and private
 saves for posts and published articles, public unquoted post reposts, threaded post
-replies, and flat article comments. Frontend controls are available in publication cards and reading pages.
+and article replies stored as ordinary posts. Frontend controls are available in publication cards and reading pages.
 The Scalar reference at `/api/docs` includes the request/response schemas and examples.
 
 ## Visibility and ownership
@@ -62,8 +62,8 @@ Example post summary:
 }
 ```
 
-`comments_count` includes live entries at every post reply depth, or live flat article
-comments, excluding tombstones. Article `reposts_count` and `reposted` are null.
+`comments_count` includes live entries at every depth of the original post or article
+discussion, excluding tombstones. For a reply publication it counts live direct children. Article `reposts_count` and `reposted` are null.
 Anonymous `liked` and `saved` are false, as is anonymous post `reposted`. Counts and
 viewer flags are read separately and can change concurrently; they are not a single
 snapshot. Summaries and private saved-list responses use `Cache-Control: private,
@@ -171,7 +171,7 @@ Root request: `{"text":"A useful observation."}`. Child request:
 post. Cross-post, deleted, malformed, and nonexistent parents cannot create a reply.
 `root_id` is the root reply ID (a root points to itself), and `depth` is zero for
 roots and increments for each generation. These fields and the parent are immutable;
-PATCH only accepts `text`. Depth is not capped. Fixed-size parent/root references
+PATCH accepts post content and attachment changes, but rejects tree metadata. Depth is not capped. Fixed-size parent/root references
 avoid storing arbitrarily large recursive documents or ancestry arrays.
 
 ```json
@@ -248,8 +248,8 @@ deletions preserve tombstones and descendants. See [migration operations](MIGRAT
   parents. Deleted parents retain their existing branches; deeper live descendants remain usable.
   The article Reply action targets the selected reply. Article pages can
   load a scoped linked comment directly by ID when it falls outside the current page.
-- Plain-text forms enforce the 280-character limit, disable repeated submission while pending,
-  and keep text on failure. Owned live comments offer Edit and Delete; failed edits can reload the
+- Shared publication forms enforce the 280-character limit and one attachment choice,
+  allow attachment-only replies, disable repeated submission, and keep drafts on failure. Owned live comments offer Edit and Delete; failed edits can reload the
   latest comment without replacing the local draft. Deletion hides text/author and preserves children.
   Successful creation uses the returned comment immediately in a Just sent section, retaining
   loaded pages and their cursor. The same behavior applies to nested replies. As pagination

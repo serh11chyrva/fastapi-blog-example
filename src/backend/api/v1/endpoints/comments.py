@@ -1,4 +1,4 @@
-"""HTTP endpoints for threaded post replies and flat article comments."""
+"""Compatibility HTTP endpoints for publication-backed post and article replies."""
 
 from typing import Annotated, Literal, cast
 
@@ -74,7 +74,7 @@ async def list_post_replies(
 @router.post(
     "/posts/{post_id}/replies", response_model=PostReplyResponse, status_code=201,
     summary="Add a post reply",
-    description="Plain text, trimmed and nonblank, up to 280 characters. "
+    description="Trimmed text up to 280 characters; blank text requires one attachment choice. "
     "Optional parent_id must identify a live reply in this exact post; nesting depth is not capped.",
     responses=documented_responses(401, 403, 404, 409, 503),
 )
@@ -86,7 +86,7 @@ async def create_post_comment(
 
     :param _origin: Required same-origin mutation header.
     :param post_id: Public containing post identifier.
-    :param payload: Plain text and optional parent reply.
+    :param payload: Post content and an optional parent reply.
     :param current_user: Authenticated comment author.
     :param comments: Request-scoped discussion service.
     :param response: HTTP response for the private cache policy.
@@ -126,7 +126,7 @@ async def get_post_comment(
 @router.patch(
     "/posts/{post_id}/replies/{comment_id}", response_model=PostReplyResponse,
     summary="Edit your post discussion entry",
-    description="Only the comment author may replace live text. Thread positions and parent IDs cannot be changed. "
+    description="Only the comment author may edit live text and attachments. Thread positions and parent IDs cannot be changed. "
     "A publication owner has no editing rights over other accounts' comments.",
     responses=documented_responses(401, 403, 404, 409, 503),
 )
@@ -134,12 +134,12 @@ async def edit_post_comment(
     _origin: Origin, post_id: PostId, comment_id: CommentId, payload: CommentText,
     current_user: CurrentUser, comments: Comments, response: Response,
 ) -> PostReplyResponse:
-    """Replace owned comment text without moving its discussion position.
+    """Edit owned reply content without moving its discussion position.
 
     :param _origin: Required same-origin mutation header.
     :param post_id: Public containing post identifier.
     :param comment_id: Scoped comment or reply identifier.
-    :param payload: Replacement plain text; extra fields are rejected.
+    :param payload: Replacement post content; discussion metadata and unknown fields are rejected.
     :param current_user: Authenticated account owning this comment.
     :param comments: Request-scoped discussion service.
     :param response: HTTP response for the private cache policy.
@@ -180,7 +180,7 @@ async def delete_post_comment(
 @router.get(
     "/articles/{article_id}/comments", response_model=ArticleCommentPage,
     summary="List article comments",
-    description="Read a flat discussion in legacy oldest order or sort live comments by newest or most liked.",
+    description="Read one discussion level in oldest order or sort live replies by newest or most liked.",
     responses=documented_responses(404, 503),
 )
 async def list_article_comments(
@@ -210,7 +210,7 @@ async def list_article_comments(
 @router.post(
     "/articles/{article_id}/comments", response_model=ArticleCommentResponse, status_code=201,
     summary="Add an article comment",
-    description="Plain text, trimmed and nonblank, up to 280 characters. "
+    description="Trimmed text up to 280 characters; blank text requires one attachment choice. "
     "Optional parent_id selects a live reply in this article discussion.",
     responses=documented_responses(401, 403, 404, 409, 503),
 )
@@ -222,7 +222,7 @@ async def create_article_comment(
 
     :param _origin: Required same-origin mutation header.
     :param article_id: Public containing article identifier.
-    :param payload: Plain text without nesting fields.
+    :param payload: Post content and an optional parent reply in this article.
     :param current_user: Authenticated comment author.
     :param comments: Request-scoped discussion service.
     :param response: HTTP response for the private cache policy.
@@ -262,7 +262,7 @@ async def get_article_comment(
 @router.patch(
     "/articles/{article_id}/comments/{comment_id}", response_model=ArticleCommentResponse,
     summary="Edit your article discussion entry",
-    description="Only the comment author may replace live text. Nesting fields are rejected. "
+    description="Only the comment author may edit live text and attachments. Nesting fields are rejected. "
     "A publication owner has no editing rights over other accounts' comments.",
     responses=documented_responses(401, 403, 404, 409, 503),
 )
@@ -270,12 +270,12 @@ async def edit_article_comment(
     _origin: Origin, article_id: ArticleId, comment_id: CommentId, payload: CommentText,
     current_user: CurrentUser, comments: Comments, response: Response,
 ) -> ArticleCommentResponse:
-    """Replace owned comment text without moving its discussion position.
+    """Edit owned reply content without moving its discussion position.
 
     :param _origin: Required same-origin mutation header.
     :param article_id: Public containing article identifier.
     :param comment_id: Scoped comment or reply identifier.
-    :param payload: Replacement plain text; extra fields are rejected.
+    :param payload: Replacement post content; discussion metadata and unknown fields are rejected.
     :param current_user: Authenticated account owning this comment.
     :param comments: Request-scoped discussion service.
     :param response: HTTP response for the private cache policy.
@@ -291,7 +291,7 @@ async def edit_article_comment(
 @router.delete(
     "/articles/{article_id}/comments/{comment_id}", status_code=204,
     summary="Delete your article discussion entry",
-    description="Only the comment author may erase text. Returns a flat tombstone on subsequent reads. "
+    description="Only the comment author may erase text. Returns a tombstone retaining child navigation on subsequent reads. "
     "Repeated deletion is idempotent; inaccessible originals return 404.",
     responses=documented_responses(401, 403, 404, 409, 503),
 )

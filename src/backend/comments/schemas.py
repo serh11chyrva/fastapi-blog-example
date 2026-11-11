@@ -1,4 +1,4 @@
-"""Plain-text discussion requests and distinct flat/threaded response contracts."""
+"""Shared publication content and threaded discussion response contracts."""
 
 from datetime import datetime
 
@@ -16,19 +16,19 @@ class CommentText(MicroPostCreate):
 
 
 class PostReplyCreate(CommentText):
-    """Create a root reply or a child of an undeleted reply in the same post."""
+    """Create a root reply or a child of an undeleted reply in the same discussion."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [examples.POST_REPLY_CREATE]})
 
     parent_id: str | None = Field(
         default=None,
         pattern=r"^[0-9a-fA-F]{24}$",
-        description="Live parent reply in this post, or null for a root reply. Immutable after creation.",
+        description="Live parent reply in this discussion, or null for a root reply. Immutable after creation.",
     )
 
 
 class CommentResponse(BaseModel):
-    """Public discussion content shared by flat comments and threaded reply responses."""
+    """Public discussion content shared by post and article reply responses."""
 
     id: str
     author: ProfileUserResponse | None
@@ -57,7 +57,7 @@ class PostReplyResponse(CommentResponse):
 
 
 class ArticleCommentResponse(PostReplyResponse):
-    """Flat article comment with no nesting metadata."""
+    """Article-rooted reply with the same publication identity and nesting metadata."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [examples.ARTICLE_COMMENT]})
 
@@ -74,7 +74,7 @@ class PostReplyPage(BaseModel):
 
 
 class ArticleCommentPage(BaseModel):
-    """Flat article comment page, ordered oldest first by ObjectId."""
+    """One article discussion level in the requested order."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [examples.ARTICLE_COMMENT_PAGE]})
 

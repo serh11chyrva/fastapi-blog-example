@@ -96,6 +96,8 @@ POST = {
     "share_url": "/@maya_bennett/finished-a-24-km-ride-along-the-river-before-breakfast-the-best--a98f7c1326e44b6a8c5d39e27104bf60",
     "text": POST_TEXT,
     "attachments": [],
+    "reply": None,
+    "pending": False,
     "owner_id": ACCOUNT["id"],
     "authors": [AUTHOR],
     "created_at": "2026-10-12T10:03:27Z",
@@ -145,7 +147,8 @@ ARTICLE = {
     "kind": "article",
     "share_url": "/@maya_bennett/a-reading-habit-that-fits-into-a-busy-week--c7412d809e364a5bb18762f90d3ea458",
     **ARTICLE_CREATE,
-    "summary": " ".join(node["text"] for block in ARTICLE_BODY["content"] for node in block.get("content", []) if node.get("type") == "text")[:280],
+    "summary": ("Make room for ten minutes I started leaving a paperback next to the coffee machine. "
+                "Ten pages before opening my laptop turned out to be a habit I could keep, even on busy weekdays."),
     "thumbnail_url": None,
     "inline_image_urls": [],
     "attachments": [],
@@ -166,20 +169,11 @@ ARTICLE_PUBLISHED = ARTICLE | {
     "published_at": "2026-10-13T09:26:41Z",
 }
 POST_RICH_CREATE = {
-    "text": "Reading notes, music, and a conversation worth continuing.",
-    "attachments": [
-        {"type": "link", "url": "https://example.com/notes", "label": "Reading notes"},
-        {"type": "mention", "user_id": PROFILE_USER["id"]},
-        {"type": "hashtag", "tag": "reading"},
-        {
-            "type": "og_card",
-            "url": "https://example.com/notes",
-            "title": "Reading notes",
-            "description": "A few ideas to revisit.",
-        },
-        {"type": "article", "article_id": ARTICLE["id"]},
-        {"type": "embed", "provider": "youtube", "url": "https://www.youtube.com/watch?v=jfKfPfyJRdk"},
-    ],
+    "text": "Reading notes worth continuing.",
+    "attachments": [{
+        "type": "og_card", "url": "https://example.com/notes", "title": "Reading notes",
+        "description": "A few ideas to revisit.",
+    }],
 }
 POST_WITH_CONTENT = POST | POST_RICH_CREATE
 ARTICLE_RICH_CREATE = ARTICLE_CREATE | {
@@ -206,7 +200,7 @@ ARTICLE_RICH_CREATE = ARTICLE_CREATE | {
         ],
     },
 }
-ARTICLE_WITH_CONTENT = ARTICLE | ARTICLE_RICH_CREATE
+ARTICLE_WITH_CONTENT = ARTICLE | ARTICLE_RICH_CREATE | {"summary": "Discussed with"}
 ARTICLE_UPDATED = (
     ARTICLE
     | ARTICLE_UPDATE
@@ -276,6 +270,7 @@ CURSOR = (
     base64.urlsafe_b64encode(
         json.dumps(
             {
+                "version": 2,
                 "time": FEED_POST["published_at"],
                 "kind": FEED_POST["kind"],
                 "id": FEED_POST["id"],
@@ -330,7 +325,25 @@ ARTICLE_COMMENT = {
     "likes_count": 4,
     "liked": True,
     "article_id": ARTICLE["id"],
+    "post_id": None,
+    "parent_id": None,
+    "root_id": "68ebd422f2b7a8c901234563",
+    "depth": 0,
+    "replies_count": 0,
 }
+for reply_example in (POST_REPLY, POST_REPLY_CHILD, ARTICLE_COMMENT):
+    reply_example["publication"] = POST | {
+        "id": reply_example["id"], "text": reply_example["text"],
+        "share_url": None, "owner_id": PROFILE_USER["id"], "authors": [PROFILE_USER],
+        "created_at": reply_example["created_at"], "updated_at": reply_example["updated_at"],
+        "reply": {
+            "kind": "article" if reply_example.get("article_id") else "micro_post",
+            "publication_id": reply_example.get("article_id") or reply_example["post_id"],
+            "parent_id": reply_example["parent_id"], "root_id": reply_example["root_id"],
+            "depth": reply_example["depth"],
+        },
+    }
+POST_REPLY_DELETED["publication"] = None
 POST_REPLY_PAGE = {"items": [POST_REPLY], "next_cursor": None}
 ARTICLE_COMMENT_PAGE = {"items": [ARTICLE_COMMENT], "next_cursor": None}
 ARTICLE_PREVIEW = {

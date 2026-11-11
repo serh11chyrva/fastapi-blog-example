@@ -79,7 +79,9 @@ class ImageAttachments:
             raise NotFound("Resource not found")
 
         if isinstance(publication, MicroPost) and publication.reply is not None:
-            await public_publication(publication.reply.kind, str(publication.reply.publication_id), session)
+            await public_publication(
+                publication.reply.kind, str(publication.reply.publication_id), session, touch=session is not None,
+            )
         return publication
 
     async def apply(
