@@ -286,3 +286,8 @@ concurrent changes rather than silently overwriting them.
 URL cards use cached metadata with deduplicated reads and at most ten pending refreshes.
 Saved metadata remains visible while resolving. The application no longer requires a
 Load player button; provider playback controls still require the reader to start media.
+
+Post galleries use a horizontal scroll-snap carousel with up to five images, bounded
+arrow navigation, touch scrolling, and a position count. The light image viewer opens
+the selected photo, supports arrow keys/Escape, restores focus and page scrolling on
+close, and synchronizes the carousel to the last viewed photo.
