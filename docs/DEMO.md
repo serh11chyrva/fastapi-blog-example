@@ -123,3 +123,7 @@ remain enforced by the ordinary API.
 The demo link cards ship with text metadata. To try automatic preview, paste an external
 URL into the composer or editor. Provider playback depends on the provider and loads only
 after the reader activates a player.
+
+Discussion fixtures are converted into reply posts using the same resumable migration
+as existing data. Repeated seeding preserves already migrated owner edits and deletions.
+Replies share the 280-character post limit and can be saved or reposted.

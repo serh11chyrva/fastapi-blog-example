@@ -8,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from backend.articles.models import Article
 from backend.interactions.models import InteractionKind, PublicationInteraction
 from backend.posts.models import MicroPost
+from backend.posts.visibility import visible_post_stages
 from backend.publications.access import PublicationKind
 
 
@@ -109,6 +110,11 @@ class InteractionRepository:
                 conditions["status"] = "published"
                 conditions["published_at"] = {"$ne": None}
 
-            result.update({(kind, item.id): item for item in await model.find(conditions).to_list()})
+            if kind == "micro_post":
+                rows = await MicroPost.aggregate([{"$match": conditions}, *visible_post_stages()]).to_list()
+                items = [MicroPost.model_validate(row) for row in rows]
+            else:
+                items = await model.find(conditions).to_list()
+            result.update({(kind, item.id): item for item in items})
 
         return result

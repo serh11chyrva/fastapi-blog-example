@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api import examples
+from backend.posts.schemas import MicroPostResponse
 from backend.profiles.schemas import ProfileUserResponse
 
 
@@ -15,8 +16,8 @@ class CommentText(BaseModel):
 
     text: str = Field(
         min_length=1,
-        max_length=5000,
-        description="Plain text, trimmed and nonblank, up to 5,000 characters.",
+        max_length=280,
+        description="Plain text, trimmed and nonblank, up to 280 characters.",
     )
 
     @field_validator("text")
@@ -67,14 +68,16 @@ class PostReplyResponse(CommentResponse):
         json_schema_extra={"examples": [examples.POST_REPLY, examples.POST_REPLY_CHILD, examples.POST_REPLY_DELETED]},
     )
 
-    post_id: str
+    post_id: str | None = None
+    article_id: str | None = None
+    publication: MicroPostResponse | None = None
     parent_id: str | None
     root_id: str
     depth: int = Field(ge=0, description="Zero for a root reply; each child adds one, without a fixed depth limit.")
     replies_count: int = Field(ge=0, description="Direct children, including tombstones that preserve their branches.")
 
 
-class ArticleCommentResponse(CommentResponse):
+class ArticleCommentResponse(PostReplyResponse):
     """Flat article comment with no nesting metadata."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [examples.ARTICLE_COMMENT]})

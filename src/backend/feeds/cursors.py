@@ -19,6 +19,7 @@ type TimelineKind = PublicationKind | Literal["article_comment"]
 class CursorPayload(BaseModel):
     """Validated position supporting original publications and independent repost events."""
 
+    version: Literal[2]
     time: AwareDatetime
     kind: TimelineKind
     id: PydanticObjectId
@@ -37,7 +38,7 @@ class FeedCursor:
 
         :return: The encoded cursor string.
         """
-        payload = CursorPayload(time=self.published_at, kind=self.kind, id=self.object_id)
+        payload = CursorPayload(version=2, time=self.published_at, kind=self.kind, id=self.object_id)
 
         return base64.urlsafe_b64encode(payload.model_dump_json().encode()).decode().rstrip("=")
 

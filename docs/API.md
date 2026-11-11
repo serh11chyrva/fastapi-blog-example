@@ -653,3 +653,11 @@ Validation errors use FastAPI's structured list:
   ]
 }
 ```
+
+### Unified reply publications
+
+Replies are posts with immutable `reply` metadata (`kind`, `publication_id`, `parent_id`,
+`root_id`, `depth`). Text is limited to 280 characters. Scoped discussion routes remain
+available and include the live post in `publication`; ordinary post URLs and interaction
+routes also apply. Article replies support child threads. Feed cursors issued before
+this migration are invalid; restart pagination. See [migration operations](MIGRATIONS.md).

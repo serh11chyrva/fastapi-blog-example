@@ -2,17 +2,17 @@
 
 from datetime import UTC, datetime
 
-from pymongo.errors import DuplicateKeyError
 
 from beanie import PydanticObjectId
 
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
-from backend.comments.models import ArticleComment, CommentLike, PostReply
+from backend.posts.models import MicroPost, ReplyMetadata
+from backend.feeds.cache import invalidate_public_feed
 from backend.comments.presenters import comment_responses
 from backend.comments.repository import CommentRepository, Discussion, DiscussionSort
 from backend.comments.schemas import ArticleCommentPage, CommentText, PostReplyPage
-from backend.core.errors import Conflict, InvalidOperation, NotFound
+from backend.core.errors import InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.profiles.models import User
@@ -20,7 +20,7 @@ from backend.publications.access import PublicationKind, object_id, public_publi
 
 
 class CommentService:
-    """Own flat article discussions and unbounded-depth, incrementally loaded post trees."""
+    """Own publication-backed discussion trees with bounded incremental reads."""
 
     def __init__(self, resources: AppResources, audit: AuditContext) -> None:
         """Initialize discussion operations with infrastructure and request audit context.
@@ -43,44 +43,37 @@ class CommentService:
     ) -> Discussion:
         """Create a comment or reply and audit it in the same guarded transaction.
 
-        :param kind: Containing publication type; article parents are forbidden.
+        :param kind: Containing publication type.
         :param publication_id: Public post or article identifier.
         :param payload: Validated plain text to store.
         :param owner: Authenticated account authoring the comment.
         :param parent_id: Optional undeleted parent in this post, never another publication.
-        :return: The persisted flat comment or immutable reply-tree position.
+        :return: The persisted reply post with its immutable tree position.
         """
-        if kind == "article" and parent_id is not None:
-            raise InvalidOperation("Article comments cannot have replies")
-
         async with transaction(self.resources.mongo) as session:
             publication = await public_publication(kind, publication_id, session, touch=True)
             now = datetime.now(UTC)
-            common = dict(author_id=owner.id, text=payload.text, created_at=now, updated_at=now)
-            comment: Discussion
-
-            if kind == "micro_post":
-                reply_id = PydanticObjectId()
-                parent = None
-
-                if parent_id is not None:
-                    parent = await self.repository.get(kind, publication.id, object_id(parent_id), session)
-
-                    if not isinstance(parent, PostReply) or parent.deleted_at is not None:
-                        raise NotFound("Parent reply not found")
-
-                    await parent.update({"$inc": {"reply_revision": 1}}, session=session)
-
-                comment = PostReply(
-                    **common,
-                    id=reply_id,
-                    post_id=publication.id,
+            reply_id = PydanticObjectId()
+            parent = None
+            original = publication.reply if isinstance(publication, MicroPost) else None
+            if parent_id is not None:
+                parent = await self.repository.get(kind, publication.id, object_id(parent_id), session)
+                if parent is None or parent.deleted_at is not None:
+                    raise NotFound("Parent reply not found")
+            elif original is not None:
+                parent = publication
+            if parent is not None:
+                await parent.update({"$inc": {"reply_revision": 1}}, session=session)
+            comment = MicroPost(
+                id=reply_id, owner_id=owner.id, text=payload.text, created_at=now, updated_at=now,
+                reply=ReplyMetadata(
+                    kind=original.kind if original else kind,
+                    publication_id=original.publication_id if original else publication.id,
                     parent_id=parent.id if parent else None,
-                    root_id=parent.root_id if parent else reply_id,
-                    depth=parent.depth + 1 if parent else 0,
-                )
-            else:
-                comment = ArticleComment(**common, article_id=publication.id)
+                    root_id=parent.reply.root_id if parent else reply_id,
+                    depth=parent.reply.depth + 1 if parent else 0,
+                ),
+            )
 
             await comment.insert(session=session)
             await record_audit(
@@ -93,6 +86,7 @@ class CommentService:
                 session=session,
             )
 
+        await invalidate_public_feed(self.resources.redis)
         return comment
 
     async def change(
@@ -116,7 +110,7 @@ class CommentService:
             publication = await public_publication(kind, publication_id, session, touch=True)
             comment = await self.repository.get(kind, publication.id, object_id(comment_id), session)
 
-            if comment is None or comment.author_id != owner.id:
+            if comment is None or comment.owner_id != owner.id:
                 raise NotFound("Comment not found")
 
             if comment.deleted_at is not None:
@@ -144,6 +138,7 @@ class CommentService:
                 session=session,
             )
 
+        await invalidate_public_feed(self.resources.redis)
         return comment
 
     async def set_like(
@@ -158,33 +153,12 @@ class CommentService:
         :param enabled: Desired presence of the reaction.
         :return: None.
         """
-        try:
-            async with transaction(self.resources.mongo) as session:
-                publication = await public_publication(kind, publication_id, session, touch=True)
-                item = await self.repository.get(kind, publication.id, object_id(comment_id), session)
+        from backend.interactions.service import InteractionService
 
-                if item is None or item.deleted_at is not None:
-                    raise NotFound("Comment not found")
-
-                reaction = await CommentLike.find_one(
-                    {"kind": kind, "comment_id": item.id, "user_id": owner.id}, session=session,
-                )
-                if enabled == (reaction is not None):
-                    return
-
-                if enabled:
-                    await CommentLike(kind=kind, comment_id=item.id, user_id=owner.id).insert(session=session)
-                else:
-                    await reaction.delete(session=session)
-
-                await item.update({"$inc": {"likes_count": 1 if enabled else -1}}, session=session)
-                await record_audit(
-                    self.audit, "COMMENT_LIKED" if enabled else "COMMENT_UNLIKED",
-                    actor_id=owner.id, target_type="post_reply" if kind == "micro_post" else "article_comment",
-                    target_id=comment_id, metadata={"publication_id": publication_id}, session=session,
-                )
-        except DuplicateKeyError as exc:
-            raise Conflict("Reaction changed; reload before retrying") from exc
+        item = await self.get(kind, publication_id, comment_id)
+        await InteractionService(self.resources, self.audit).set_state(
+            "micro_post", str(item.id), "like", enabled, owner,
+        )
 
     async def page(
         self,
@@ -200,16 +174,13 @@ class CommentService:
 
         :param kind: Containing publication type.
         :param publication_id: Public containing publication identifier.
-        :param parent_id: Optional post parent reply; omission selects roots. Article parent IDs are rejected.
+        :param parent_id: Optional parent reply; omission selects roots or children of a reply publication.
         :param cursor: Position from the same sort, or None for the first page.
         :param limit: Bounded page size supplied by the HTTP adapter.
         :param viewer_id: Current viewer for reaction state, or None for anonymous reads.
         :param sort: Discussion order; post ranking applies to live roots only.
         :return: Typed discussion page with a continuation cursor when another row exists.
         """
-        if kind == "article" and parent_id is not None:
-            raise InvalidOperation("Article comments cannot have replies")
-
         publication = await public_publication(kind, publication_id)
         parent = object_id(parent_id) if parent_id is not None else None
 

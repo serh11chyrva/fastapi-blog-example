@@ -5,10 +5,11 @@ from typing import Any, Literal
 from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from backend.comments.models import ArticleComment, PostReply
+from backend.comments.conversion import ReplyMapping
+from backend.posts.models import MicroPost
 from backend.publications.access import PublicationKind
 
-type Discussion = PostReply | ArticleComment
+type Discussion = MicroPost
 type DiscussionSort = Literal["oldest", "newest", "most_liked"]
 
 
@@ -30,10 +31,16 @@ class CommentRepository:
         :param session: Optional caller transaction session.
         :return: The scoped comment, or None if it does not belong to this publication.
         """
-        model = PostReply if kind == "micro_post" else ArticleComment
-        field = "post_id" if kind == "micro_post" else "article_id"
-
-        return await model.find_one({"_id": comment_id, field: publication_id}, session=session)
+        publication = await MicroPost.get(publication_id, session=session) if kind == "micro_post" else None
+        context = publication.reply if publication is not None else None
+        conditions = {
+            "reply.kind": context.kind if context else kind,
+            "reply.publication_id": context.publication_id if context else publication_id,
+        }
+        source = "post_replies" if kind == "micro_post" else "article_comments"
+        mapping = await ReplyMapping.get(f"{source}:{comment_id}", session=session)
+        resolved = mapping.post_id if mapping else comment_id
+        return await MicroPost.find_one({"_id": resolved, **conditions}, session=session)
 
     @staticmethod
     async def page(
@@ -56,12 +63,16 @@ class CommentRepository:
         :param likes_count: Last seen rank when continuing a most-liked page.
         :return: At most limit plus one scoped entries in the requested order.
         """
-        model = PostReply if kind == "micro_post" else ArticleComment
-        field = "post_id" if kind == "micro_post" else "article_id"
-        conditions: dict[str, Any] = {field: publication_id}
-
-        if kind == "micro_post":
-            conditions["parent_id"] = parent_id
+        publication = await MicroPost.get(publication_id) if kind == "micro_post" else None
+        context = publication.reply if publication is not None else None
+        if parent_id is not None:
+            parent = await CommentRepository.get(kind, publication_id, parent_id)
+            parent_id = parent.id if parent else parent_id
+        conditions: dict[str, Any] = {
+            "reply.kind": context.kind if context else kind,
+            "reply.publication_id": context.publication_id if context else publication_id,
+            "reply.parent_id": parent_id if parent_id is not None else publication_id if context else None,
+        }
 
         order = [("_id", 1 if sort == "oldest" else -1)]
         if sort != "oldest":
@@ -76,7 +87,7 @@ class CommentRepository:
         elif cursor is not None:
             conditions["_id"] = {"$gt" if sort == "oldest" else "$lt": cursor}
 
-        return await model.find(conditions).sort(*order).limit(limit + 1).to_list()
+        return await MicroPost.find(conditions).sort(*order).limit(limit + 1).to_list()
 
     @staticmethod
     async def child_counts(reply_ids: list[PydanticObjectId]) -> dict[PydanticObjectId, int]:
@@ -88,8 +99,8 @@ class CommentRepository:
         if not reply_ids:
             return {}
 
-        rows = await PostReply.find({"parent_id": {"$in": reply_ids}}).aggregate(
-            [{"$group": {"_id": "$parent_id", "count": {"$sum": 1}}}]
+        rows = await MicroPost.find({"reply.parent_id": {"$in": reply_ids}}).aggregate(
+            [{"$group": {"_id": "$reply.parent_id", "count": {"$sum": 1}}}]
         ).to_list()
 
         return {row["_id"]: row["count"] for row in rows}
@@ -102,7 +113,9 @@ class CommentRepository:
         :param publication_id: Containing publication identifier.
         :return: Number of live comments or replies.
         """
-        model = PostReply if kind == "micro_post" else ArticleComment
-        field = "post_id" if kind == "micro_post" else "article_id"
-
-        return await model.find({field: publication_id, "deleted_at": None}).count()
+        publication = await MicroPost.get(publication_id) if kind == "micro_post" else None
+        if publication is not None and publication.reply is not None:
+            return await MicroPost.find({"reply.parent_id": publication_id, "deleted_at": None}).count()
+        return await MicroPost.find({
+            "reply.kind": kind, "reply.publication_id": publication_id, "deleted_at": None,
+        }).count()

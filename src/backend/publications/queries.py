@@ -10,6 +10,8 @@ from backend.core.errors import InvalidOperation, NotFound
 from backend.feeds.presenters import publication_preview
 from backend.feeds.schemas import PublicationPreview
 from backend.posts.models import MicroPost
+from backend.posts.visibility import visible_post_stages
+from backend.publications.access import public_publication
 from backend.posts.repository import PostRepository
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
@@ -48,7 +50,10 @@ async def publication_previews(refs: list[str]) -> list[PublicationPreview]:
     articles = await Article.find({
         "_id": {"$in": article_ids}, "deleted_at": None, "status": "published", "published_at": {"$ne": None},
     }).project(ArticlePreviewSource).to_list() if article_ids else []
-    posts = await MicroPost.find({"_id": {"$in": post_ids}, "deleted_at": None}).to_list() if post_ids else []
+    rows = await MicroPost.aggregate([
+        {"$match": {"_id": {"$in": post_ids}, "deleted_at": None}}, *visible_post_stages(),
+    ]).to_list() if post_ids else []
+    posts = [MicroPost.model_validate(row) for row in rows]
     originals: dict[tuple[str, PydanticObjectId], ArticlePreviewSource | MicroPost] = {
         ("article", item.id): item for item in articles
     }
@@ -84,6 +89,7 @@ async def shared(username: str, slug: str) -> tuple[MicroPost | Article, list[Us
     post = await PostRepository.find_shared(owner.id, share_id)
 
     if post is not None:
+        await public_publication("micro_post", str(post.id))
         return post, await load_authors(post.author_ids)
 
     article = await ArticleRepository.find_shared(owner.id, share_id)

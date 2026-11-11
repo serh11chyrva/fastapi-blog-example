@@ -341,18 +341,7 @@ POST_PREVIEW = {
     key: FEED_POST[key]
     for key in ("kind", "id", "share_url", "authors", "text", "thumbnail_url", "published_at", "updated_at")
 }
-PROFILE_TIMELINE = {
-    "items": [
-        {
-            "kind": "article_comment",
-            **{key: ARTICLE_COMMENT[key] for key in ("id", "author", "text", "created_at", "updated_at")},
-            "article": ARTICLE_PREVIEW,
-        },
-        FEED_REPOST,
-        FEED_POST,
-    ],
-    "next_cursor": None,
-}
+PROFILE_TIMELINE = {"items": [FEED_REPOST, FEED_POST], "next_cursor": None}
 SAVED_PAGE = {
     "items": [{
         "id": "68ebd423f2b7a8c901234564", "saved_at": "2026-10-14T10:10:00Z", "publication": FEED_ARTICLE,

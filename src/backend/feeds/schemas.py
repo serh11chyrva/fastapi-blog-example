@@ -137,24 +137,7 @@ class PostPreview(BaseModel):
 PublicationPreview = Annotated[ArticlePreview | PostPreview, Field(discriminator="kind")]
 
 
-class ArticleCommentTimelineItem(BaseModel):
-    """Public article comment rendered above its currently published article."""
-
-    kind: Literal["article_comment"] = "article_comment"
-    id: str
-    author: ProfileUserResponse
-    text: str
-    created_at: datetime
-    updated_at: datetime = Field(
-        description="UTC time the comment was last updated.",
-        examples=[examples.ARTICLE_COMMENT["updated_at"]],
-    )
-    article: ArticlePreview
-
-
-ProfileTimelineItem = Annotated[
-    PostFeedItem | RepostFeedItem | ArticleCommentTimelineItem, Field(discriminator="kind")
-]
+ProfileTimelineItem = Annotated[PostFeedItem | RepostFeedItem, Field(discriminator="kind")]
 
 
 class ProfileTimelinePage(BaseModel):

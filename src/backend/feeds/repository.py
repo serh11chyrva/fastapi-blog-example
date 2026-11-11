@@ -10,6 +10,7 @@ from backend.articles.models import Article
 from backend.articles.repository import ArticleRepository
 from backend.interactions.models import PublicationInteraction
 from backend.posts.models import MicroPost
+from backend.posts.visibility import visible_post_stages
 from backend.posts.repository import PostRepository
 
 type PublicationKind = Literal["micro_post", "article", "repost"]
@@ -73,6 +74,7 @@ class FeedRepository:
                 }},
                 {"$unwind": "$original"},
                 {"$match": {"original.deleted_at": None}},
+                *visible_post_stages("original"),
                 {"$limit": limit + 1},
             ]).to_list()
 

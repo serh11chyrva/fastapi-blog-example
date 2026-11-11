@@ -84,6 +84,11 @@ class InteractionService:
                     await edge.delete(session=session)
                     changed = True
 
+                if changed and action == "like" and kind == "micro_post":
+                    await MicroPost.find({"_id": resource_id}, session=session).update_many(
+                        {"$inc": {"likes_count": 1 if enabled else -1}},
+                    )
+
                 if changed:
                     await record_audit(
                         self.audit,

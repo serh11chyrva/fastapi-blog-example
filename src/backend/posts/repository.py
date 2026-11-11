@@ -6,6 +6,7 @@ from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.posts.models import MicroPost
+from backend.posts.visibility import visible_post_stages
 
 
 class PostRepository:
@@ -30,7 +31,11 @@ class PostRepository:
         :param limit: Page size before the extra continuation candidate.
         :return: Documents ordered by publication time and identifier descending.
         """
-        return await MicroPost.find(conditions).sort(("created_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+        rows = await MicroPost.aggregate([
+            {"$match": conditions}, {"$sort": {"created_at": -1, "_id": -1}},
+            *visible_post_stages(), {"$limit": limit + 1},
+        ]).to_list()
+        return [MicroPost.model_validate(row) for row in rows]
 
     @staticmethod
     async def find_shared(owner_id: PydanticObjectId, share_id: str) -> MicroPost | None:

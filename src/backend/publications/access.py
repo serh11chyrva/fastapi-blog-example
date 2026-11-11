@@ -48,6 +48,10 @@ async def public_publication(
     if isinstance(publication, Article) and publication.status != "published":
         raise NotFound("Publication not found")
 
+    if isinstance(publication, MicroPost) and publication.reply is not None:
+        context = publication.reply
+        await public_publication(context.kind, str(context.publication_id), session, touch=touch)
+
     if touch:
         if session is None:
             raise ValueError("Publication mutation guards require a transaction")

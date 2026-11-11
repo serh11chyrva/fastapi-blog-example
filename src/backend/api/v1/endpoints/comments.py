@@ -74,7 +74,7 @@ async def list_post_replies(
 @router.post(
     "/posts/{post_id}/replies", response_model=PostReplyResponse, status_code=201,
     summary="Add a post reply",
-    description="Plain text, trimmed and nonblank, up to 5,000 characters. "
+    description="Plain text, trimmed and nonblank, up to 280 characters. "
     "Optional parent_id must identify a live reply in this exact post; nesting depth is not capped.",
     responses=documented_responses(401, 403, 404, 409, 503),
 )
@@ -187,10 +187,12 @@ async def list_article_comments(
     article_id: ArticleId, comments: Comments, response: Response, current_user: OptionalUser,
     cursor: CommentCursor = None, limit: CommentLimit = 20,
     sort: Literal["oldest", "newest", "most_liked"] = "oldest",
+    parent_id: Annotated[str | None, Query(max_length=24)] = None,
 ) -> ArticleCommentPage:
-    """Read a bounded flat article discussion page.
+    """Read a bounded article discussion level.
 
     :param article_id: Public containing article identifier.
+    :param parent_id: Parent reply ID, or None for roots.
     :param comments: Request-scoped discussion service.
     :param response: HTTP response for the private cache policy.
     :param current_user: Optional session used to resolve reaction state.
@@ -202,18 +204,18 @@ async def list_article_comments(
     response.headers["Cache-Control"] = "private, no-store"
     viewer_id = current_user.id if current_user else None
 
-    return cast(ArticleCommentPage, await comments.page("article", article_id, None, cursor, limit, viewer_id, sort))
+    return cast(ArticleCommentPage, await comments.page("article", article_id, parent_id, cursor, limit, viewer_id, sort))
 
 
 @router.post(
     "/articles/{article_id}/comments", response_model=ArticleCommentResponse, status_code=201,
     summary="Add an article comment",
-    description="Plain text, trimmed and nonblank, up to 5,000 characters. "
-    "Article comments are strictly flat; extra fields including parent_id return 422.",
+    description="Plain text, trimmed and nonblank, up to 280 characters. "
+    "Optional parent_id selects a live reply in this article discussion.",
     responses=documented_responses(401, 403, 404, 409, 503),
 )
 async def create_article_comment(
-    _origin: Origin, article_id: ArticleId, payload: CommentText,
+    _origin: Origin, article_id: ArticleId, payload: PostReplyCreate,
     current_user: CurrentUser, comments: Comments, response: Response,
 ) -> ArticleCommentResponse:
     """Add an authored discussion entry to a public article.
@@ -226,7 +228,7 @@ async def create_article_comment(
     :param response: HTTP response for the private cache policy.
     :return: The committed comment with public author data.
     """
-    item = await comments.create("article", article_id, payload, current_user)
+    item = await comments.create("article", article_id, payload, current_user, payload.parent_id)
 
     response.headers["Cache-Control"] = "private, no-store"
 

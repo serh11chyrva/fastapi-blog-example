@@ -8,6 +8,7 @@ from backend.auth.dependencies import OptionalUser
 from backend.core.config import get_settings
 from backend.core.resources import get_resources
 from backend.posts.models import MicroPost
+from backend.publications.access import public_publication
 from backend.profiles.models import User
 from backend.storage.models import ImagePurpose
 from backend.storage.s3 import get_object
@@ -69,6 +70,9 @@ async def read_image(
         cache_control = "no-store"
     elif collection == "post-images":
         attached = await MicroPost.find_one({"image_keys": key, "deleted_at": None})
+        if attached is not None:
+            await public_publication("micro_post", str(attached.id))
+        cache_control = "private, no-store"
         bucket = settings.publication_bucket
     else:
         field = "thumbnail_key" if collection == "article-covers" else "inline_image_keys"

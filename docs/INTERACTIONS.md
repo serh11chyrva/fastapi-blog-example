@@ -209,40 +209,24 @@ available. Descendants are not deleted or moved. A deleted parent can still be r
 and traversed, but cannot receive new direct children; live descendants can. Repeated
 deletion by the same author returns 204. Deleted text cannot be edited or restored.
 
-## Flat article comments
+## Article replies and compatibility routes
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET / POST | `/articles/{article_id}/comments` | List or create flat comments |
-| GET | `/articles/{article_id}/comments/{comment_id}` | Read a scoped comment |
-| PATCH | `/articles/{article_id}/comments/{comment_id}` | Replace own live text |
-| DELETE | `/articles/{article_id}/comments/{comment_id}` | Erase own text |
+`/articles/{article_id}/comments` lists root replies and accepts optional `parent_id`
+on reads and creation. Each result includes `parent_id`, `root_id`, `depth`, and
+`replies_count`, plus a `publication` containing the ordinary post response for live
+entries. Post discussion responses expose the same publication. All text is limited
+to 280 characters. Reply metadata cannot be edited.
 
-Create and update accept only `{"text":"A useful observation."}`. Unknown body
-fields, including `parent_id`, `root_id`, and `depth`, return 422. Article comments
-use their own collection and response model with `article_id`; neither contains a
-parent, depth, root, or children field. They cannot become threaded through a request.
-Default list responses use the existing oldest-first cursor rules and include tombstones.
-Explicit `sort=newest` and `sort=most_liked` return live comments only. Ranked pages sort
-by like count and then by ObjectId, both descending. Reuse cursors with their original sort
-and refresh the ranked list when likes change. Post roots also accept `sort=most_liked`
-without `parent_id`. Create returns 201, updates return 200, and deletion returns 204.
+Existing scoped GET/PATCH/DELETE and like URLs continue to work, resolving migrated
+IDs through the stored mapping. Like state is shared with ordinary post interactions;
+reply publications can also be saved and reposted. On a reply permalink,
+`/posts/{reply_id}/replies` lists its direct children. Original-publication counts
+include all live discussion entries; a reply publication count includes live direct children.
 
-Both discussion types accept plain text only, with 1–5,000 characters before trimming
-and whitespace-only content rejected. Text is not interpreted as HTML, TipTap, or an
-attachment. Non-owned, missing, or cross-publication comment IDs return 404. Comments
-cannot be saved, reposted, or credited to additional authors. Profile activity shows
-live article comments written by that account beside the current public article card.
-
-
-## Discussion likes
-
-Use PUT or DELETE on `/posts/{post_id}/replies/{comment_id}/like` or
-`/articles/{article_id}/comments/{comment_id}/like` to set or clear the signed-in
-account's like. A successful change or no-op returns 204. The entry and publication
-must be live and public. The reaction, count, and audit event commit together.
-Reads return `likes_count` and `liked` with private, no-store caching. Anonymous
-readers receive `liked: false` and tombstones return zero likes.
+Profiles list replies as ordinary posts with immutable discussion context. Their article
+card is resolved from the original reference rather than copied. Hidden or deleted
+originals hide replies, their images, saved entries, and reposts. Individual reply
+deletions preserve tombstones and descendants. See [migration operations](MIGRATIONS.md).
 
 ## Frontend flows
 
@@ -262,9 +246,9 @@ readers receive `liked: false` and tombstones return zero likes.
 - Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
   A post's View replies button loads only that parent's children. Reply forms appear only for live
   parents. Deleted parents retain their existing branches; deeper live descendants remain usable.
-  The article Reply action fills in an @handle in the flat comment form. Article pages can
+  The article Reply action targets the selected reply. Article pages can
   load a scoped linked comment directly by ID when it falls outside the current page.
-- Plain-text forms enforce the 5,000-character limit, disable repeated submission while pending,
+- Plain-text forms enforce the 280-character limit, disable repeated submission while pending,
   and keep text on failure. Owned live comments offer Edit and Delete; failed edits can reload the
   latest comment without replacing the local draft. Deletion hides text/author and preserves children.
   Successful creation uses the returned comment immediately in a Just sent section, retaining

@@ -9,6 +9,7 @@ from backend.feeds.presenters import feed_item
 from backend.feeds.repository import FeedKind, FeedRepository
 from backend.feeds.schemas import FeedItem
 from backend.posts.models import MicroPost
+from backend.posts.visibility import visible_post_stages
 from backend.profiles.models import BadgeDefinition, User
 from backend.profiles.presenters import own_profile, public_profile, user_card
 from backend.profiles.repository import ProfileRepository
@@ -79,9 +80,10 @@ class ProfileQueries:
             followers,
             following,
             await self.repository.is_following(viewer_id, user.id),
-            await MicroPost.find({
-                "deleted_at": None, "$or": [{"owner_id": user.id}, {"featured_author_ids": user.id}],
-            }).count(),
+            sum(row["count"] for row in await MicroPost.aggregate([
+                {"$match": {"deleted_at": None, "$or": [{"owner_id": user.id}, {"featured_author_ids": user.id}]}},
+                *visible_post_stages(), {"$count": "count"},
+            ]).to_list()),
         )
 
     async def own_response(self, user: User) -> OwnProfileResponse:

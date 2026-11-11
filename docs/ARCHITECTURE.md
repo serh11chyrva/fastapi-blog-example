@@ -257,13 +257,12 @@ The revision defaults to zero on legacy documents and is internal; public conten
 feed positions do not change. User interaction changes and their audits commit together. No
 transaction body retries are introduced.
 
-`comments/` persists `PostReply` and `ArticleComment` in different collections. Reply positions
-store immutable `post_id`, `parent_id`, `root_id`, and integer `depth`; flat comments store only
-`article_id` and common content metadata. HTTP bodies forbid extra fields, so article comments
-cannot acquire nesting fields. A post parent is checked inside the same transaction and guarded
-against concurrent deletion. Replies have no fixed nesting-depth limit; reads fetch only roots
-or direct children with ObjectId keyset pagination. Author cards and child counts are batched.
-Deletion erases text, hides the author, and retains a tombstone so descendants stay navigable.
+`comments/` provides compatibility routes over reply `MicroPost` records. Immutable
+`reply` metadata identifies the original publication, parent, root, and depth. Both
+article and post discussions support incremental child pages. Reactions use the same
+`PublicationInteraction` edges as posts; reply ranking uses a transactional cached like
+count. Deleted replies retain tombstones, with erased text and hidden author data.
+Migration checkpoints and scoped legacy ID mappings are described in [MIGRATIONS.md](MIGRATIONS.md).
 
 Repost edges reference originals rather than copying them. Feed repository aggregation joins
 public originals before applying the final page limit; deleted posts cannot surface through a
@@ -273,8 +272,8 @@ Following filters apply to original publication authors or to the reposting acco
 Repost changes invalidate the public feed cache. Profile authored-publication lists stay separate
 from public repost history. Saved/repost lists scan bounded relationship pages, hydrate originals
 and authors in batches, and return the last scanned ID even when unavailable originals empty a
-visible page. Existing collections require no data backfill; Beanie registers the three new
-collections and indexes at startup. No new dependency or background worker is required.
+visible page. Existing discussions require the explicit conversion before cutover. Feed cursors use
+version 2; clients must restart pagination after deployment.
 
 See [INTERACTIONS.md](INTERACTIONS.md) for concrete routes, response examples, and access policy.
 
@@ -290,13 +289,13 @@ private Saved page removes unsaved entries locally and is mounted under a protec
 Feed cards unwrap repost events and show the reposter and event time in the original author's byline.
 They retain the original attachments, controls, and ownership checks. Repost changes refresh the
 containing feed or profile list. The public profile timeline merges post authorship, repost activity, and live
-article comments with the same descending event tuple used by public feeds. Article and shared-post
+reply posts with the same descending event tuple used by public feeds. Article and shared-post
 reading pages reuse these controls and discussions.
 
 `features/comments/Discussion` reads one post level at a time and mounts child lists only when
 expanded. Root, parent, and original IDs stay in the API rather than being reconstructed from
 visual indentation. Indentation is capped after four levels while deeper replies remain browsable.
-Article comments use the flat endpoint, with an @handle shortcut and optional rank sorting.
+Article comments use compatible scoped endpoints backed by the same reply tree model.
 Unique reaction edges and denormalized counts commit together. Forms retain failed text;
 owned live comments support edits/deletes; tombstones preserve expanded child navigation.
 

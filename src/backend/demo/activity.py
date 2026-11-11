@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from backend.articles.models import Article
 from backend.auth.client import ClientType
 from backend.auth.sessions import prepare_session
+from backend.comments.conversion import migrate_discussions
 from backend.comments.models import ArticleComment, CommentLike, PostReply
 from backend.comments.schemas import CommentText
 from backend.comments.service import CommentService
@@ -240,6 +241,8 @@ async def seed_ranked_discussions(
                 ),
                 author.id, "article_comment",
             )
+
+    await migrate_discussions(resources.redis)
 
     examples: list[tuple[PublicationKind, MicroPost | Article, str, int, tuple[str, ...]]] = [
         ("micro_post", posts["note-00"], "discussion-roots", 0, ("ben", "casey", "dana", "farah")),

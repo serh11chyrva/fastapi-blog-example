@@ -18,6 +18,7 @@ from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.publications.queries import load_authors
+from backend.publications.access import public_publication
 from backend.storage.cleanup import queue_deletion
 from backend.storage.urls import publication_image_url
 
@@ -65,6 +66,9 @@ class PostService:
 
         if item is None or item.deleted_at is not None or item.owner_id != owner.id:
             raise NotFound("Publication not found")
+
+        if item.reply is not None:
+            await public_publication(item.reply.kind, str(item.reply.publication_id), session, touch=True)
 
         return item
 
@@ -139,10 +143,7 @@ class PostService:
         :param resource_id: String identifier of the publication to load or mutate.
         :return: The micro-post and its author accounts in stored order.
         """
-        post = await self.repository.get_post(publication_id(resource_id))
-
-        if post is None or post.deleted_at is not None:
-            raise NotFound("Post not found")
+        post = await public_publication("micro_post", resource_id)
 
         return post, await load_authors(post.author_ids)
 
@@ -156,6 +157,8 @@ class PostService:
         async with transaction(self.resources.mongo) as session:
             item = await self.owned(resource_id, owner, session)
             item.deleted_at = item.updated_at = datetime.now(UTC)
+            if item.reply is not None:
+                item.text = ""
             await item.save(session=session)
 
             keys = item.image_keys
