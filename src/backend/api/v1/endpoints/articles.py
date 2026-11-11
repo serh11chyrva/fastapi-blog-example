@@ -12,6 +12,7 @@ from backend.articles.service import ArticleService
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.resources import Resources
+from backend.links.presentation import hydrate_publications
 from backend.publications.queries import load_authors
 
 router = APIRouter()
@@ -106,13 +107,18 @@ async def create_article(
 ) -> ArticleResponse:
     """Create an article draft for the authenticated account.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param payload: Validated request data for the operation.
     :param current_user: Account resolved from the current session cookie.
     :param articles: Articles application service injected for this request.
     :return: The created article response.
     """
-    return article_response(await articles.create_article(payload, current_user), [current_user])
+    return await hydrate_publications(
+        articles.resources.redis,
+        article_response(await articles.create_article(payload, current_user), [current_user]),
+    )
 
 
 @router.get(
@@ -141,6 +147,8 @@ async def list_my_articles(
 ) -> list[ArticleResponse]:
     """List the authenticated author's articles with optional status filtering.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param current_user: Account resolved from the current session cookie.
     :param articles: Articles application service injected for this request.
     :param article_status: Article status filter, including all for every status.
@@ -150,7 +158,10 @@ async def list_my_articles(
     """
     items = await articles.list_mine(current_user, None if article_status == "all" else article_status, offset, limit)
 
-    return [article_response(article, authors) for article, authors in items]
+    return await hydrate_publications(
+        articles.resources.redis,
+        [article_response(article, authors) for article, authors in items],
+    )
 
 
 @router.get(
@@ -169,6 +180,8 @@ async def list_my_articles(
 async def get_article(article_id: ArticleId, current_user: OptionalUser, articles: Articles) -> ArticleResponse:
     """Read a visible article, allowing private drafts only for their owner.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param article_id: MongoDB identifier of the article.
     :param current_user: Account resolved from the session cookie, or None for anonymous
         access.
@@ -177,7 +190,10 @@ async def get_article(article_id: ArticleId, current_user: OptionalUser, article
     """
     article, authors = await articles.get_article(article_id, current_user)
 
-    return article_response(article, authors)
+    return await hydrate_publications(
+        articles.resources.redis,
+        article_response(article, authors),
+    )
 
 
 @router.patch(
@@ -208,6 +224,8 @@ async def update_article(
 ) -> ArticleResponse:
     """Apply supplied fields to an article owned by the current account.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param article_id: MongoDB identifier of the article.
     :param payload: Validated request data for the operation.
@@ -217,7 +235,10 @@ async def update_article(
     """
     article = await articles.edit_article(article_id, payload, current_user)
 
-    return article_response(article, await load_authors(article.author_ids))
+    return await hydrate_publications(
+        articles.resources.redis,
+        article_response(article, await load_authors(article.author_ids)),
+    )
 
 
 @router.post(
@@ -252,6 +273,8 @@ async def publish_article(
 ) -> ArticleResponse:
     """Publish an owned article immediately.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param article_id: MongoDB identifier of the article.
     :param current_user: Account resolved from the current session cookie.
@@ -260,7 +283,10 @@ async def publish_article(
     """
     article = await articles.transition(article_id, current_user, "published")
 
-    return article_response(article, await load_authors(article.author_ids))
+    return await hydrate_publications(
+        articles.resources.redis,
+        article_response(article, await load_authors(article.author_ids)),
+    )
 
 
 @router.post(
@@ -286,6 +312,8 @@ async def return_article_to_draft(
 ) -> ArticleResponse:
     """Unpublish an owned article and clear its pending schedule.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param article_id: MongoDB identifier of the article.
     :param current_user: Account resolved from the current session cookie.
@@ -294,7 +322,10 @@ async def return_article_to_draft(
     """
     article = await articles.transition(article_id, current_user, "draft")
 
-    return article_response(article, await load_authors(article.author_ids))
+    return await hydrate_publications(
+        articles.resources.redis,
+        article_response(article, await load_authors(article.author_ids)),
+    )
 
 
 @router.post(
@@ -321,6 +352,8 @@ async def schedule_article(
 ) -> ArticleResponse:
     """Schedule an owned article for a future publication time.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param article_id: MongoDB identifier of the article.
     :param payload: Validated request data for the operation.
@@ -330,4 +363,7 @@ async def schedule_article(
     """
     article = await articles.transition(article_id, current_user, "scheduled", payload.publish_at)
 
-    return article_response(article, await load_authors(article.author_ids))
+    return await hydrate_publications(
+        articles.resources.redis,
+        article_response(article, await load_authors(article.author_ids)),
+    )

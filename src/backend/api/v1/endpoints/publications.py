@@ -5,9 +5,11 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response
 
 from backend.api import examples
+from backend.core.resources import Resources
 from backend.api.metadata import ShareSlug, Username, documented_responses
 from backend.articles.presenters import article_response
 from backend.articles.schemas import ArticleResponse
+from backend.links.presentation import hydrate_publications
 from backend.posts.models import MicroPost
 from backend.feeds.schemas import PublicationPreview
 from backend.posts.presenters import post_response
@@ -56,17 +58,21 @@ async def get_publication_previews(
 async def get_shared_publication(
     username: Username,
     share_slug: ShareSlug,
+    resources: Resources,
 ) -> MicroPostResponse | ArticleResponse:
     """Resolve a public publication using its owner's handle and share slug.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param username: Public profile handle, optionally prefixed with @.
     :param share_slug: Readable share slug ending with the stable publication share ID.
+    :param resources: Application cache used to attach current link presentations.
     :return: The matching micro-post or published article response.
     """
     publication, authors = await shared(username, share_slug)
 
-    return (
+    return await hydrate_publications(resources.redis, (
         post_response(publication, authors)
         if isinstance(publication, MicroPost)
         else article_response(publication, authors)
-    )
+    ))

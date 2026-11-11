@@ -69,12 +69,19 @@ export type Attachment =
   | { type: "embed"; provider: "soundcloud" | "spotify" | "youtube" | "twitch" | "vimeo"; url: string }
   | { type: "video"; url: string };
 export type PublicationBase = {
+  link_resolutions?: Record<string, LinkResolution>;
   reply?: ReplyMetadata | null;
   id: string;
   share_url: string | null;
   owner_id: string;
   authors: ProfileCard[];
   attachments: Attachment[];
+};
+export type LinkResolution = {
+  status: "pending" | "ready" | "fallback";
+  card: Extract<Attachment, { type: "og_card" }>;
+  attachment: Extract<Attachment, { type: "embed" | "og_card" }>;
+  player_url: string | null;
 };
 export type PostFeedItem = PublicationBase & {
   kind: "micro_post";

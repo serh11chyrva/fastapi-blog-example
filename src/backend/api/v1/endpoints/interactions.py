@@ -11,6 +11,7 @@ from backend.core.resources import Resources
 from backend.feeds.schemas import RepostPage
 from backend.interactions.schemas import InteractionSummary, SavedPage
 from backend.interactions.service import InteractionService
+from backend.links.presentation import hydrate_publications
 
 router = APIRouter(tags=["Interactions"])
 
@@ -330,6 +331,8 @@ async def saved_publications(
 ) -> SavedPage:
     """Read the authenticated account's private saved-publication page.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param current_user: Account whose saves are requested; no other account ID is accepted.
     :param interactions: Request-scoped interaction service.
     :param response: HTTP response receiving private no-store cache headers.
@@ -339,7 +342,10 @@ async def saved_publications(
     """
     response.headers["Cache-Control"] = "private, no-store"
 
-    return cast(SavedPage, await interactions.list_entries(current_user, "save", cursor, limit))
+    return await hydrate_publications(
+        interactions.resources.redis,
+        cast(SavedPage, await interactions.list_entries(current_user, "save", cursor, limit)),
+    )
 
 
 @router.get(
@@ -353,10 +359,15 @@ async def profile_reposts(
 ) -> RepostPage:
     """Read public repost history without exposing likes or private saves.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param username: Public account handle, optionally prefixed with @.
     :param interactions: Request-scoped interaction service.
     :param cursor: Last scanned repost relationship identifier.
     :param limit: Maximum number of relationships to scan.
     :return: Public repost events and a continuation cursor.
     """
-    return await interactions.profile_reposts(username, cursor, limit)
+    return await hydrate_publications(
+        interactions.resources.redis,
+        await interactions.profile_reposts(username, cursor, limit),
+    )

@@ -1,3 +1,5 @@
+import { seedPublicationLinks } from "./linkCache";
+
 export type ApiRequestOptions = RequestInit;
 export const sessionExpiredEvent = "api-session-expired";
 let sessionGeneration = 0;
@@ -48,5 +50,6 @@ export async function api<T>(path: string, init: ApiRequestOptions = {}): Promis
     const message = typeof detail === "string" ? detail : messages.join(" · ") || "Something went wrong. Please try again.";
     throw new ApiError(message, response.status, detail);
   }
+  seedPublicationLinks(payload);
   return payload as T;
 }

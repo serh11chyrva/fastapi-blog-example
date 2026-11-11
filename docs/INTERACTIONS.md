@@ -296,6 +296,9 @@ change the saved publication. Edits include the loaded update timestamp to rejec
 concurrent changes rather than silently overwriting them.
 
 URL cards use cached metadata with deduplicated reads and at most ten pending refreshes.
+Publication responses seed the shared metadata cache before the first render, so
+already resolved cards do not briefly show hostname placeholders. Identical URL
+requests share one in-flight promise; cache updates reach every mounted occurrence.
 Compact link cards retain a bounded left thumbnail and a wrapping text column with
 three-line title and description limits. Image loading does not size the row; a
 failed image removes its entire column and leaves a usable full-width text card.

@@ -8,6 +8,7 @@ from backend.core.resources import Resources
 from backend.feeds.repository import FeedKind
 from backend.feeds.schemas import FeedResponse
 from backend.feeds.service import load_following_feed, load_public_feed
+from backend.links.presentation import hydrate_publications
 
 router = APIRouter(prefix="/feeds")
 
@@ -36,13 +37,18 @@ async def public_feed(
 ) -> FeedResponse:
     """Read a cursor-paginated page of public publications.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param resources: Application-owned database, cache, and storage clients.
     :param kind: Publication type filter: micro_post, article, or all when supported.
     :param cursor: Opaque cursor from the preceding feed page, if any.
     :param limit: Maximum number of entries to return in this page.
     :return: The public feed page with an optional next cursor.
     """
-    return await load_public_feed(resources, kind, cursor, limit)
+    return await hydrate_publications(
+        resources.redis,
+        await load_public_feed(resources, kind, cursor, limit),
+    )
 
 
 @router.get(
@@ -71,6 +77,8 @@ async def following_feed(
 ) -> FeedResponse:
     """Read publications by accounts followed by the current user.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param resources: Application-owned database, cache, and storage clients.
     :param current_user: Account resolved from the current session cookie.
     :param kind: Publication type filter: micro_post, article, or all when supported.
@@ -78,4 +86,7 @@ async def following_feed(
     :param limit: Maximum number of entries to return in this page.
     :return: The following feed page with an optional next cursor.
     """
-    return await load_following_feed(resources, current_user, kind, cursor, limit)
+    return await hydrate_publications(
+        resources.redis,
+        await load_following_feed(resources, current_user, kind, cursor, limit),
+    )

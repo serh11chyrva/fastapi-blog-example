@@ -327,6 +327,16 @@ without extending that result's absolute expiry, and schedules another attempt.
 Negative results expire after five minutes. Queue entries remain deduplicated;
 failed work receives at most three attempts before the next demand-driven refresh.
 
+`links/presentation.py` enriches authorized typed publication responses with read-only
+`link_resolutions`. It collects unique URLs from attachments and article body blocks,
+then uses one Redis MGET and at most one queue update per HTTP response. This runs in
+HTTP adapters after any feed-cache hit, so cached feed pages cannot freeze metadata.
+The response field belongs to schemas only, not Beanie documents or write payloads.
+The frontend seeds a shared result cache before rendering API responses, reads it
+synchronously, and shares in-flight resolution requests until they settle. Late
+pending/fallback results cannot overwrite a ready presentation. Player iframes still
+wait until their card approaches the viewport.
+
 The article toolbar retains insertion/selection ranges across menu focus and maps
 pending image positions through TipTap transactions. Empty-paragraph slash commands
 open block insertion; gap controls add before, between, or after blocks. Dragging shows

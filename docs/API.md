@@ -567,6 +567,22 @@ are not copied into the top-level list. Article covers remain a separate `thumbn
 
 ### External link preview
 
+Publication read and write responses may include the read-only field
+`link_resolutions: Record<string, LinkResolution>` (empty by default). It is present
+on original feed entries, profile publications, direct/shared posts and articles,
+and the original publication nested in reposts, saves, and live discussion entries.
+Keys normalize the hostname to lowercase ASCII, remove the default port and fragment,
+and include an explicit path. Values contain `status` (`pending`, `ready`, `fallback`),
+`card`, `attachment`, and nullable `player_url`, matching `/links/resolved`.
+Article responses also include destinations from attachment blocks in their body.
+This field is not accepted in write payloads and is never stored with publications.
+
+One batched Redis read enriches each response after normal visibility checks and any
+public-feed cache hit. Cache misses queue background work and return pending hostname
+cards. Redis failure returns usable fallback data without failing publication reads.
+External pages are not fetched in these requests. Existing clients can ignore this
+additive field; new clients treat its absence as an empty map.
+
 Send `{"url":"https://example.com/"}` to `POST /links/preview` with a session and Origin.
 The result is a cached, ready-to-store `og_card`, or a hostname card while background
 resolution is queued. The worker fetches public HTTP(S) hosts on standard ports,

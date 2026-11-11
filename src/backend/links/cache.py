@@ -57,15 +57,36 @@ async def cached_resolution(redis: Redis, url: str) -> LinkResolution:
     :return: Cached presentation or a usable pending/fallback hostname card.
     """
     target = checked_url(url)
-    cached = None
+    return (await cached_resolutions(redis, [target]))[target]
+
+
+async def cached_resolutions(redis: Redis, urls: list[str]) -> dict[str, LinkResolution]:
+    """Read unique presentations together and enqueue missing or stale entries once.
+
+    :param redis: Application Redis connection, whose failure never blocks publication reads.
+    :param urls: Validated public URLs to normalize and deduplicate.
+    :return: Normalized URL map containing cached results or non-executable hostname fallbacks.
+    """
+    targets = list(dict.fromkeys(checked_url(url) for url in urls))
+    if not targets:
+        return {}
+    results = {}
     try:
-        cached = parse_cached_resolution(await redis.get(cache_key(target)))
-        if cached is None or cached.refresh_at <= time.time():
-            await redis.zadd(QUEUE, {target: time.time()}, nx=True)
-        return cached.result if cached else fallback_resolution(target, pending=True)
+        raw_values = await redis.mget([cache_key(target) for target in targets])
+        now = time.time()
+        queued = {}
+        for target, raw in zip(targets, raw_values, strict=True):
+            cached = parse_cached_resolution(raw)
+            results[target] = cached.result if cached else fallback_resolution(target, pending=True)
+            if cached is None or cached.refresh_at <= now:
+                queued[target] = now
+        if queued:
+            await redis.zadd(QUEUE, queued, nx=True)
+        return results
     except RedisError:
         logger.warning("Link metadata cache unavailable")
-        return cached.result if cached else fallback_resolution(target)
+        return {target: results[target] if target in results and results[target].status != "pending"
+                else fallback_resolution(target) for target in targets}
 
 
 async def enqueue_attachments(redis: Redis, attachments: list[PublicationAttachment]) -> None:

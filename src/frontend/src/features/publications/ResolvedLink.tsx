@@ -13,6 +13,7 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
   const [failedImage, setFailedImage] = useState<string | null>(null);
   useEffect(() => setFailed(false), [item.url]);
   useEffect(() => {
+    if (!("IntersectionObserver" in window)) { setVisible(true); return; }
     const observer = new IntersectionObserver(([entry]) => {
       if (entry?.isIntersecting) { setVisible(true); observer.disconnect(); }
     }, { rootMargin: "200px" });
@@ -23,8 +24,9 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
   const resolved = result?.attachment;
   const source = resolved?.type === "embed" && result?.player_url && embedSource(resolved)
     ? result.player_url : null;
-  const card = result?.status !== "ready" && item.type === "og_card" ? item
-    : result?.card ?? (item.type === "og_card" ? item : null);
+  const savedCard = item.type === "og_card" ? item : null;
+  const card = result && (result.status === "ready" || result.card.image_url || result.card.description || !savedCard)
+    ? result.card : savedCard;
   const hostname = new URL(item.url).hostname;
   const audio = resolved?.type === "embed" && ["spotify", "soundcloud"].includes(resolved.provider);
   const image = card?.image_url && card.image_url !== failedImage ? card.image_url : null;

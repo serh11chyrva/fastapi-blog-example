@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api import examples
+from backend.links.schemas import LinkPresentation
 from backend.posts.models import ReplyMetadata
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment, PublicationAttachments
@@ -61,7 +62,7 @@ class MicroPostCreate(BaseModel):
         return value
 
 
-class MicroPostResponse(BaseModel):
+class MicroPostResponse(LinkPresentation):
     """Public post or owner-only staging response with typed attachments and ordered authors."""
 
     model_config = ConfigDict(

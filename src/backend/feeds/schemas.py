@@ -4,12 +4,13 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.api import examples
+from backend.links.schemas import LinkPresentation
 from backend.posts.models import ReplyMetadata
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment
 
 
-class FeedBase(BaseModel):
+class FeedBase(LinkPresentation):
     """Shared author and ordering data for a public feed entry."""
 
     model_config = ConfigDict(

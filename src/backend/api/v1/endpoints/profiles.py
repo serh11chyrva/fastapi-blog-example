@@ -10,6 +10,7 @@ from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.resources import Resources
 from backend.feeds.repository import FeedKind
 from backend.feeds.schemas import FeedItem, ProfileTimelinePage
+from backend.links.presentation import hydrate_publications
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import (
     BadgePreferenceUpdate,
@@ -71,6 +72,7 @@ async def get_profile(username: Username, current_user: OptionalUser) -> Profile
 )
 async def list_profile_publications(
     username: Username,
+    resources: Resources,
     kind: FeedKind = "all",
     offset: int = Query(
         default=0,
@@ -81,13 +83,19 @@ async def list_profile_publications(
 ) -> list[FeedItem]:
     """Read an offset page of a profile's public publications.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
+    :param resources: Application cache used to attach current link presentations.
     :param username: Public profile handle, optionally prefixed with @.
     :param kind: Publication type filter: micro_post, article, or all when supported.
     :param offset: Number of matching entries to skip before selecting the page.
     :param limit: Maximum number of entries to return in this page.
     :return: The requested page of publication feed items.
     """
-    return await queries.publications(username, kind, offset, limit)
+    return await hydrate_publications(
+        resources.redis,
+        await queries.publications(username, kind, offset, limit),
+    )
 
 
 @router.get(
@@ -100,12 +108,16 @@ async def list_profile_publications(
 )
 async def get_profile_timeline(
     username: Username,
+    resources: Resources,
     response: Response,
     cursor: Annotated[str | None, Query(max_length=512, description="Opaque cursor from the previous page.")] = None,
     limit: Annotated[int, Query(ge=1, le=50, description="Page size from 1 to 50.")] = 20,
 ) -> ProfileTimelinePage:
     """Read current public activity for an existing profile.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
+    :param resources: Application cache used to attach current link presentations.
     :param username: Case-insensitive profile handle.
     :param response: Response whose cache policy prevents reuse after visibility changes.
     :param cursor: Optional position from the previous activity page.
@@ -114,7 +126,10 @@ async def get_profile_timeline(
     """
     response.headers["Cache-Control"] = "no-store"
 
-    return await profile_timeline(await queries.by_username(username), cursor, limit)
+    return await hydrate_publications(
+        resources.redis,
+        await profile_timeline(await queries.by_username(username), cursor, limit),
+    )
 
 
 @router.get(

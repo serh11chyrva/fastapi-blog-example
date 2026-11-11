@@ -40,8 +40,13 @@ Post images are represented only as `type: image` elements in `attachments`; the
 Image references must belong to the publication, mentioned accounts must exist, and newly
 referenced publications must be public. Article bodies support inline mention/hashtag nodes and
 block attachment nodes (up to 30 descriptors per body). The authenticated link preview endpoint
-can generate textual OG metadata. The client builds click-to-load players for supported YouTube,
-Vimeo, Spotify, and SoundCloud resources.
+can return cached OG metadata. Confirmed players load near the viewport without media autoplay.
+Publication responses also expose optional read-only `link_resolutions`, a map from normalized
+external URLs to cached `status`, `card`, `attachment`, and `player_url` data. This includes originals
+inside reposts, saves, and discussion entries, and links in article body blocks. Responses batch
+Redis reads after visibility checks and feed-cache reads; missing data queues background work.
+External destinations are never fetched during publication reads. Saved attachment descriptors
+and article bodies are unchanged; clients may ignore the new field or treat its absence as `{}`.
 Original publication responses and feed items expose a nonempty `authors` array of public profile cards,
 with the owner first, followed by featured authors in stored order. Responses also expose `owner_id`.
 Only the owner controls edits and private access; featured authors are display credits. Creation leaves

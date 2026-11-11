@@ -7,6 +7,7 @@ from backend.articles.schemas import ArticleImageResponse, ArticleResponse
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser
 from backend.core.resources import Resources
+from backend.links.presentation import hydrate_publications
 from backend.posts.schemas import MicroPostResponse
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import OwnProfileResponse
@@ -200,6 +201,8 @@ async def complete_post_images(
 ) -> MicroPostResponse:
     """Confirm uploaded images and replace an owned micro-post's attachments.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param post_id: MongoDB identifier of the micro-post.
     :param upload_id: Upload session identifier returned by upload preparation.
@@ -209,7 +212,10 @@ async def complete_post_images(
     """
     result = await service.complete(current_user, "post-images", post_id, upload_id)
 
-    return MicroPostResponse.model_validate(result.model_dump())
+    return await hydrate_publications(
+        service.resources.redis,
+        MicroPostResponse.model_validate(result.model_dump()),
+    )
 
 
 @router.post(
@@ -269,6 +275,8 @@ async def complete_cover(
 ) -> ArticleResponse:
     """Confirm a cover upload and attach it to the owned article.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param article_id: MongoDB identifier of the article.
     :param upload_id: Upload session identifier returned by upload preparation.
@@ -278,7 +286,10 @@ async def complete_cover(
     """
     result = await service.complete(current_user, "article-covers", article_id, upload_id)
 
-    return ArticleResponse.model_validate(result.model_dump())
+    return await hydrate_publications(
+        service.resources.redis,
+        ArticleResponse.model_validate(result.model_dump()),
+    )
 
 
 @router.post(

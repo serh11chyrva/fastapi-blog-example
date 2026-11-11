@@ -96,6 +96,7 @@ POST = {
     "share_url": "/@maya_bennett/finished-a-24-km-ride-along-the-river-before-breakfast-the-best--a98f7c1326e44b6a8c5d39e27104bf60",
     "text": POST_TEXT,
     "attachments": [],
+    "link_resolutions": {},
     "reply": None,
     "pending": False,
     "owner_id": ACCOUNT["id"],
@@ -152,6 +153,7 @@ ARTICLE = {
     "thumbnail_url": None,
     "inline_image_urls": [],
     "attachments": [],
+    "link_resolutions": {},
     "status": "draft",
     "owner_id": ACCOUNT["id"],
     "authors": [AUTHOR],
@@ -175,7 +177,14 @@ POST_RICH_CREATE = {
         "description": "A few ideas to revisit.",
     }],
 }
-POST_WITH_CONTENT = POST | POST_RICH_CREATE
+LINK_CARD = POST_RICH_CREATE["attachments"][0] | {
+    "image_url": "https://example.com/notes-cover.jpg", "site_name": "Example",
+}
+POST_WITH_CONTENT = POST | POST_RICH_CREATE | {
+    "link_resolutions": {"https://example.com/notes": {
+        "status": "ready", "card": LINK_CARD, "attachment": LINK_CARD, "player_url": None,
+    }},
+}
 ARTICLE_RICH_CREATE = ARTICLE_CREATE | {
     "body": {
         "type": "doc",
@@ -237,6 +246,7 @@ FEED_ARTICLE = {
         "owner_id",
         "authors",
         "attachments",
+        "link_resolutions",
         "published_at",
         "updated_at",
     )
@@ -249,6 +259,7 @@ FEED_POST = {
         "share_url",
         "text",
         "attachments",
+        "link_resolutions",
         "owner_id",
         "authors",
         "updated_at",

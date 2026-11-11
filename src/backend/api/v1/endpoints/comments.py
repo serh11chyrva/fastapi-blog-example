@@ -18,6 +18,7 @@ from backend.comments.schemas import (
 )
 from backend.comments.service import CommentService
 from backend.core.resources import Resources
+from backend.links.presentation import hydrate_publications
 
 router = APIRouter(tags=["Comments"])
 CommentId = Annotated[str, Path(description="Comment or reply ObjectId within this publication.")]
@@ -55,6 +56,8 @@ async def list_post_replies(
 ) -> PostReplyPage:
     """Read a bounded direct-child level of the post thread.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param post_id: Public containing post identifier.
     :param comments: Request-scoped discussion service.
     :param response: HTTP response for the private cache policy.
@@ -68,7 +71,10 @@ async def list_post_replies(
     response.headers["Cache-Control"] = "private, no-store"
     viewer_id = current_user.id if current_user else None
 
-    return cast(PostReplyPage, await comments.page("micro_post", post_id, parent_id, cursor, limit, viewer_id, sort))
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(PostReplyPage, await comments.page("micro_post", post_id, parent_id, cursor, limit, viewer_id, sort)),
+    )
 
 
 @router.post(
@@ -84,6 +90,8 @@ async def create_post_comment(
 ) -> PostReplyResponse:
     """Add an authored discussion entry to a public post.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Required same-origin mutation header.
     :param post_id: Public containing post identifier.
     :param payload: Post content and an optional parent reply.
@@ -96,7 +104,10 @@ async def create_post_comment(
 
     response.headers["Cache-Control"] = "private, no-store"
 
-    return cast(PostReplyResponse, (await comment_responses([item], current_user.id))[0])
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(PostReplyResponse, (await comment_responses([item], current_user.id))[0]),
+    )
 
 
 @router.get(
@@ -110,6 +121,8 @@ async def get_post_comment(
 ) -> PostReplyResponse:
     """Read one comment after checking containing-publication visibility.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param post_id: Public containing post identifier.
     :param comment_id: Comment or reply identifier within this publication.
     :param comments: Request-scoped discussion service.
@@ -120,7 +133,12 @@ async def get_post_comment(
     item = await comments.get("micro_post", post_id, comment_id)
     response.headers["Cache-Control"] = "private, no-store"
 
-    return cast(PostReplyResponse, (await comment_responses([item], current_user.id if current_user else None))[0])
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(PostReplyResponse, (await comment_responses(
+            [item], current_user.id if current_user else None,
+        ))[0]),
+    )
 
 
 @router.patch(
@@ -136,6 +154,8 @@ async def edit_post_comment(
 ) -> PostReplyResponse:
     """Edit owned reply content without moving its discussion position.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Required same-origin mutation header.
     :param post_id: Public containing post identifier.
     :param comment_id: Scoped comment or reply identifier.
@@ -149,7 +169,10 @@ async def edit_post_comment(
 
     response.headers["Cache-Control"] = "private, no-store"
 
-    return cast(PostReplyResponse, (await comment_responses([item], current_user.id))[0])
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(PostReplyResponse, (await comment_responses([item], current_user.id))[0]),
+    )
 
 
 @router.delete(
@@ -191,6 +214,8 @@ async def list_article_comments(
 ) -> ArticleCommentPage:
     """Read a bounded article discussion level.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param article_id: Public containing article identifier.
     :param parent_id: Parent reply ID, or None for roots.
     :param comments: Request-scoped discussion service.
@@ -204,7 +229,10 @@ async def list_article_comments(
     response.headers["Cache-Control"] = "private, no-store"
     viewer_id = current_user.id if current_user else None
 
-    return cast(ArticleCommentPage, await comments.page("article", article_id, parent_id, cursor, limit, viewer_id, sort))
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(ArticleCommentPage, await comments.page("article", article_id, parent_id, cursor, limit, viewer_id, sort)),
+    )
 
 
 @router.post(
@@ -220,6 +248,8 @@ async def create_article_comment(
 ) -> ArticleCommentResponse:
     """Add an authored discussion entry to a public article.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Required same-origin mutation header.
     :param article_id: Public containing article identifier.
     :param payload: Post content and an optional parent reply in this article.
@@ -232,7 +262,10 @@ async def create_article_comment(
 
     response.headers["Cache-Control"] = "private, no-store"
 
-    return cast(ArticleCommentResponse, (await comment_responses([item], current_user.id))[0])
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(ArticleCommentResponse, (await comment_responses([item], current_user.id))[0]),
+    )
 
 
 @router.get(
@@ -246,6 +279,8 @@ async def get_article_comment(
 ) -> ArticleCommentResponse:
     """Read one comment after checking containing-publication visibility.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param article_id: Public containing article identifier.
     :param comment_id: Comment or reply identifier within this publication.
     :param comments: Request-scoped discussion service.
@@ -256,7 +291,12 @@ async def get_article_comment(
     item = await comments.get("article", article_id, comment_id)
     response.headers["Cache-Control"] = "private, no-store"
 
-    return cast(ArticleCommentResponse, (await comment_responses([item], current_user.id if current_user else None))[0])
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(ArticleCommentResponse, (await comment_responses(
+            [item], current_user.id if current_user else None,
+        ))[0]),
+    )
 
 
 @router.patch(
@@ -272,6 +312,8 @@ async def edit_article_comment(
 ) -> ArticleCommentResponse:
     """Edit owned reply content without moving its discussion position.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Required same-origin mutation header.
     :param article_id: Public containing article identifier.
     :param comment_id: Scoped comment or reply identifier.
@@ -285,7 +327,10 @@ async def edit_article_comment(
 
     response.headers["Cache-Control"] = "private, no-store"
 
-    return cast(ArticleCommentResponse, (await comment_responses([item], current_user.id))[0])
+    return await hydrate_publications(
+        comments.resources.redis,
+        cast(ArticleCommentResponse, (await comment_responses([item], current_user.id))[0]),
+    )
 
 
 @router.delete(

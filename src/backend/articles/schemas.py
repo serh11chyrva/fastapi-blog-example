@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api import examples
 from backend.articles.validation import ArticleBody, validate_tiptap_document
+from backend.links.schemas import LinkPresentation
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment, PublicationAttachments
 
@@ -158,7 +159,7 @@ class ArticleScheduleRequest(BaseModel):
         return value
 
 
-class ArticleResponse(BaseModel):
+class ArticleResponse(LinkPresentation):
     """Full article data. Drafts and scheduled articles are visible only to their owner."""
 
     model_config = ConfigDict(

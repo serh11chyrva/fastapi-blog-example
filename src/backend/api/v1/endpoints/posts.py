@@ -9,6 +9,7 @@ from backend.api.metadata import Origin, PostId, documented_responses
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser
 from backend.core.resources import Resources
+from backend.links.presentation import hydrate_publications
 from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostCreate, MicroPostResponse, PostDraftRequest
 from backend.posts.service import PostService
@@ -43,13 +44,18 @@ async def create_post_draft(
 ) -> MicroPostResponse:
     """Create or retrieve the owner's private staging publication.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated mutation origin.
     :param payload: Stable client retry key.
     :param current_user: Account owning the staging target.
     :param posts: Request-scoped post service.
     :return: The private target or its already published result.
     """
-    return post_response(await posts.create_draft(payload.key, current_user), [current_user])
+    return await hydrate_publications(
+        posts.resources.redis,
+        post_response(await posts.create_draft(payload.key, current_user), [current_user]),
+    )
 
 
 @router.post(
@@ -79,13 +85,18 @@ async def create_micro_post(
 ) -> MicroPostResponse:
     """Publish a micro-post for the authenticated account.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param payload: Validated request data for the operation.
     :param current_user: Account resolved from the current session cookie.
     :param posts: Posts application service injected for this request.
     :return: The created micro-post response.
     """
-    return post_response(await posts.create_post(payload, current_user), [current_user])
+    return await hydrate_publications(
+        posts.resources.redis,
+        post_response(await posts.create_post(payload, current_user), [current_user]),
+    )
 
 
 @router.get(
@@ -99,13 +110,18 @@ async def create_micro_post(
 async def get_micro_post(post_id: PostId, posts: Posts) -> MicroPostResponse:
     """Read a public, undeleted micro-post and its authors.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param post_id: MongoDB identifier of the micro-post.
     :param posts: Posts application service injected for this request.
     :return: The public micro-post response.
     """
     post, authors = await posts.get_post(post_id)
 
-    return post_response(post, authors)
+    return await hydrate_publications(
+        posts.resources.redis,
+        post_response(post, authors),
+    )
 
 
 @router.patch(
@@ -128,6 +144,8 @@ async def update_micro_post(
 ) -> MicroPostResponse:
     """Replace the owner's post text and optionally its typed attachments.
 
+    Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
+
     :param _origin: Validated Origin header required by mutating API operations.
     :param post_id: MongoDB identifier of the micro-post.
     :param payload: Validated request data for the operation.
@@ -137,7 +155,10 @@ async def update_micro_post(
     """
     post = await posts.edit_post(post_id, payload, current_user)
 
-    return post_response(post, await load_authors(post.author_ids))
+    return await hydrate_publications(
+        posts.resources.redis,
+        post_response(post, await load_authors(post.author_ids)),
+    )
 
 
 @router.delete(
