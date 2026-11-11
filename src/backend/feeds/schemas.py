@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.api import examples
+from backend.posts.models import ReplyMetadata
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment
 
@@ -57,6 +58,7 @@ class PostFeedItem(FeedBase):
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_POST]})
 
     kind: Literal["micro_post"] = "micro_post"
+    reply: ReplyMetadata | None = None
     text: str = Field(description="Public micro-post text.")
     title: None = None
     summary: None = None

@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api import examples
+from backend.posts.models import ReplyMetadata
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment, PublicationAttachments
 
@@ -51,6 +52,8 @@ class MicroPostResponse(BaseModel):
         title="Published micro-post",
         json_schema_extra={"examples": [examples.POST_WITH_IMAGES, examples.POST_WITH_FEATURED_AUTHORS, examples.POST_WITH_CONTENT]},
     )
+
+    reply: ReplyMetadata | None = Field(default=None, description="Immutable discussion context, or null for a post.")
 
     id: str = Field(
         description="Post identifier: a 24-character MongoDB ObjectId.",

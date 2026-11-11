@@ -56,6 +56,9 @@ async def make_feed(
         conditions: dict[str, Any] = {"deleted_at": None}
         date_field = "created_at"
 
+        if item_kind == "micro_post":
+            conditions["reply"] = None
+
         if item_kind == "article":
             conditions.update(status="published", published_at={"$ne": None})
             date_field = "published_at"

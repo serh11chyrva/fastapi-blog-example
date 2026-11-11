@@ -1,18 +1,33 @@
 from datetime import datetime
+from typing import Literal
 from uuid import uuid4
 
-from beanie import Document
-from pydantic import Field
+from beanie import Document, PydanticObjectId
+from pydantic import BaseModel, Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from backend.publications.attachments import PublicationAttachments
 from backend.publications.models import PublicationAuthors
 
 
+class ReplyMetadata(BaseModel):
+    """Immutable original-publication reference and position in its discussion tree."""
+
+    kind: Literal["article", "micro_post"]
+    publication_id: PydanticObjectId
+    parent_id: PydanticObjectId | None = None
+    root_id: PydanticObjectId
+    depth: int = Field(default=0, ge=0)
+
+
 class MicroPost(Document, PublicationAuthors):
     """Public short-form publication with ordered authors, stable sharing, and typed content attachments."""
 
     attachments: PublicationAttachments = Field(default_factory=list)
+    reply: ReplyMetadata | None = None
+    legacy_source: str | None = None
+    likes_count: int = 0
+    reply_revision: int = 0
     interaction_revision: int = 0
     share_id: str = Field(default_factory=lambda: uuid4().hex)
     text: str
@@ -26,6 +41,19 @@ class MicroPost(Document, PublicationAuthors):
 
         name = "micro_posts"
         indexes = [
+            IndexModel(
+                [("legacy_source", ASCENDING)], unique=True,
+                partialFilterExpression={"legacy_source": {"$type": "string"}}, name="post_legacy_source",
+            ),
+            IndexModel(
+                [("reply.kind", ASCENDING), ("reply.publication_id", ASCENDING),
+                 ("reply.parent_id", ASCENDING), ("_id", ASCENDING)], name="post_discussion_children",
+            ),
+            IndexModel(
+                [("reply.publication_id", ASCENDING), ("reply.parent_id", ASCENDING),
+                 ("deleted_at", ASCENDING), ("likes_count", DESCENDING), ("_id", DESCENDING)],
+                name="post_discussion_rank",
+            ),
             IndexModel(
                 [("owner_id", ASCENDING), ("created_at", DESCENDING)],
                 name="posts_owner_time",

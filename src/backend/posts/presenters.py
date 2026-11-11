@@ -18,6 +18,7 @@ def post_response(post: MicroPost, authors: list[User]) -> MicroPostResponse:
     """
     return MicroPostResponse(
         id=str(post.id),
+        reply=post.reply,
         owner_id=str(post.owner_id),
         attachments=display_attachments(
             post.attachments, [publication_image_url(key, "post-images") for key in post.image_keys]

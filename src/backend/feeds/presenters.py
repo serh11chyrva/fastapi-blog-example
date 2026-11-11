@@ -37,6 +37,7 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> PostFeed
     if isinstance(publication, MicroPost):
         return PostFeedItem(
             **common,
+            reply=publication.reply,
             share_url=share_path(authors[0].username, publication.text, publication.share_id),
             text=publication.text,
             published_at=publication.created_at,

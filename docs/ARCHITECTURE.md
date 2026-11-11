@@ -7,6 +7,13 @@ The write API does not accept `summary`. To backfill existing previews, run
 This explicit conversion is resumable and preserves article timestamps.
 
 Backend source lives in `src/backend/`; frontend source lives in `src/frontend/`.
+
+Short publications optionally carry immutable `reply` metadata: original `kind` and
+`publication_id`, `parent_id`, `root_id`, and `depth`. Replies use the same post identity,
+ownership, attachment inventory, and interactions as ordinary posts. Public/following
+feeds select top-level posts and explicit reposts; profiles include authored replies.
+Both new posts and replies have a 280-character text limit. Legacy synthetic replies
+are truncated to that limit during the explicit discussion migration.
 Feature packages own their behavior and persisted models. Shared infrastructure
 does not own feature policy.
 
