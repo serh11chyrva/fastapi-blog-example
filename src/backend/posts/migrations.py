@@ -1,9 +1,30 @@
 from backend.posts.models import MicroPost
 from beanie import Document, PydanticObjectId
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from backend.posts.content import validate_post_content
 from backend.publications.attachments import ImageAttachment, PublicationAttachment
+
+
+class LegacyPostOwner(BaseModel):
+    """Project legacy author identities without parsing the modern ownership contract."""
+
+    id: PydanticObjectId = Field(alias="_id")
+    author_id: PydanticObjectId
+
+
+async def backfill_legacy_post_owners() -> None:
+    """Copy authoritative legacy author IDs into missing post ownership fields.
+
+    Keep the legacy field, timestamps, and existing owners untouched. Projection
+    permits reading records that cannot yet validate as modern MicroPost documents.
+
+    :return: None; unsupported records without a legacy author fail without guessing ownership.
+    """
+    async for legacy in MicroPost.find({"owner_id": {"$exists": False}}).project(LegacyPostOwner):
+        await MicroPost.find_one({"_id": legacy.id, "owner_id": {"$exists": False}}).update(
+            {"$set": {"owner_id": legacy.author_id}},
+        )
 
 
 class AttachmentBackup(Document):
@@ -20,10 +41,11 @@ class AttachmentBackup(Document):
 
 
 async def normalize_attachments() -> int:
-    """Keep a gallery or the first supported non-image choice without changing timestamps.
+    """Backfill legacy ownership and keep one attachment choice without changing timestamps.
 
     :return: Number of newly normalized posts; completed checkpoints are not rewritten.
     """
+    await backfill_legacy_post_owners()
     changed = 0
     async for post in MicroPost.find({"pending": {"$ne": True}}):
         backup = await AttachmentBackup.get(post.id)

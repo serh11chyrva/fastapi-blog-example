@@ -32,6 +32,9 @@ Run `backend.migrate summaries` to backfill article previews. It is repeatable a
 does not change article timestamps. Conversion invalidates public feed caches.
 
 Run `backend.migrate attachments` with writes paused after discussion conversion.
+It first copies legacy `author_id` into missing `owner_id` fields, retaining the
+legacy field and timestamps; existing owners are never replaced. Records lacking
+both owner and legacy author stop conversion instead of assigning a guessed owner.
 Mixed legacy posts retain their image gallery; otherwise their first supported card,
 player, or publication is retained. Original descriptors are kept in
 `post_attachment_backups`; completed posts are not rewritten on repeat runs.
