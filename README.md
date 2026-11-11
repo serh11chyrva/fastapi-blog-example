@@ -26,12 +26,12 @@ Copy-Item .env.example .env
 docker compose up -d redis garage
 docker compose -f docker-compose.yml -f docker-compose.dev.yml build api frontend-dev
 .\scripts\setup-storage.ps1 -Development
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api frontend-dev
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api frontend-dev link-preview-worker
 ```
 
 Open the [app](http://localhost:5173) or the [API reference](http://localhost:5173/api/docs).
 
-For later sessions, repeat the last command. Rebuild the affected image when its dependencies or build configuration change. To stop only the app and keep Redis and Garage running, use `stop api frontend-dev` with the same Compose files.
+Before starting this version against existing discussion data, follow [the migration runbook](docs/MIGRATIONS.md). The API refuses an unfinished discussion conversion. For later sessions, repeat the last command. Rebuild the affected image when its dependencies or build configuration change. To stop only the app and keep Redis and Garage running, use `stop api frontend-dev link-preview-worker` with the same Compose files.
 
 ### Run the Nginx stack
 

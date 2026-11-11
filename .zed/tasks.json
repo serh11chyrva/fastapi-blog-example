@@ -38,6 +38,7 @@
       "-d",
       "api",
       "frontend-dev",
+      "link-preview-worker",
     ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "use_new_terminal": true,

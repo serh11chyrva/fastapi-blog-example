@@ -222,6 +222,7 @@ __marimo__/
 # Local Docker database files
 /data/mongo/
 /data/garage/
+/data/migration-backups/
 src/frontend/node_modules/
 src/frontend/dist/
 

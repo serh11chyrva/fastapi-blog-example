@@ -1,0 +1,12 @@
+services:
+  migration-backup:
+    image: mongo:8.0
+    pull_policy: never
+    environment:
+      MONGODB_URL: ${MONGODB_URL:?Set MONGODB_URL in .env}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-blog}
+    volumes:
+      - ./data/migration-backups:/backup
+    entrypoint: ["sh", "-c"]
+    command:
+      - 'exec mongodump --uri="$$MONGODB_URL" --db="$$MONGODB_DATABASE" --archive="/backup/before-content-$$(date -u +%Y%m%dT%H%M%SZ).archive.gz" --gzip --quiet'

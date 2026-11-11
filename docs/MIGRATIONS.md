@@ -3,7 +3,7 @@
 The `backend.migrate` command uses the configured database and Redis. Run it through
 the backend development image. Back up the database before conversion and pause API
 writes (stop `api` and `frontend-dev`) before moving discussions. Run the command with
-`docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps api uv run python -m backend.migrate discussions`.
+`docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps --pull never api python -m backend.migrate discussions`.
 
 Deploy the unified discussion code before restarting the API. Do not resume legacy
 writes between conversion and cutover. Existing `post_replies`, `article_comments`,
@@ -42,3 +42,34 @@ rollout guard prevents exposing an unfinished conversion; it is not a substitute
 for relationship and reaction reconciliation. The standalone migration command does
 not start the API and remains usable while the guard blocks application startup.
 Report mode does not invalidate feed caches or convert records.
+
+## Local maintenance sequence
+
+The commands below reuse existing development images; they do not build images.
+The optional backup service requires the local `mongo:8.0` image and never pulls it
+automatically. Pause any other application instance or demo writer using the same
+database for the whole window. Keep the resulting archive private: it includes
+account and session data and is ignored by Git.
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml stop api frontend-dev link-preview-worker
+docker compose -f docker-compose.yml -f docker-compose.migrations.yml run --rm --no-deps migration-backup
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-build redis garage
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps --pull never api python -m backend.migrate summaries
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps --pull never api python -m backend.migrate discussions
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps --pull never api python -m backend.migrate attachments
+```
+
+Stop at the first unsuccessful command. The backup is a timestamped compressed
+MongoDB archive under `data/migration-backups/`; it preserves BSON types and index
+metadata. Restore it with MongoDB Database Tools `mongorestore --gzip --archive=...`
+into a separate recovery database before a planned rollback. Replacing the live
+database requires a separate deliberate restore decision and a compatible code
+version; this workflow never automatically drops or restores a database.
+
+After any requested reconciliation and when ready to accept writes, start the
+existing images with:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-build api frontend-dev link-preview-worker
+```
