@@ -35,3 +35,10 @@ Run `backend.migrate attachments` with writes paused after discussion conversion
 Mixed legacy posts retain their image gallery; otherwise their first supported card,
 player, or publication is retained. Original descriptors are kept in
 `post_attachment_backups`; completed posts are not rewritten on repeat runs.
+
+The API refuses startup while either retained legacy discussion collection has more
+records than completed mappings. Fresh databases start normally. This inexpensive
+rollout guard prevents exposing an unfinished conversion; it is not a substitute
+for relationship and reaction reconciliation. The standalone migration command does
+not start the API and remains usable while the guard blocks application startup.
+Report mode does not invalidate feed caches or convert records.

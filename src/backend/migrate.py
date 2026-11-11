@@ -22,8 +22,8 @@ async def migrate(operation: str) -> None:
     :return: None.
     """
     settings = get_settings()
-    mongo = AsyncMongoClient(settings.mongodb_url, tz_aware=True)
-    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    mongo = AsyncMongoClient(settings.mongodb_url, serverSelectionTimeoutMS=8_000, tz_aware=True)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=3)
     try:
         await init_beanie(database=mongo[settings.mongodb_database], document_models=DOCUMENT_MODELS)
         if operation == "summaries":
@@ -32,7 +32,8 @@ async def migrate(operation: str) -> None:
             print(await migrate_discussions(redis, report=operation == "discussion-report"))
         elif operation == "attachments":
             print(f"Normalized {await normalize_attachments()} post attachments.")
-        await invalidate_public_feed(redis)
+        if operation != "discussion-report":
+            await invalidate_public_feed(redis)
     finally:
         await redis.aclose()
         await mongo.close()

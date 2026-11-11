@@ -38,6 +38,22 @@ async def mapped_id(source: str, legacy_id: PydanticObjectId) -> PydanticObjectI
     return mapping.post_id
 
 
+async def require_discussion_migration() -> None:
+    """Refuse new-storage API startup when legacy discussion conversion is unfinished.
+
+    This rollout guard compares retained source counts with completed checkpoints;
+    it does not replace the operator's full pre-deployment reconciliation.
+
+    :return: None; incomplete conversion raises RuntimeError before the API accepts writes.
+    """
+    for source, model in (("post_replies", PostReply), ("article_comments", ArticleComment)):
+        expected = await model.find_all().count()
+        completed = await ReplyMapping.find({"_id": {"$regex": f"^{source}:"}, "complete": True}).count()
+        if completed < expected:
+            raise RuntimeError("Legacy discussions need conversion; run python -m backend.migrate discussions "
+                               "with API writes paused before starting this version")
+
+
 async def migrate_discussions(redis: Redis, report: bool = False) -> dict[str, int]:
     """Copy legacy discussions and likes once while retaining source collections.
 
