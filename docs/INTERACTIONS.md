@@ -241,7 +241,9 @@ account handle stays on its own line below the name.
   and hovering shows the exact repost and original publication timestamps, plus the last update when
   it differs from publication. Controls act on the original post. Public and following feeds refresh
   after a repost change. The profile Posts tab merges posts, reposts, and authored article comments,
-  with comment activity labeled after the comment author's handle.
+  with reply/article-comment context after the author's handle and before repost
+  attribution and the timestamp. Nested reply labels link to the immediate parent.
+  The original-publication context card remains below the content without a repeated label.
 - Post timestamps use relative time. Hovering shows the exact publication time and the last update
   when it differs from publication.
 - Saved is a protected page at `/saved`, linked from desktop and mobile site navigation. It lists

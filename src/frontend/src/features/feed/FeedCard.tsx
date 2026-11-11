@@ -5,12 +5,12 @@ import { api, errorMessage } from "../../shared/api/client";
 import type { FeedItem, OriginalFeedItem, RepostFeedItem, MicroPost } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { HighlightedReplies } from "../comments/HighlightedReplies";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
 import { PreviewCard } from "../publications/PreviewCard";
 import { PublicationComposer } from "../publications/PublicationComposer";
+import { PublicationByline } from "../publications/PublicationByline";
 import { PostContent } from "./PostContent";
 
 export function FeedCard({ item, onChanged, showDiscussion = false }: {
@@ -74,21 +74,8 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
       <Avatar name={author.display_name} src={author.avatars.original} size="sm" />
     </Link>}
     <div className="post-content">
-      <div className="post-byline">
-        {author && <Link to={`/@${author.username}`} className="post-name">{author.display_name}</Link>}
-        {author && <span className="post-meta">@{author.username}</span>}
-        {repost && <span className="post-activity">
-          {author && <span aria-hidden="true">·</span>}
-          <Icon name="repost" width={15} height={15} />
-          <Link to={`/@${repost.reposted_by.username}`}>{repost.reposted_by.display_name}</Link>
-          <span>reposted</span>
-        </span>}
-        <span className="post-meta">
-          {(author || repost) && <span aria-hidden="true">· </span>}
-          <Link to={page}>
-            <RelativeTime publishedAt={item.published_at} updatedAt={item.updated_at} repostedAt={repost?.published_at} />
-          </Link>
-        </span>
+      <PublicationByline author={author} reply={item.reply} repost={repost} href={page}
+        publishedAt={item.published_at} updatedAt={item.updated_at}>
         <details className="post-menu" ref={menu}>
           <summary className="icon-button" aria-label="More publication actions" title="More actions"><Icon name="more" /></summary>
           <div className="post-menu-list">
@@ -100,7 +87,7 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
             {own && item.kind === "article" && <Link to={`/articles/${item.id}/edit`} onClick={closeMenu}>Edit article</Link>}
           </div>
         </details>
-      </div>
+      </PublicationByline>
       {featured.length > 0 && <div className="post-credits">With {featured.map((person, index) => <span key={person.id}>
         {index > 0 && ", "}<Link to={`/@${person.username}`}>{person.display_name}</Link>
       </span>)}</div>}
