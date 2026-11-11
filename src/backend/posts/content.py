@@ -2,6 +2,22 @@
 
 from backend.core.errors import InvalidOperation
 from backend.publications.attachments import ImageAttachment, PublicationAttachment
+from backend.storage.urls import publication_image_url
+
+
+def retained_image_keys(image_keys: list[str], retained_urls: list[str] | None) -> list[str]:
+    """Select owned gallery images in the requested order without mutating the inventory.
+
+    :param image_keys: Stored image keys owned by the post or its private upload draft.
+    :param retained_urls: Public image URLs to keep; None preserves all and an empty list removes all.
+    :return: Selected keys; duplicate or foreign URLs raise InvalidOperation.
+    """
+    if retained_urls is None:
+        return list(image_keys)
+    inventory = {publication_image_url(key, "post-images"): key for key in image_keys}
+    if len(set(retained_urls)) != len(retained_urls) or any(url not in inventory for url in retained_urls):
+        raise InvalidOperation("Retained images must belong to this post")
+    return [inventory[url] for url in retained_urls]
 
 
 def validate_post_content(text: str, attachments: list[PublicationAttachment], image_keys: list[str]) -> None:

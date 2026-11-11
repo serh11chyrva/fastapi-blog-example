@@ -25,6 +25,7 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
   const lock = useRef(false);
   const draftKey = useRef(crypto.randomUUID());
   const draft = useRef<MicroPost | null>(null);
+  const uploadedFiles = useRef<File[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const upload = useImageUploader();
   const hasAttachment = !!attachment || files.length > 0 || retained.length > 0;
@@ -55,12 +56,14 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
     try {
       if (!post || files.length) {
         setProgress("Preparing…");
-        draft.current ??= await api<MicroPost>("/posts/drafts", {
+        draft.current = await api<MicroPost>("/posts/drafts", {
           method: "POST", body: JSON.stringify({ key: draftKey.current }),
         });
-        if (files.length) {
+        if (files.length && draft.current.pending && (files.length !== uploadedFiles.current.length
+          || files.some((file, index) => file !== uploadedFiles.current[index]))) {
           setProgress("Uploading images…");
           draft.current = await upload<MicroPost>(`/posts/${draft.current.id}/images`, files);
+          uploadedFiles.current = [...files];
         }
       }
       setProgress(post ? "Saving…" : "Publishing…");
@@ -72,10 +75,11 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
           : { retain_image_urls: files.length ? draft.current!.attachments.filter((item) => item.type === "image").map((item) => item.url) : retained.map((item) => item.url) }),
         ...(replyPath ? { image_draft_id: draft.current!.id, ...(parentId ? { parent_id: parentId } : {}) } : {}),
       };
-      const saved = await api<MicroPost | DiscussionComment>(replyPath ?? `/posts/${post?.id ?? draft.current!.id}`, {
+      const saved = !post && !replyPath && draft.current && !draft.current.pending ? draft.current
+        : await api<MicroPost | DiscussionComment>(replyPath ?? `/posts/${post?.id ?? draft.current!.id}`, {
         method: replyPath ? "POST" : "PATCH", body: JSON.stringify(payload),
       });
-      setText(""); clearAttachment(); draft.current = null; draftKey.current = crypto.randomUUID();
+      setText(""); clearAttachment(); draft.current = null; uploadedFiles.current = []; draftKey.current = crypto.randomUUID();
       onSaved(saved);
     } catch (reason) {
       setError(`${errorMessage(reason)} Your changes have been kept. Retry after resolving the error.`);

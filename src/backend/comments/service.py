@@ -9,9 +9,11 @@ from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.posts.models import MicroPost, ReplyMetadata
 from backend.posts.service import PostService
-from backend.posts.content import validate_post_content
+from backend.posts.content import retained_image_keys, validate_post_content
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.storage.urls import publication_image_url
+from backend.storage.cleanup import queue_deletion
+from backend.core.config import get_settings
 from backend.links.cache import enqueue_attachments
 from backend.feeds.cache import invalidate_public_feed
 from backend.comments.presenters import comment_responses
@@ -50,9 +52,9 @@ class CommentService:
 
         :param kind: Containing publication type.
         :param publication_id: Public post or article identifier.
-        :param payload: Validated plain text to store.
+        :param payload: Validated text, attachment choice, and optional owned upload draft.
         :param owner: Authenticated account authoring the comment.
-        :param parent_id: Optional undeleted parent in this post, never another publication.
+        :param parent_id: Optional undeleted parent in the same original discussion.
         :return: The persisted reply post with its immutable tree position.
         """
         async with transaction(self.resources.mongo) as session:
@@ -61,10 +63,6 @@ class CommentService:
             draft = None
             if payload.image_draft_id:
                 draft = await PostService(self.resources, self.audit).owned(payload.image_draft_id, owner, session)
-                if not draft.pending:
-                    if draft.reply is not None and draft.reply.publication_id == publication.id:
-                        return draft
-                    raise InvalidOperation("Choose a private upload draft")
             reply_id = draft.id if draft else PydanticObjectId()
             parent = None
             original = publication.reply if isinstance(publication, MicroPost) else None
@@ -74,15 +72,24 @@ class CommentService:
                     raise NotFound("Parent reply not found")
             elif original is not None:
                 parent = publication
+            context_kind = original.kind if original else kind
+            context_id = original.publication_id if original else publication.id
+            if draft is not None and not draft.pending:
+                if (draft.reply is not None and draft.reply.kind == context_kind
+                        and draft.reply.publication_id == context_id
+                        and draft.reply.parent_id == (parent.id if parent else None)):
+                    return draft
+                raise InvalidOperation("Choose a private upload draft for this discussion")
             if parent is not None:
                 await parent.update({"$inc": {"reply_revision": 1}}, session=session)
             comment = MicroPost(
                 id=reply_id, owner_id=owner.id, text=payload.text, created_at=now, updated_at=now,
-                attachments=payload.attachments, image_keys=draft.image_keys if draft else [],
+                attachments=payload.attachments,
+                image_keys=retained_image_keys(draft.image_keys if draft else [], payload.retain_image_urls),
                 draft_key=draft.draft_key if draft else None,
                 reply=ReplyMetadata(
-                    kind=original.kind if original else kind,
-                    publication_id=original.publication_id if original else publication.id,
+                    kind=context_kind,
+                    publication_id=context_id,
                     parent_id=parent.id if parent else None,
                     root_id=parent.reply.root_id if parent else reply_id,
                     depth=parent.reply.depth + 1 if parent else 0,
@@ -95,6 +102,8 @@ class CommentService:
             )
             if draft:
                 await comment.replace(session=session)
+                for key in set(draft.image_keys) - set(comment.image_keys):
+                    await queue_deletion(get_settings().publication_bucket, key, session=session)
             else:
                 await comment.insert(session=session)
             await record_audit(
@@ -167,7 +176,7 @@ class CommentService:
         viewer_id: PydanticObjectId | None = None,
         sort: DiscussionSort = "oldest",
     ) -> PostReplyPage | ArticleCommentPage:
-        """Read one post-tree level or a flat article discussion without loading descendants recursively.
+        """Read one level of a post or article discussion without loading descendants recursively.
 
         :param kind: Containing publication type.
         :param publication_id: Public containing publication identifier.

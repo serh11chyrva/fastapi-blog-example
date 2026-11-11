@@ -5,8 +5,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.articles.models import Article
 from backend.links.players import player_resource
-from backend.core.errors import InvalidOperation
-from backend.posts.models import MicroPost
+from backend.core.errors import InvalidOperation, NotFound
+from backend.publications.access import public_publication
 from backend.profiles.models import User
 from backend.publications.attachments import (
     ArticleAttachment,
@@ -78,8 +78,11 @@ async def validate_attachment_references(
         raise InvalidOperation("A post cannot quote itself")
 
     posts -= old_posts
-    if posts and await MicroPost.find({"_id": {"$in": list(posts)}, "deleted_at": None}, session=session).count() != len(posts):
-        raise InvalidOperation("Post attachments must reference existing public posts")
+    for referenced_id in posts:
+        try:
+            await public_publication("micro_post", str(referenced_id), session, touch=True)
+        except NotFound as exc:
+            raise InvalidOperation("Post attachments must reference existing public posts") from exc
 
     articles -= old_articles
     if articles:

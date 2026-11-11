@@ -62,7 +62,7 @@ class MicroPostCreate(BaseModel):
 
 
 class MicroPostResponse(BaseModel):
-    """Published micro-post with ordered authors and images represented only as typed attachments."""
+    """Public post or owner-only staging response with typed attachments and ordered authors."""
 
     model_config = ConfigDict(
         title="Published micro-post",
@@ -70,6 +70,7 @@ class MicroPostResponse(BaseModel):
     )
 
     reply: ReplyMetadata | None = Field(default=None, description="Immutable discussion context, or null for a post.")
+    pending: bool = Field(default=False, description="True only for a private upload draft returned to its owner.")
 
     id: str = Field(
         description="Post identifier: a 24-character MongoDB ObjectId.",
@@ -108,7 +109,7 @@ class MicroPostResponse(BaseModel):
         examples=[[examples.AUTHOR]],
     )
     created_at: datetime = Field(
-        description="UTC creation time; micro-posts become public immediately.",
+        description="UTC publication time, or reservation time while pending. Finalizing a draft resets this time.",
         examples=[examples.POST["created_at"]],
     )
     updated_at: datetime = Field(

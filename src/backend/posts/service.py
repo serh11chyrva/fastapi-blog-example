@@ -16,7 +16,7 @@ from backend.core.transactions import transaction
 from backend.links.cache import enqueue_attachments
 from backend.feeds.cache import invalidate_public_feed
 from backend.posts.models import MicroPost
-from backend.posts.content import validate_post_content
+from backend.posts.content import retained_image_keys, validate_post_content
 from backend.posts.repository import PostRepository
 from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
@@ -146,24 +146,23 @@ class PostService:
         async with transaction(self.resources.mongo) as session:
             post = await self.owned(post_id, owner, session)
 
-            if payload.expected_updated_at is not None and payload.expected_updated_at != post.updated_at:
-                raise Conflict("This post changed; reload before saving")
+            if payload.expected_updated_at is not None:
+                expected = payload.expected_updated_at
+                if expected.replace(microsecond=expected.microsecond // 1000 * 1000) != post.updated_at:
+                    raise Conflict("This post changed; reload before saving")
             old_keys = list(post.image_keys)
             if payload.image_draft_id is not None:
                 draft = await self.owned(payload.image_draft_id, owner, session)
                 if draft.id == post.id or not draft.pending or not draft.image_keys:
                     raise InvalidOperation("Choose a completed private image upload")
-                post.image_keys = list(draft.image_keys)
+                post.image_keys = retained_image_keys(draft.image_keys, payload.retain_image_urls)
+                for key in set(draft.image_keys) - set(post.image_keys):
+                    await queue_deletion(get_settings().publication_bucket, key, session=session)
                 draft.image_keys = []
                 draft.deleted_at = datetime.now(UTC)
                 await draft.save(session=session)
             elif payload.retain_image_urls is not None:
-                inventory = {publication_image_url(key, "post-images"): key for key in post.image_keys}
-                if len(set(payload.retain_image_urls)) != len(payload.retain_image_urls) or any(
-                    url not in inventory for url in payload.retain_image_urls
-                ):
-                    raise InvalidOperation("Retained images must belong to this post")
-                post.image_keys = [inventory[url] for url in payload.retain_image_urls]
+                post.image_keys = retained_image_keys(post.image_keys, payload.retain_image_urls)
             available = {publication_image_url(key, "post-images") for key in post.image_keys}
             post.attachments = [item for item in post.attachments
                                 if not isinstance(item, ImageAttachment) or item.url in available]

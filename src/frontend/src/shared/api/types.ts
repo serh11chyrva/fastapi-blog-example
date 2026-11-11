@@ -114,6 +114,7 @@ export type CursorPage<T> = { items: T[]; next_cursor: string | null };
 export type Feed = CursorPage<FeedItem>;
 export type MicroPost = PublicationBase & {
   reply: ReplyMetadata | null;
+  pending: boolean;
   kind: "micro_post";
   text: string;
   created_at: string;

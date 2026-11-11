@@ -85,7 +85,7 @@ class InteractionService:
                     changed = True
 
                 if changed and action == "like" and kind == "micro_post":
-                    await MicroPost.find({"_id": resource_id}, session=session).update_many(
+                    await MicroPost.find({"_id": resource_id, "reply": {"$ne": None}}, session=session).update_many(
                         {"$inc": {"likes_count": 1 if enabled else -1}},
                     )
 

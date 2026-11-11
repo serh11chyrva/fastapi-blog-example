@@ -684,3 +684,13 @@ Removing the final attachment from a textless post is rejected.
 and an optional server-constructed `player_url`. Provider homepages and unsupported
 resources become cards. Provider metadata is confirmation at resolution time, not a
 guarantee of future playback. Arbitrary iframe markup is never stored or rendered.
+
+Upload draft responses include `pending: true` and a null `share_url`; public posts
+and replies have `pending: false`. Reusing a draft key returns the same committed
+publication after a lost response. Clients must not upload into that published
+result when retrying creation. Reusing a reply draft is scoped to its original
+publication and immediate parent. `retain_image_urls` applies when finalizing a
+reply or transferring an image draft as well as when editing a post; omitted URLs
+are queued for cleanup after the transaction. Edit timestamps compare at MongoDB's
+millisecond precision. New quoted posts must be public, including their original
+discussion; private staging posts cannot be quoted.

@@ -19,11 +19,12 @@ def post_response(post: MicroPost, authors: list[User]) -> MicroPostResponse:
     return MicroPostResponse(
         id=str(post.id),
         reply=post.reply,
+        pending=post.pending,
         owner_id=str(post.owner_id),
         attachments=display_attachments(
             post.attachments, [publication_image_url(key, "post-images") for key in post.image_keys]
         ),
-        share_url=share_path(authors[0].username, post.text, post.share_id),
+        share_url=None if post.pending else share_path(authors[0].username, post.text, post.share_id),
         text=post.text,
         authors=[user_card(author) for author in authors],
         created_at=post.created_at,
