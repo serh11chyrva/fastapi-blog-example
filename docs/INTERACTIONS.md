@@ -295,6 +295,12 @@ commits the final content and queues removed objects for cleanup; Cancel does no
 change the saved publication. Edits include the loaded update timestamp to reject
 concurrent changes rather than silently overwriting them.
 
+Every publication form shows the current signed-in account's avatar with the normal
+initials fallback. Posts, article comments, and nested replies share the same form
+layout, attachment controls, progress, and errors. Submit labels are Post for a new
+post, Reply for a discussion entry, and Save changes for editing. Reply-target labels
+describe the form for assistive technology rather than replacing the submit label.
+
 URL cards use cached metadata with deduplicated reads and at most ten pending refreshes.
 Publication responses seed the shared metadata cache before the first render, so
 already resolved cards do not briefly show hostname placeholders. Identical URL

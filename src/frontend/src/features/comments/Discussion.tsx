@@ -25,7 +25,7 @@ function CommentForm({ path, parentId, label, onCreated, onCancel }: {
   path: string; parentId?: string; label: string;
   onCreated: (comment: DiscussionComment) => void; onCancel?: () => void;
 }) {
-  return <PublicationComposer replyPath={path} parentId={parentId} label={label}
+  return <PublicationComposer replyPath={path} parentId={parentId} ariaLabel={label}
     onCancel={onCancel} onSaved={(saved) => onCreated(saved as DiscussionComment)} />;
 }
 

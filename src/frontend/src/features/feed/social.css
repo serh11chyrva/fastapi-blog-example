@@ -191,7 +191,11 @@
   .articles-panel { padding: 14px 16px; }
 }
 
-.publication-composer{display:grid;gap:14px}.composer-text{min-height:90px;resize:vertical}
+.publication-composer{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px}
+.publication-composer:not(:has(.composer-author)){grid-template-columns:minmax(0,1fr)}
+.composer-author{padding-top:8px}.composer-author img,.composer-author>div{width:36px;height:36px}
+.composer-body{display:grid;min-width:0;gap:14px}.composer-text{min-height:90px;resize:vertical}
+.comment-compose-actions{flex-wrap:wrap}.comment-compose-actions>div{margin-left:auto}
 .composer-choices,.composer-attachment-actions{display:flex;flex-wrap:wrap;gap:12px}
 .composer-choices button{display:inline-flex;align-items:center;gap:7px}
 .composer-image-previews{display:flex;gap:10px;overflow-x:auto;padding:4px}

@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { useApp } from "../../app/AuthProvider";
 import type { Attachment, DiscussionComment, MicroPost } from "../../shared/api/types";
 import { api, errorMessage } from "../../shared/api/client";
 import { useImageUploader, validateImages } from "../../shared/uploads/uploadImages";
 import { Icon } from "../../shared/ui/Icon";
+import { Avatar } from "../../shared/ui/Avatar";
 import { AttachmentComposer } from "./AttachmentComposer";
 import { Attachments } from "./Attachments";
 
 type Image = Extract<Attachment, { type: "image" }>;
 
-export function PublicationComposer({ post, replyPath, parentId, onSaved, onCancel, label = "Post" }: {
+export function PublicationComposer({ post, replyPath, parentId, onSaved, onCancel, label, ariaLabel }: {
   post?: MicroPost; replyPath?: string; parentId?: string;
-  onSaved: (saved: MicroPost | DiscussionComment) => void; onCancel?: () => void; label?: string;
+  onSaved: (saved: MicroPost | DiscussionComment) => void; onCancel?: () => void; label?: string; ariaLabel?: string;
 }) {
+  const { user } = useApp();
+  const submitLabel = label ?? (post ? "Save changes" : replyPath ? "Reply" : "Post");
   const [text, setText] = useState(post?.text ?? "");
   const [attachment, setAttachment] = useState<Attachment | null>(post?.attachments.find((item) => item.type !== "image") ?? null);
   const [retained, setRetained] = useState<Image[]>(post?.attachments.filter((item): item is Image => item.type === "image") ?? []);
@@ -86,7 +90,12 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
     } finally { lock.current = false; setBusy(false); setProgress(""); }
   }
 
-  return <form className="post-composer publication-composer" onSubmit={submit}>
+  return <form className="post-composer publication-composer" onSubmit={submit}
+    aria-label={ariaLabel ?? (post ? "Edit publication" : replyPath ? "Write a reply" : "Write a post")}>
+    {user && <div className="composer-author">
+      <Avatar src={user.avatars.original} name={user.display_name} size="sm" />
+    </div>}
+    <div className="composer-body">
     <textarea className="field composer-text" aria-label={post ? "Edit post text" : "Publication text"}
       placeholder={replyPath ? "Write a reply or add an attachment…" : "What’s on your mind?"}
       maxLength={280} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
@@ -118,10 +127,11 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
     <div className="comment-compose-actions">
       <span>{Array.from(text).length} / 280 · One attachment type · Up to 5 images</span>
       <div>{onCancel && <button type="button" className="button-quiet" disabled={busy} onClick={onCancel}>Cancel</button>}
-        <button className="button-primary" disabled={busy || !!mode || (!text.trim() && !hasAttachment)}>{busy ? progress : label}</button>
+        <button className="button-primary" disabled={busy || !!mode || (!text.trim() && !hasAttachment)}>{busy ? progress : submitLabel}</button>
       </div>
     </div>
     {busy && <p role="status" className="sr-only">{progress}</p>}
     {error && <p className="notice-error" role="alert">{error}</p>}
+    </div>
   </form>;
 }
