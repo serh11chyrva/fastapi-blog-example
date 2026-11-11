@@ -8,6 +8,7 @@ from pymongo import AsyncMongoClient
 from redis.asyncio import Redis
 
 from backend.articles.migrations import backfill_summaries
+from backend.comments.conversion import migrate_discussions
 from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
 from backend.feeds.cache import invalidate_public_feed
@@ -26,6 +27,8 @@ async def migrate(operation: str) -> None:
         await init_beanie(database=mongo[settings.mongodb_database], document_models=DOCUMENT_MODELS)
         if operation == "summaries":
             print(f"Updated {await backfill_summaries()} article summaries.")
+        elif operation in {"discussions", "discussion-report"}:
+            print(await migrate_discussions(redis, report=operation == "discussion-report"))
         await invalidate_public_feed(redis)
     finally:
         await redis.aclose()
@@ -34,5 +37,5 @@ async def migrate(operation: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=["summaries"])
+    parser.add_argument("operation", choices=["summaries", "discussions", "discussion-report"])
     asyncio.run(migrate(parser.parse_args().operation))
