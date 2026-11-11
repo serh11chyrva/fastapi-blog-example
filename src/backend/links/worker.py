@@ -1,6 +1,7 @@
 """Run the bounded link metadata worker independently of API processes."""
 
 import asyncio
+import math
 import time
 from uuid import uuid4
 
@@ -8,16 +9,19 @@ from loguru import logger
 from redis.asyncio import Redis
 
 from backend.core.config import get_settings
-from backend.links.cache import QUEUE, CachedResolution, cache_key
+from backend.links.cache import QUEUE, CachedResolution, cache_key, parse_cached_resolution
 from backend.links.resolution import fallback_resolution, resolve_link
 
 
 async def process_link(redis: Redis, url: str) -> None:
     """Lease a durable queue entry and acknowledge only after caching its result.
 
+    Failed refreshes keep ready metadata until its original absolute expiry.
+    Crashes leave the queue entry available after its short lease expires.
+
     :param redis: Worker Redis connection.
     :param url: Normalized queued destination.
-    :return: None; crashes leave the entry available after its short lease expires.
+    :return: None.
     """
     key = cache_key(url)
     lease = f"{key}:lease"
@@ -25,6 +29,7 @@ async def process_link(redis: Redis, url: str) -> None:
     if not await redis.set(lease, token, nx=True, ex=60):
         return
     try:
+        previous = parse_cached_resolution(await redis.get(key))
         try:
             async with asyncio.timeout(20):
                 result = await resolve_link(url)
@@ -34,9 +39,16 @@ async def process_link(redis: Redis, url: str) -> None:
         attempts = await redis.incr(f"{key}:attempts")
         await redis.expire(f"{key}:attempts", 86400)
         failed = result.status == "fallback"
-        cached = CachedResolution(result=result, refresh_at=time.time() + (300 if failed else 21600))
+        now = time.time()
+        if failed and previous is not None and previous.result.status == "ready" and previous.expires_at > now:
+            cached = previous.model_copy(update={"refresh_at": now + 300})
+        else:
+            cached = CachedResolution(
+                result=result, refresh_at=now + (300 if failed else 21600),
+                expires_at=now + (300 if failed else 86400),
+            )
         async with redis.pipeline(transaction=True) as pipeline:
-            pipeline.set(key, cached.model_dump_json(), ex=86400)
+            pipeline.set(key, cached.model_dump_json(), ex=max(1, math.ceil(cached.expires_at - time.time())))
             if failed and attempts < 3:
                 pipeline.zadd(QUEUE, {url: time.time() + 30 * 2 ** attempts})
             else:

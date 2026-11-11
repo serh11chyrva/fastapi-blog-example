@@ -158,7 +158,7 @@ def checked_url(url: str) -> str:
     """Validate a request or redirect target before passing it to the connector.
 
     :param url: Absolute HTTP or HTTPS URL to inspect.
-    :return: The validated destination with the fragment removed.
+    :return: The destination with an ASCII lowercase hostname, no default port, an explicit path, and no fragment.
     """
     try:
         validate_link_url(url)
@@ -171,7 +171,8 @@ def checked_url(url: str) -> str:
         try:
             ipaddress.ip_address(host)
         except ValueError:
-            return urlunsplit(parts._replace(fragment=""))
+            host = host.encode("idna").decode("ascii").lower()
+            return urlunsplit((parts.scheme, host, parts.path or "/", parts.query, ""))
 
         raise ValueError
     except ValueError as exc:

@@ -95,4 +95,8 @@ that volume during routine restarts. Missing/stale URLs enqueue automatically; e
 saved links are resolved lazily when displayed. Worker downtime leaves usable link
 cards and does not block publication saves. Four fetches run concurrently, each bounded
 by 20 seconds, with at most three attempts per queued failure. Cached metadata refreshes
-after six hours (five minutes for fallback results) and remains usable for one day.
+after six hours and remains usable for one day. A failed refresh preserves the last
+ready card without extending its one-day expiry. Fallback results expire after five
+minutes. Metadata now uses v2 cache keys; when updating from v1, restart `api` and
+`link-preview-worker` together with both Compose files. Old keys expire naturally;
+no MongoDB migration or Redis volume reset is required.

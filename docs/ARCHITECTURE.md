@@ -320,6 +320,13 @@ Redis sorted set. Worker leases expire after 60 seconds; queue entries remain un
 results are cached and acknowledged together. AOF and the named Redis volume preserve
 queued work across restarts. External fetching never runs inside save transactions.
 
+Metadata keys use version v2 and normalized URLs (ASCII lowercase host, omitted
+default port, explicit path, no fragment). Successful results refresh after six
+hours and expire after one day. A failed refresh retains the last ready result
+without extending that result's absolute expiry, and schedules another attempt.
+Negative results expire after five minutes. Queue entries remain deduplicated;
+failed work receives at most three attempts before the next demand-driven refresh.
+
 The article toolbar retains insertion/selection ranges across menu focus and maps
 pending image positions through TipTap transactions. Empty-paragraph slash commands
 open block insertion; gap controls add before, between, or after blocks. Dragging shows
