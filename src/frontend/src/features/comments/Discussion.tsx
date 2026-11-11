@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
 import type { DiscussionComment, PublicationKind } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { Avatar } from "../../shared/ui/Avatar";
+import { PublicationComposer } from "../publications/PublicationComposer";
 import { ReplyPublication } from "./ReplyPublication";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
@@ -21,64 +21,12 @@ export function Discussion({ kind, id, deepLink = false }: { kind: PublicationKi
   </section>;
 }
 
-function CommentForm({ path, parentId, label, onCreated, onCancel, mention }: {
-  path: string;
-  parentId?: string;
-  label: string;
-  onCreated: (comment: DiscussionComment) => void;
-  onCancel?: () => void;
-  mention?: { username: string } | null;
+function CommentForm({ path, parentId, label, onCreated, onCancel }: {
+  path: string; parentId?: string; label: string;
+  onCreated: (comment: DiscussionComment) => void; onCancel?: () => void;
 }) {
-  const { user } = useApp();
-  const [text, setText] = useState("");
-  const input = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (!mention) return;
-    const prefix = `@${mention.username} `;
-    setText((draft) => draft.startsWith(prefix) ? draft : `${prefix}${draft}`.slice(0, 280));
-    input.current?.focus();
-  }, [mention]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const pending = useRef(false);
-  const active = useRef(true);
-  useEffect(() => {
-    active.current = true;
-    return () => { active.current = false; };
-  }, []);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (pending.current || !text.trim()) return;
-    pending.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      const created = await api<DiscussionComment>(path, { method: "POST", body: JSON.stringify({ text, ...(parentId ? { parent_id: parentId } : {}) }) });
-      if (!active.current) return;
-      setText("");
-      onCreated(created);
-    } catch (reason) {
-      if (active.current) setError(`${errorMessage(reason)} Your text has been kept. Reload the conversation before retrying if the result is uncertain.`);
-    } finally {
-      pending.current = false;
-      if (active.current) setBusy(false);
-    }
-  }
-  return <form className="discussion-compose" onSubmit={submit}>
-    {user && <Avatar name={user.display_name} src={user.avatars.original} size="sm" />}
-    <div className="comment-input">
-      <textarea ref={input} aria-label={label} placeholder={parentId ? "Write your reply…" : "A little thought goes a long way."}
-        maxLength={280} required value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
-      <div className="comment-compose-actions">
-        <span>{text.length} / 280</span>
-        <div>
-          {onCancel && <button type="button" className="button-quiet" disabled={busy} onClick={onCancel}>Cancel</button>}
-          <button className="button-primary" disabled={busy || !text.trim()}>{busy ? "Sending…" : path.endsWith("/comments") ? "Post comment" : "Reply"}</button>
-        </div>
-      </div>
-      {error && <p role="alert" className="notice-error">{error}</p>}
-    </div>
-  </form>;
+  return <PublicationComposer replyPath={path} parentId={parentId} label={label}
+    onCancel={onCancel} onSaved={(saved) => onCreated(saved as DiscussionComment)} />;
 }
 
 function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentId }: {

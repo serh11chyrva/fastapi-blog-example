@@ -271,3 +271,8 @@ private articles or moderation rights; the backend remains authoritative for all
 Reply cards now share post content and interaction controls, including avatars, reposts,
 bookmarks, and the comment icon. Profile replies use ordinary feed cards with original
 publication context. Article and post children load incrementally, retaining tombstones.
+
+The publication composer presents mutually exclusive image, URL, and publication
+choices. Images have local thumbnail previews and per-image removal before upload.
+Post and reply creation use private staging targets; failed requests keep the local
+draft and retry identity. Text is optional when an attachment is ready.
