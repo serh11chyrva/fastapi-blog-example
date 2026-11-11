@@ -303,3 +303,9 @@ Post galleries use a horizontal scroll-snap carousel with up to five images, bou
 arrow navigation, touch scrolling, and a position count. The light image viewer opens
 the selected photo, supports arrow keys/Escape, restores focus and page scrolling on
 close, and synchronizes the carousel to the last viewed photo.
+
+Publication cards use locally bundled Inter (licensed under the included SIL Open
+Font License); article titles retain Georgia. Article covers fade into the white
+card over 36px. Excerpts are limited to 110px and fade only when text overflows.
+Carousel edges fade over 24px only while more content exists in that direction;
+the overlays do not intercept input. Publication date formatting is unchanged.

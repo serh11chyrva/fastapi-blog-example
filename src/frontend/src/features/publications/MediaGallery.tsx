@@ -12,11 +12,20 @@ export function MediaGallery({ images }: { images: Image[] }) {
   const [selected, setSelected] = useState(0);
   const [slide, setSlide] = useState(0);
   const [failed, setFailed] = useState<string[]>([]);
+  const [edges, setEdges] = useState({ previous: false, next: false });
   const selectedRef = useRef(0);
   const slideRef = useRef(0);
   const count = images.length;
   const active = images[Math.min(selected, count - 1)];
   const signature = images.map((image) => image.url).join("|");
+
+  const updateEdges = useCallback(() => {
+    const element = track.current;
+    if (!element) return;
+    const previous = element.scrollLeft > 1;
+    const next = element.scrollLeft < element.scrollWidth - element.clientWidth - 1;
+    setEdges((value) => value.previous === previous && value.next === next ? value : { previous, next });
+  }, []);
 
   const go = useCallback((index: number, smooth = true) => {
     const element = track.current;
@@ -41,10 +50,10 @@ export function MediaGallery({ images }: { images: Image[] }) {
     slideRef.current = Math.min(slideRef.current, Math.max(0, count - 1));
     if (!count) { dialog.current?.close(); restore(); }
     const element = track.current;
-    const observer = new ResizeObserver(() => go(slideRef.current, false));
+    const observer = new ResizeObserver(() => { go(slideRef.current, false); updateEdges(); });
     if (element) observer.observe(element);
     return () => observer.disconnect();
-  }, [signature, count, go, restore]);
+  }, [signature, count, go, restore, updateEdges]);
   useEffect(() => () => restore(), [restore]);
 
   function show(index: number, trigger: HTMLElement) {
@@ -61,7 +70,7 @@ export function MediaGallery({ images }: { images: Image[] }) {
   function imageError(url: string) { setFailed((items) => items.includes(url) ? items : [...items, url]); }
 
   if (!active) return null;
-  return <div className="photo-carousel">
+  return <div className="photo-carousel" data-can-prev={edges.previous} data-can-next={edges.next}>
     <div className="carousel-viewport">
       <div ref={track} className={`carousel-track ${count === 1 ? "single-image" : ""}`} tabIndex={0}
         role="region" aria-roledescription="carousel" aria-label={`Photo gallery, ${count} images`}
@@ -71,6 +80,7 @@ export function MediaGallery({ images }: { images: Image[] }) {
             event.preventDefault(); go(slide + (event.key === "ArrowRight" ? 1 : -1));
           }
         }} onScroll={() => {
+          updateEdges();
           const element = track.current;
           if (!element) return;
           let nearest = 0;
