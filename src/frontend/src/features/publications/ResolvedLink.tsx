@@ -10,6 +10,7 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
   const marker = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
   useEffect(() => setFailed(false), [item.url]);
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -26,6 +27,7 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
     : result?.card ?? (item.type === "og_card" ? item : null);
   const hostname = new URL(item.url).hostname;
   const audio = resolved?.type === "embed" && ["spotify", "soundcloud"].includes(resolved.provider);
+  const image = card?.image_url && card.image_url !== failedImage ? card.image_url : null;
   return <div ref={marker} className="resolved-link">
     {visible && source && !failed ? <div className={`embed-card ${audio ? "audio-card" : "video-card"}`}>
       <iframe className={audio ? "audio-frame" : "video-frame"} src={source}
@@ -33,8 +35,10 @@ export function ResolvedLink({ item }: { item: UrlAttachment }) {
         allow="encrypted-media; picture-in-picture; fullscreen" referrerPolicy="strict-origin-when-cross-origin"
         allowFullScreen onError={() => setFailed(true)} />
       <a className="embed-link" href={item.url} target="_blank" rel="noopener noreferrer">Open original<Icon name="external" /></a>
-    </div> : <a href={item.url} target="_blank" rel="noopener noreferrer" className={`og-card ${card?.image_url ? "has-thumbnail" : ""}`}>
-      {card?.image_url && <img key={card.image_url} src={card.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; }} />}
+    </div> : <a href={item.url} target="_blank" rel="noopener noreferrer" className={`og-card ${image ? "has-thumbnail" : ""}`}>
+      {image && <div className="og-thumbnail">
+        <img key={image} src={image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedImage(image)} />
+      </div>}
       <div className="og-copy">
         <small>{card?.site_name || hostname}<Icon name="external" width={13} height={13} /></small>
         <strong>{card?.title || (item.type === "link" ? item.label : null) || hostname}</strong>

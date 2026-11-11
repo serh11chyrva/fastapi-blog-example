@@ -296,6 +296,9 @@ change the saved publication. Edits include the loaded update timestamp to rejec
 concurrent changes rather than silently overwriting them.
 
 URL cards use cached metadata with deduplicated reads and at most ten pending refreshes.
+Compact link cards retain a bounded left thumbnail and a wrapping text column with
+three-line title and description limits. Image loading does not size the row; a
+failed image removes its entire column and leaves a usable full-width text card.
 Saved metadata remains visible while resolving. The application no longer requires a
 Load player button; provider playback controls still require the reader to start media.
 
