@@ -1,4 +1,4 @@
-"""Retrieve limited public HTML for a text-only link card."""
+"""Retrieve bounded public metadata and select a reachable declared preview image."""
 
 import asyncio
 import ipaddress
@@ -87,7 +87,7 @@ class PublicResolver(AbstractResolver):
 
 
 class PageMetadata(HTMLParser):
-    """Extract textual Open Graph properties and HTML fallbacks."""
+    """Extract text and ordered Open Graph image groups with Twitter fallbacks."""
 
     def __init__(self) -> None:
         """Initialize metadata and title tracking.
@@ -96,6 +96,8 @@ class PageMetadata(HTMLParser):
         """
         super().__init__()
         self.values: dict[str, str] = {}
+        self.images: list[dict[str, str]] = []
+        self.twitter_images: list[str] = []
         self.in_title = False
         self.title = ""
 
@@ -112,8 +114,26 @@ class PageMetadata(HTMLParser):
             fields = dict(attrs)
             key = (fields.get("property") or fields.get("name") or "").lower()
             value = " ".join((fields.get("content") or "").split())
-            if key in {"og:title", "og:description", "og:site_name", "og:image", "description"} and value:
+            if not value:
+                return
+            if key in {"og:title", "og:description", "og:site_name", "description"}:
                 self.values.setdefault(key, value)
+            elif key in {"og:image", "og:image:url"}:
+                self.images.append({"url": value})
+            elif key == "og:image:secure_url":
+                if not self.images:
+                    self.images.append({})
+                self.images[-1].setdefault("secure_url", value)
+            elif key in {"twitter:image", "twitter:image:src"}:
+                self.twitter_images.append(value)
+
+    def image_candidates(self) -> list[str]:
+        """List declared images in group order, preferring secure variants.
+
+        :return: Deduplicated Open Graph candidates followed by Twitter candidates.
+        """
+        candidates = [value for group in self.images for key in ("secure_url", "url") if (value := group.get(key))]
+        return list(dict.fromkeys([*candidates, *self.twitter_images]))
 
     def handle_endtag(self, tag: str) -> None:
         """Stop collecting title text after the closing element.
@@ -197,11 +217,68 @@ async def fetch_public(url: str, content_type: str) -> tuple[bytes, str] | None:
     return None
 
 
+async def probe_public_image(url: str) -> str | None:
+    """Check an image with a bounded range request and the public fetch protections.
+
+    :param url: Validated public HTTP(S) image candidate.
+    :return: Final image URL after at most three redirects, or None when unavailable.
+    """
+    target = checked_url(url)
+    try:
+        async with asyncio.timeout(3):
+            connector = aiohttp.TCPConnector(
+                resolver=PublicResolver(), use_dns_cache=False, force_close=True, socket_factory=public_socket,
+            )
+            async with aiohttp.ClientSession(
+                connector=connector, cookie_jar=aiohttp.DummyCookieJar(), trust_env=False, auto_decompress=False,
+            ) as client:
+                for step in range(MAX_REDIRECTS + 1):
+                    async with client.get(target, allow_redirects=False, headers={
+                        "Accept-Encoding": "identity", "Range": "bytes=0-1023",
+                    }) as response:
+                        if response.status in REDIRECT_STATUSES:
+                            location = response.headers.get("Location")
+                            if step == MAX_REDIRECTS or not location:
+                                return None
+                            target = checked_url(urljoin(target, location))
+                            if len(target) > 2048:
+                                return None
+                            continue
+                        if (response.status not in {200, 206} or not response.content_type.startswith("image/")
+                                or response.headers.get("Content-Encoding", "identity").lower() != "identity"):
+                            return None
+                        return target if await response.content.read(1024) else None
+    except (aiohttp.ClientError, TimeoutError, LookupError, UnicodeError, InvalidOperation, OSError, ValueError):
+        return None
+    return None
+
+
+async def select_preview_image(metadata: PageMetadata, base_url: str) -> str | None:
+    """Choose a declared, public, reachable image within one bounded probe budget.
+
+    :param metadata: Parsed image groups and Twitter fallbacks.
+    :param base_url: Final page URL used to resolve relative image references.
+    :return: The first usable candidate, or None after an eight-second total budget.
+    """
+    try:
+        async with asyncio.timeout(8):
+            for raw in metadata.image_candidates()[:12]:
+                try:
+                    candidate = checked_url(urljoin(base_url, raw))
+                except (ValueError, InvalidOperation):
+                    continue
+                if len(candidate) <= 2048 and (image := await probe_public_image(candidate)):
+                    return image
+    except TimeoutError:
+        pass
+    return None
+
+
 async def link_preview(url: str) -> OpenGraphAttachment:
     """Extract public card metadata, falling back to the original hostname.
 
     :param url: Author-supplied absolute link destination.
-    :return: Bounded card metadata with no executable markup.
+    :return: Bounded text and a reachable declared image URL, without executable markup or stored image copies.
     """
     target = checked_url(url)
     host = urlsplit(target).hostname or target
@@ -211,17 +288,7 @@ async def link_preview(url: str) -> OpenGraphAttachment:
     if response:
         metadata.feed(response[0].decode("utf-8", errors="replace"))
         metadata.close()
-        raw_image = metadata.values.get("og:image")
-        if raw_image:
-            try:
-                image = checked_url(urljoin(response[1], raw_image))
-                image_parts = urlsplit(image)
-                async with asyncio.timeout(3):
-                    await PublicResolver().resolve(image_parts.hostname, 443 if image_parts.scheme == "https" else 80)
-                if len(image) > 2048:
-                    image = None
-            except (ValueError, InvalidOperation, OSError, TimeoutError):
-                image = None
+        image = await select_preview_image(metadata, response[1])
     return OpenGraphAttachment(
         url=url, title=(metadata.values.get("og:title") or " ".join(metadata.title.split()) or host)[:300],
         description=(metadata.values.get("og:description") or metadata.values.get("description") or "")[:1000],

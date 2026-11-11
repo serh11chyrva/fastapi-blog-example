@@ -340,7 +340,10 @@ paragraph; block movement selects the moved node through ProseMirror's valid
 selection resolution. Gallery resize preserves the current carousel slide, and
 removing the final image releases the viewer's page-scroll lock.
 
-Link resolution bounds preview-image DNS lookup to three seconds and Redis socket
+Link resolution bounds each preview-image range probe to three seconds and all image
+selection to eight seconds, retaining text when no declared image is reachable. Probes
+use the same checked DNS, sockets, standard ports, and redirect limits as page fetches;
+only up to 1 KiB is read and external images are not stored. Redis socket
 operations to five seconds in the worker. Each batch settles before the next starts,
 including when Redis fails, so unfinished jobs cannot exceed the four-job concurrency
 limit. Saved card text remains visible during pending resolution or fallback; a

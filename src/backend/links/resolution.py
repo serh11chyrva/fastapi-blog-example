@@ -56,4 +56,5 @@ async def resolve_link(url: str) -> LinkResolution:
                     )
             except (ValueError, TypeError):
                 pass
-    return LinkResolution(status="fallback" if resource or (card.title == urlsplit(url).hostname and not card.description) else "ready", card=card, attachment=card)
+    missing_metadata = card.title == urlsplit(url).hostname and not card.description and not card.image_url
+    return LinkResolution(status="fallback" if resource or missing_metadata else "ready", card=card, attachment=card)

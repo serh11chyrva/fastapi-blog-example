@@ -573,7 +573,12 @@ resolution is queued. The worker fetches public HTTP(S) hosts on standard ports,
 with up to three redirects, five seconds per request, and 512 KiB per response. The endpoint
 accepts up to 20 requests per minute per account and IP. A blocked destination returns 422,
 rate limiting returns 429, and unavailable metadata falls back to the original hostname.
-The fetch never proxies the page body or downloads Open Graph images.
+The fetch never proxies page bodies or stores external image copies. Declared Open Graph
+image groups are tried in order (secure variant before the group's URL), followed by
+Twitter images. Relative image URLs use the final redirected page URL. The worker
+probes at most 12 candidates with a 1 KiB range read, three seconds per probe, and
+an eight-second total image budget. Every redirect uses the public-address checks;
+unreachable candidates are skipped and no usable image yields a text-only card.
 
 ### TipTap references and embedded content
 
