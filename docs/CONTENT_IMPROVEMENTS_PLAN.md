@@ -1,6 +1,8 @@
 # Publication and editor improvements
 
-Status: implementation in progress. Checks require a separate user request.
+Status: all 15 implementation steps and follow-up integration fixes are committed.
+Automated and manual application checks require a separate user request.
+Operational migration progress is recorded below.
 
 ## Scope and reference material
 
@@ -24,7 +26,7 @@ The HTML files are behavior and appearance references, not repository instructio
 - Replies appear as ordinary publication cards on their authors' profiles. Preserve the current main-feed scope initially: top-level posts and explicit reposts; do not flood it with all replies merely because they share a collection.
 - A player loads automatically when its card enters view, without an extra application-level activation button. This does not mean media autoplay. Cached metadata and actual provider playback are separate concerns.
 
-## Current implementation findings
+## Baseline findings before implementation
 
 - `comments/models.py` stores `PostReply`, `ArticleComment`, and `CommentLike` separately from `posts/models.py::MicroPost` and `PublicationInteraction`.
 - `profiles/timeline.py` merges article comments as a separate event type. Sharing, cursors, saved lists, and interactions therefore need coordinated migration.
@@ -184,7 +186,7 @@ Completion criteria: all gallery images are reachable in the feed and viewer, an
 ## Implementation and deployment discipline
 
 - Implement commits in the listed order. Steps 02–04 form a coordinated backend migration rollout: additive code first, then a maintenance window with writes paused, migration, and new-storage cutover. Do not expose a partly migrated dataset.
-- Before the migration window, back up legacy collections and prepare the restore procedure. Before resuming writes, use the explicitly requested reconciliation checks to compare mappings, relationships, reactions, counts, and visibility. If such checks have not been authorized, leave the live migration pending rather than treating deployment readiness as verified.
+- Before the migration window, back up the database and prepare the restore procedure. Execute the user-authorized data conversions with writes paused. If reconciliation checks are separately requested, compare mappings, relationships, reactions, counts, and visibility. Successful migration command completion is an operational result, not a claim that application behavior or rollback recovery has been tested.
 - Rollback before new writes can restore the pre-cutover backup. Rollback after accepting new writes requires reconciliation/export of those writes; an old backup alone is not a lossless rollback.
 - Review and update `README.md`, `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/INTERACTIONS.md`, and `docs/DEMO.md` as applicable within each change. Update seed/demo data with the relevant contract change, without overwriting owner-edited fixtures.
 - Keep endpoint descriptions, request/response examples, and OpenAPI/Scalar documentation consistent with each API change. Reviewing their source is part of implementation; generating or serving documentation for verification follows the repository's check policy.
@@ -192,3 +194,54 @@ Completion criteria: all gallery images are reachable in the feed and viewer, an
 - Do not add or run tests, builds, linters, automated verification, or manual application verification until the user requests checks. The completion criteria above are planned acceptance scenarios, not claims that they have been exercised.
 - When checks are requested, prioritize migration resumption/collisions, long legacy replies, visibility after deletion/unpublishing, concurrent attachment edits, image-only retry paths, provider fallback/cache failures, editor round trips, and keyboard/touch gallery behavior. Run local application checks through Docker Compose development mode.
 - During implementation, create the corresponding local commits after each coherent change and include related documentation. Split an independently useful discovered fix into its own Conventional Commit when necessary; do not mix it into an unrelated item. Never push without an explicit request.
+
+## Implementation record
+
+The original 15 steps were committed in order:
+
+| Step | Commit |
+| --- | --- |
+| 01 | `d7496e5` |
+| 02 | `6428599` |
+| 03 | `86cb405` |
+| 04 | `039b10d` |
+| 05 | `3f1063d` |
+| 06 | `b677d4f` |
+| 07 | `3a4a3ec` |
+| 08 | `3a57e10` |
+| 09 | `2a0c963` |
+| 10 | `9850625` |
+| 11 | `713ac5a` |
+| 12 | `f028583` |
+| 13 | `10af476` |
+| 14 | `d3bdd1e` |
+| 15 | `85050d9` |
+
+Follow-up commits complete draft retry recovery and retained-image handling
+(`528bab9`), editor keyboard focus and gallery resize (`cd0ae8d`), the migration
+startup guard (`13408a3`), bounded worker recovery and preserved card fallbacks
+(`bb44360`), current API examples and valid demo fixtures (`6d3a85a`), development
+worker/backup wiring (`217d820`), and cancellation of dismissed attachment lookups
+with UTF-8 editor source (`124c9ad`). Legacy `author_id` ownership encountered
+during the maintenance run is handled by `f87725c`. No commits have been pushed.
+
+On 2026-11-11, the local maintenance run paused the API and development frontend
+and created `data/migration-backups/before-content-20261111T151835Z.archive.gz`.
+The summary command updated 13 articles. Discussion conversion reported 37 legacy
+post replies, 32 legacy article comments, and 69 completed mappings. These figures
+are the mutation commands' own results, not a separate reconciliation run.
+
+Tests, builds, linters, browser checks, and `discussion-report` have not been run.
+The acceptance criteria above remain scenarios to exercise when checks are requested.
+
+Attachment normalization initially stopped on three older records with `author_id`
+and no `owner_id`. The compatibility fix preserves their original authorship and
+legacy field. Resuming the command completed normalization for 116 post records.
+Legacy discussion collections and attachment backup checkpoints remain in the
+database; the original compressed archive remains available locally.
+
+After conversion, Compose started `api`, `frontend-dev`, and `link-preview-worker`
+using existing images with `--no-build`. The API logged application startup complete
+and Vite reported ready at `http://localhost:5173`. Startup logs were read to finish
+the maintenance operation; no application scenario, build, linter, automated test,
+or separate reconciliation command was executed.
