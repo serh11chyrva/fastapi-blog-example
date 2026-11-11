@@ -22,7 +22,7 @@ export function MediaGallery({ images }: { images: Image[] }) {
   const signature = images.map((image) => image.url).join("|");
   const reference = images.find((image) => !failed.includes(image.url));
   const firstRatio = reference ? ratios[reference.url] ?? 1.5 : 1.5;
-  const height = Math.min(viewport.width * .84 / firstRatio, 600, viewport.height * .7);
+  const height = Math.min(viewport.width * .84 / firstRatio, viewport.height * .5);
 
   const updateEdges = useCallback(() => {
     const element = track.current;
