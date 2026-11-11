@@ -1,61 +1,26 @@
 # FastAPI Blog Example
 
-A demonstration microblog built with FastAPI, Beanie, MongoDB Atlas, Redis, React, Tailwind CSS, TipTap, Nginx, and Garage S3-compatible object storage.
+A demo microblog built with FastAPI, MongoDB, Redis, React, and Garage.
 
-## Preview the API design without Docker
+## Features
 
-Run from the repository root with Python 3.13 or newer and `uv` installed:
-
-```sh
-uv sync
-uv run uvicorn backend.api.preview:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Open <http://localhost:8000/api/docs> (or `/`, which redirects there). The raw schema
-is available at <http://localhost:8000/api/openapi.json>. This standalone preview
-requires no Docker, MongoDB, Redis, Garage, GeoIP database, or `.env` configuration.
-Python dependencies must still be installed. Scalar loads its browser assets from
-a CDN, so viewing the reference requires internet access.
-
-The preview generates the complete contract from the application's current routes,
-including models, authentication, examples, and upload descriptions. Scalar's request
-testing and client buttons are hidden. Only the reference, schema, and root redirect
-are served; application endpoints (including uploads, image downloads, and `/health`)
-return 404. Examples describe the full application, not a running backend or mock data.
-Use the full stack below to execute API operations.
+- Public profiles and feeds, with a following feed for signed-in users.
+- Short posts with images and rich-text articles with drafts and scheduled publishing.
+- Likes, saves, reposts, and discussions.
+- Profile editing and active session management.
 
 ## Start the application
 
-Copy the sample configuration if you do not already have an `.env` file:
+Run the commands from the repository root in PowerShell with Docker Desktop running. If you need an `.env` file, copy the example.
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Configure MongoDB Atlas before starting the services:
-
-1. Create an Atlas cluster and a database user with the `readWrite` role for the database named by `MONGODB_DATABASE` (default: `blog`).
-2. Add the public outbound IP of the machine running Docker to the Atlas project's IP access list.
-3. Copy the connection string from the cluster's **Connect > Drivers** dialog and set `MONGODB_URL` in `.env`, replacing the username and password. Percent-encode reserved characters in credentials.
-
-```dotenv
-MONGODB_URL='mongodb+srv://<username>:<password>@<cluster-host>/?retryWrites=true&w=majority'
-MONGODB_DATABASE=blog
-```
-
-Use the actual Atlas connection string, preserving its connection options. `MONGODB_DATABASE` selects the application's database independently of the URI's default database. The application requires transaction support for audited writes. Both Compose and the backend require a non-empty `MONGODB_URL`; there is no default local MongoDB connection. For a backend launched outside Docker, export these variables in its process environment; the backend does not load `.env` automatically.
-
-See the official [Atlas connection guide](https://www.mongodb.com/docs/atlas/connect-to-database-deployment/) and [connection string formats](https://www.mongodb.com/docs/manual/reference/connection-string/).
-
-Place a MaxMind GeoLite2 City database at `data/GeoLite2-City.mmdb` before running either Compose setup below. Compose requires the host file and mounts it read-only at `/data/GeoLite2-City.mmdb`. Replace the file with an updated database and restart the API to reopen it. Outside Docker, the default path is `data/GeoLite2-City.mmdb` relative to the working directory and can be overridden with `GEOIP_CITY_DB_PATH`. If the backend cannot open or query the database, session locations display `Unknown location` and authentication remains available.
-
-Both setups use the same Garage buckets. The provisioning script starts Garage, ensures `blog-avatars` and `blog-publications` exist, grants the configured key access, and configures upload CORS. It reads `GARAGE_ACCESS_KEY` from the process environment or `.env`. Use `-AccessKey` to override it. Provision on first setup and repeat after removing Garage data or changing upload CORS settings. The API requires both buckets on startup and in `/health`.
-
-The upload CORS rule allows the lower-case header name `content-type`, matching browser preflight requests. Garage compares allowed header names literally; using `Content-Type` here causes browser uploads to be rejected before PUT. The provisioning script runs the current workspace CORS setup code inside the API image, so repeating setup also applies CORS fixes without an image rebuild.
+1. Set `MONGODB_URL` in `.env` to your MongoDB Atlas connection string. Grant the database user the `readWrite` role on the database named by `MONGODB_DATABASE` (default `blog`) and allow your public IP in Atlas. [Atlas connection guide](https://www.mongodb.com/docs/atlas/connect-to-database-deployment/)
+2. Place the MaxMind GeoLite2 City database at `data/GeoLite2-City.mmdb`.
 
 ### Develop with hot reload
-
-Run these commands from the repository root with Docker Desktop running. Build both development images once when switching from the previous setup. If Nginx is running, stop it with `docker compose stop nginx`.
 
 ```powershell
 docker compose up -d redis garage
@@ -64,153 +29,53 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml build api fronten
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api frontend-dev
 ```
 
-Open <http://localhost:5173> for the app and <http://localhost:5173/api/docs> for the API reference. Uvicorn reloads the API worker when Python files under `src/backend/` change. Vite applies changes under `src/frontend/src/` through HMR and proxies `/api` and `/static/images` to the API. Both services mount those source directories read-only. The frontend can start while the API initializes.
+Open the [app](http://localhost:5173) or the [API reference](http://localhost:5173/api/docs).
 
-For subsequent sessions, run the last `up` command to reuse the existing images. To restart only the app while keeping Redis and Garage running, use:
-
-```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml restart --no-deps api frontend-dev
-```
-
-Use `stop api frontend-dev` with the same Compose files to stop only the app.
-
-After changing `pyproject.toml` or `uv.lock`, rebuild the API. After changing `package.json`, `package-lock.json`, `index.html`, `vite.config.ts`, or a frontend TypeScript configuration file, rebuild `frontend-dev`. Rebuild only the affected service with `up -d --build --no-deps` and leave Redis and Garage running. For example:
-
-```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --no-deps frontend-dev
-```
-
-If Docker Desktop on Windows misses frontend file changes, set `FRONTEND_DEV_POLLING=true` in `.env` and rerun the development `up` command to apply it. If you change `FRONTEND_DEV_PORT`, update `FRONTEND_DEV_ORIGIN` and `STORAGE_CORS_ORIGINS` to match, then rerun storage provisioning.
+For later sessions, repeat the last command. Rebuild the affected image when its dependencies or build configuration change. To stop only the app and keep Redis and Garage running, use `stop api frontend-dev` with the same Compose files.
 
 ### Run the Nginx stack
-
-If switching from development, stop the Vite service with `docker compose -f docker-compose.yml -f docker-compose.dev.yml stop frontend-dev`. Build the regular API image before provisioning Garage for the first time.
 
 ```powershell
 docker compose build api
 .\scripts\setup-storage.ps1
-docker compose up --build -d
+docker compose up -d --build
 ```
 
-Open <http://localhost:8080> for the app and <http://localhost:8080/api/docs> for the API reference. Use `docker compose up -d` to reuse existing images or add `--build` to pick up source or dependency changes. The Nginx image serves the static Vite build.
+Open the [app](http://localhost:8080) or the [API reference](http://localhost:8080/api/docs).
 
-### Application data
+To serve the static build alongside Vite, build it with `docker compose build nginx`, then run `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d nginx`.
 
-On startup, Beanie initializes the application's document models and indexes in the configured Atlas database. Database users and cluster access are managed in Atlas. Garage stores all image objects and its metadata under `./data/garage`.
+### Load demo data
 
-The default Compose stack contains `api`, `nginx`, `redis`, and `garage`. If Docker Desktop still lists `mongo`, `mongo-keyfile-init`, `mongo-init`, or `compass-web` from an older checkout, remove those containers individually to keep the current services running. Retain the old volumes and `data/mongo/` to preserve local database data.
-
-Load the feature-rich demo dataset after the API starts in either mode. It includes profiles, images, posts, articles, follows, reactions, discussions, and sessions.
+Once the API is ready, run the seed in either mode.
 
 ```sh
 docker compose exec -T api python -m backend.seed
 ```
 
-Demo accounts are `alice@example.com`, `ben@example.com`, `casey@example.com`, `dana@example.com`, `elena@example.com`, `farah@example.com`, and `noah@example.com`. New password identities use `DEMO_PASSWORD` from `.env` (the sample is `DemoPassword123!`); existing passwords are preserved. You can also register a new account in the app.
+Sign in as `alice@example.com` with the configured `DEMO_PASSWORD` (sample value `DemoPassword123!`). See the [demo feature tour](docs/DEMO.md) for more accounts and scenarios.
 
-The additive seed provides 37 posts, 13 articles across all publication states, generated profile banners, quoted publications, ranked discussions, and account settings examples. Repeated runs preserve existing publications and never reset the database. See the [demo feature tour](docs/DEMO.md) for accounts, scenarios, and repeat-run behavior.
+### Stop the stack
 
-The Redis port is bound to localhost for development. MongoDB is accessed remotely through the configured Atlas connection string.
-
-Image bucket names and size limits are defined in `src/backend/core/config.py`: `blog-avatars` contains avatars and profile banners; `blog-publications` contains post images, article covers, and inline images. Avatars, profile banners, post images, and inline article images allow 5 MiB per file; covers allow 10 MiB. Temporary uploads live under `temporary/` in the corresponding private bucket. Neither bucket is exposed as a public website.
-
-Browsers request ten-minute presigned PUT URLs, upload directly to Garage, then confirm through the API. Confirmation validates a separate final copy and attaches it transactionally; upload replay cannot change an accepted image. API responses use `/static/images/...` URLs. FastAPI checks publication visibility before serving images, including private drafts. Nginx and Vite forward these paths to FastAPI. See [docs/API.md](docs/API.md) for the complete protocol.
-
-`S3_ENDPOINT_URL` is the internal address (`http://garage:3900` in Docker); `S3_PUBLIC_ENDPOINT_URL` is the browser-reachable address used when signing URLs (`http://localhost:3900` locally). Garage's S3 port is bound to localhost via `S3_PORT`. If you change that port, update the public URL as well. `STORAGE_CORS_ORIGINS` is a comma-separated list of allowed frontend origins, defaulting to ports 8080 and 5173. Keep it aligned with `APP_ORIGIN`, `API_PORT`, and the development frontend origin when customizing ports. For a remote deployment, configure a browser-reachable HTTPS S3 endpoint and its network exposure; the local port binding alone does not provide remote access. Signed URLs must reach Garage with their original host and path.
-
-A worker runs every minute to remove replaced images and retry failed deletions. Temporary files and abandoned final copies become eligible after an hour (temporary files after URL expiry plus one hour). Upload-session records expire seven days after their upload deadline; cleanup jobs remain until handled. Dependency changes use `uv`; configuration defaults require restarting the development backend or rebuilding the production API image.
-
-### Reset existing application data
-
-Legacy media routes and multipart uploads are removed. There is no migration of existing files or embedded article URLs. Clearing local `data/` removes Garage objects and old local MongoDB files; it does **not** clear the configured MongoDB Atlas database.
-
-For a complete fresh start, stop the API and frontend services, provision storage, then explicitly erase only the configured application database and its two image buckets. This deletes accounts, publications, and sessions in that database:
+Use `docker compose down` for the Nginx stack, or include both Compose files for development.
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml stop api nginx frontend-dev
-docker compose run --rm --no-deps api python -m backend.storage.reset --confirm-database blog
-docker compose up -d
-docker compose run --rm api python -m backend.seed
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
-Replace `blog` with your exact `MONGODB_DATABASE`. Never run reset automatically at startup. Provisioning and reset are separate operations; reset keeps the Garage bucket configuration.
+## Preview the API design without Docker
 
-## Features
-
-- Email or `@username` registration and login with opaque, server-side sessions.
-- Settings with Profile and Active sessions sections. Active sessions shows web/mobile/desktop client types, approximate GeoLite2 locations, readable browser/device labels, and last activity. It supports individual revocation and logout from other sessions.
-- Append-only audit events for security, profile, follow, and publication actions.
-- Public profiles with bios, locations, post counts, linked activity, versioned links, badges, and uploaded avatars and banners.
-- Profile settings with avatar and banner cropping before upload, reorderable public links, and private badge preferences. The profile API enforces visibility and rejects stale edits using revision checks.
-- Follow relationships and chronological public and following feeds.
-- 280-character micro-posts with up to five JPEG, PNG, or WebP images and UUID-suffixed share links; TipTap articles support a cover image, inline images, drafts, immediate publishing, and scheduled publishing.
-- Posts and articles support typed attachments, including external link previews, quoted publications, and click-to-load provider players. See [typed publication content](docs/API.md#typed-publication-content).
-- A compact social layout with separate Posts and Articles profile tabs, a cover-first reading layout, a block-based article editor, and a standalone sign-in page.
-- Responsive English UI; published content and profiles are readable without signing in.
-
-Likes, private saves, and discussions are available in the frontend for posts and published articles. Unquoted post reposts appear in public/following feeds and the profile Posts tab. The private Saved page is available from navigation. Post replies expand as nested threads. Article comments can be sorted by likes or recency and appear on the comment author's profile. Authors can edit and delete their own comments while preserving reply branches. See [interactions and discussions](docs/INTERACTIONS.md).
-
-Email delivery, OAuth/OIDC, and MFA are planned follow-up features.
-
-## Architecture
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module responsibilities, transaction and upload guarantees, pagination, and frontend boundaries.
-
-- Backend code lives under `src/backend/`. The `api/` package owns all HTTP endpoints, the `/api` and `/v1` router hierarchy, shared OpenAPI documentation, and the standalone reference preview. Authentication, profiles, content, and audit each keep their Beanie documents in their domain package; repositories own persistence queries, services own audited publication operations, and presenters map documents to API responses using all authors loaded in stored order. Feed loading and opaque cursors live outside HTTP routers.
-- Upload preparation, leasing, copying, and completion live in `storage/service.py`; target ownership and domain attachment changes live in `storage/attachments.py`. Saved results are parsed into the response model selected by the immutable upload purpose.
-- Profile mutations, read assembly, and response presenters are separate modules. Follower/following and own-article lists use bounded offset pagination. Image attachment lookups have explicit indexes in the Beanie document models.
-- `links/` resolves saved redirects independently of profile handles. Profiles keep embedded link identities and badge assignments; the shared `badge_definitions` catalog owns badge display and policy. Startup migrates older profile records once, preserving link IDs. Links use format version 1, badges version 2; profile PATCH requests require the revision from `GET /api/v1/me/profile`. See the API guide for compatibility and migration details.
-- Infrastructure clients are held in a typed `AppResources` container. HTTP dependencies produce transport-independent audit metadata; audit writes live in `audit/`. Authentication dependencies, rate limiting, and password operations live in `auth/`.
-- Audited transactions report concurrent write conflicts as 409 without replaying the operation automatically. Database failures return 503; clients should reload before retrying an uncertain write.
-- `main.py` wires FastAPI, the async PyMongo client used by Beanie, Redis, and Garage. MongoDB is the source of truth; audited writes use replica-set transactions.
-- The public feed cache version advances on API startup so deployments and explicit data resets do not reuse cached responses with obsolete image URLs.
-- Passwords use Argon2id. Existing scrypt hashes are checked and upgraded after a successful login. API hashing and verification run in a dedicated pool limited to four concurrent operations per process, keeping the event loop available.
-- Account registration/login and session persistence/revocation are application services. Authentication routers retain HTTP cookies, request metadata, and rate-limit enforcement.
-- Session activity uses conditional field updates and a monotonic last-seen timestamp. Concurrent activity cannot clear revocation or extend the absolute session deadline.
-- Session client type and optional native-app device name are saved at registration/login; older sessions default to web. IP and User-Agent stay internal. `auth/presentation.py` formats public location and device labels, using an application-owned GeoLite2 reader and User-Agent parsing off the event loop.
-- Protected frontend routes wait for session restoration before redirecting. Public profile contracts exclude account email and private badge settings; publication pages cancel stale requests when their address changes.
-- Frontend source lives under `src/frontend/`. `app/` owns a single route tree, layouts, and explicit authentication states; `features/` owns pages and editor workflows, including session settings under `features/profiles/sessions/`; `shared/` owns API contracts, transport, upload handling, pagination hooks, and common UI. Article editing logic lives in a dedicated hook. Lists expose load-more controls, cancel stale requests, and distinguish loading failures from empty results. API errors retain their HTTP status and details. Docker uses a Node.js build stage with cached npm dependencies, Vite production minification and separate React/editor chunks, then copies only static output into Nginx.
-- The API development image contains Python dependencies and uses the mounted backend source. Its production stage packages the backend. The frontend development image and static build share an npm dependency layer. Build context filters exclude unrelated source and local caches.
-- Tests are grouped by layer: `tests/unit/`, `tests/services/`, and `tests/api/`.
-
-## API reference
-
-The interactive Scalar API reference is available at `/api/docs` and the raw schema at `/api/openapi.json`. Scalar telemetry and its optional AI agent are disabled. Operation summaries, errors, examples, and tags live beside the routes; cookie security comes from authentication dependencies, and Origin is an explicit header annotation. Shared OpenAPI generation only adds schema-derived examples. See [docs/API.md](docs/API.md) for endpoint tables, authentication and cookie handling, request/response examples, pagination, upload rules, and common errors.
-
-## Development checks
-
-Python dependencies are managed with `uv`:
+With Python 3.13 or newer and `uv` installed, run:
 
 ```sh
-uv sync --all-groups
-uv run pytest
+uv sync
+uv run uvicorn backend.api.preview:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Lint and format Python code with Ruff, including import sorting and Python 3.13
-syntax updates:
+Scalar loads its assets from a CDN. To try the application endpoints, start the full stack. [Scalar reference](http://localhost:8000/api/docs) · [OpenAPI schema](http://localhost:8000/api/openapi.json)
 
-```sh
-uv run ruff check --fix .
-uv run ruff format .
-```
+## Documentation
 
-For checks without modifying files, use `uv run ruff check .` and
-`uv run ruff format --check .`.
-
-Frontend dependencies are managed with npm:
-
-```sh
-cd src/frontend
-npm ci
-npm run build
-```
-
-Use Node.js 22.12 or newer for local frontend builds, matching the Node.js version used by the Docker build.
-
-## Stop the stack
-
-```sh
-docker compose down
-```
-
-Stopping the services keeps Atlas data and local Garage data. The sample application and Garage credentials and single-node object storage configuration are for local development only; replace secrets and use an appropriately secured deployment before exposing the app to a network.
+- [API guide](docs/API.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Interactions and discussions](docs/INTERACTIONS.md)
