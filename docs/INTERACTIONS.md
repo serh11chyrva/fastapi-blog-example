@@ -256,6 +256,13 @@ account handle stays on its own line below the name.
   Discussions, follower lists, and article management retain manual pagination.
   Browsers without IntersectionObserver receive a manual fallback button.
 - Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
+  Both article and post discussions are titled Replies. The root composer stays before
+  root replies. Reply and the comment icon open the same focused form immediately below
+  the selected reply's actions and before its children; View replies only toggles children.
+  Anonymous comment-icon actions toggle the readable branch instead of a write form.
+  Successful nested creation expands the target branch and updates its direct-child count
+  without duplicating the returned entry. There is no Refresh conversation button;
+  failed reads retain their Retry action and loaded pages.
   A post's View replies button loads only that parent's children. Reply forms appear only for live
   parents. Deleted parents retain their existing branches; deeper live descendants remain usable.
   The article Reply action targets the selected reply. Article pages can

@@ -4,35 +4,40 @@ import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
 import type { DiscussionComment, PublicationKind } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
+import { itemId, mergeListItems } from "../../shared/hooks/listItems";
 import { Avatar } from "../../shared/ui/Avatar";
 import { PublicationComposer } from "../publications/PublicationComposer";
 import { ReplyPublication } from "./ReplyPublication";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
 
-export function Discussion({ kind, id, deepLink = false }: { kind: PublicationKind; id: string; deepLink?: boolean }) {
+export function Discussion({ kind, id, deepLink = false, focusComposer = false }: {
+  kind: PublicationKind; id: string; deepLink?: boolean; focusComposer?: boolean;
+}) {
   const { user } = useApp();
   const location = useLocation();
   const commentId = deepLink && kind === "article" ? /^#comment-([0-9a-f]{24})$/i.exec(location.hash)?.[1] : undefined;
   return <section className="discussion" aria-label={kind === "micro_post" ? "Post replies" : "Article comments"}>
     {!user && <p className="discussion-signin"><Link className="text-link" to="/login"
       state={{ from: location.pathname + location.search + location.hash }}>Sign in</Link> to join the conversation.</p>}
-    <CommentList key={`${kind}:${id}:${user?.id ?? "anonymous"}`} kind={kind} id={id} commentId={commentId} />
+    <CommentList key={`${kind}:${id}:${user?.id ?? "anonymous"}`} kind={kind} id={id} commentId={commentId}
+      focusComposer={focusComposer} />
   </section>;
 }
 
-function CommentForm({ path, parentId, label, onCreated, onCancel }: {
-  path: string; parentId?: string; label: string;
+function CommentForm({ path, parentId, label, onCreated, onCancel, autoFocus = false }: {
+  path: string; parentId?: string; label: string; autoFocus?: boolean;
   onCreated: (comment: DiscussionComment) => void; onCancel?: () => void;
 }) {
-  return <PublicationComposer replyPath={path} parentId={parentId} ariaLabel={label}
+  return <PublicationComposer replyPath={path} parentId={parentId} ariaLabel={label} autoFocus={autoFocus}
     onCancel={onCancel} onSaved={(saved) => onCreated(saved as DiscussionComment)} />;
 }
 
-function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentId }: {
+function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentId, focusComposer = false }: {
   kind: PublicationKind; id: string; parentId?: string; newComments?: DiscussionComment[];
   onRecentUpdate?: (comment: DiscussionComment) => void;
   commentId?: string;
+  focusComposer?: boolean;
 }) {
   const { user } = useApp();
   const base = `${publicationPath(kind, id)}/${kind === "micro_post" ? "replies" : "comments"}`;
@@ -65,7 +70,7 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
   }, [commentId, linkReady]);
   useEffect(() => {
     if (newComments?.length) {
-      setRecent((items) => [...items, ...newComments.filter((comment) => !items.some((item) => item.id === comment.id))]);
+      setRecent((items) => mergeListItems(items, newComments, itemId));
     }
   }, [newComments]);
   const visibleRecent = recent.filter((comment) => !list.items.some((item) => item.id === comment.id));
@@ -78,7 +83,7 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
     onRecentUpdate?.(updated);
   }
   function created(comment: DiscussionComment) {
-    setRecent((items) => [...items, comment]);
+    setRecent((items) => mergeListItems(items, [comment], itemId));
     notifyInteractionChange({ kind, id });
   }
   function renderComment(comment: DiscussionComment) {
@@ -88,14 +93,13 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
   }
   return <div>
     {!parentId && <div className="discussion-header">
-      <h2>{kind === "article" ? "The conversation" : "Replies"}</h2>
+      <h2>Replies</h2>
       {kind === "article" && <select className="discussion-sort" aria-label="Sort comments" value={sort} onChange={(event) =>
         setSort(event.target.value === "newest" ? "newest" : "most_liked")}>
         <option value="most_liked">Most liked</option><option value="newest">Newest first</option>
       </select>}
     </div>}
-    {user && !parentId && <CommentForm path={base} label={kind === "micro_post" ? "Your reply" : "Your comment"}
-      onCreated={created} />}
+    {user && !parentId && <CommentForm path={base} label="Your reply" autoFocus={focusComposer} onCreated={created} />}
     {commentId && linked?.id === commentId && !listed && <div className="my-4">
       <p className="text-xs font-semibold text-neutral-600">Linked comment</p>
       {renderComment(linked)}
@@ -108,13 +112,14 @@ function CommentList({ kind, id, parentId, newComments, onRecentUpdate, commentI
     <div className="space-y-4">
       {list.items.map(renderComment)}
     </div>
-    {list.loading && <p role="status" className="py-3 text-sm text-neutral-500">Loading conversation…</p>}
+    {list.loading && <p role="status" className="py-3 text-sm text-neutral-500">Loading replies…</p>}
     {list.error && <p role="alert" className="notice-error mt-3">{list.error}{" "}
       <button className="underline" onClick={list.cursor ? () => void list.loadMore() : list.refresh}>Retry</button>
     </p>}
-    {!list.loading && !list.error && !list.items.length && !visibleRecent.length && <p className="py-3 text-sm text-neutral-500">No {parentId ? "replies" : kind === "micro_post" ? "replies yet. Start the conversation." : "comments yet. Be the first to comment."}</p>}
+    {!list.loading && !list.error && !list.items.length && !visibleRecent.length && <p className="py-3 text-sm text-neutral-500">
+      {parentId ? "No replies yet." : "No replies yet. Be the first to reply."}
+    </p>}
     {list.cursor && <button className="button-secondary mt-4" disabled={list.loading} onClick={() => void list.loadMore()}>Load more</button>}
-    <button className="button-quiet mt-3 text-xs" disabled={list.loading} onClick={list.refresh}>Refresh conversation</button>
   </div>;
 }
 
@@ -142,6 +147,13 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction,
   }, []);
   const thread = comment;
   const own = !!user && user.id === comment.author?.id && !comment.deleted;
+  const replyFormId = `reply-form-${comment.id}`;
+
+  function toggleReply() {
+    if (!user) { setExpanded((value) => !value); return; }
+    if (comment.deleted) return;
+    setReplying((value) => !value);
+  }
   async function remove() {
     if (pending.current || !window.confirm("Delete your reply? Its children will remain available.")) return;
     pending.current = true; setBusy(true); setError("");
@@ -175,7 +187,7 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction,
   return <article id={anchor ? `comment-${comment.id}` : undefined}
     className={`discussion-comment ${anchor ? "is-linked" : ""}`}>
     {!editing && !comment.deleted && comment.publication ? <ReplyPublication post={comment.publication}
-      commentsOpen={expanded} onComments={() => { setExpanded((value) => !value); setReplying(true); }}
+      commentsOpen={user ? replying : expanded} onComments={toggleReply}
       onChanged={() => { void reload(); onReaction?.(); notifyInteractionChange({ kind, id: publicationId }); }} /> : <>
     <div className="comment-byline">
       {comment.author ? <Link className="inline-flex items-center gap-2 font-semibold" to={`/@${comment.author.username}`}>
@@ -194,23 +206,27 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction,
       {thread && <button className="underline" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
         {expanded ? "Hide replies" : `View replies (${thread.replies_count})`}
       </button>}
-      {thread && user && !comment.deleted && <button className="underline" aria-expanded={replying} onClick={() => setReplying((value) => !value)}>Reply</button>}
+      {thread && user && !comment.deleted && <button className="underline" aria-expanded={replying}
+        aria-controls={replyFormId} onClick={toggleReply}>Reply</button>}
       {own && <>
-        <button className="underline" disabled={busy} onClick={() => setEditing(true)}>Edit</button>
+        <button className="underline" disabled={busy} onClick={() => { setReplying(false); setEditing(true); }}>Edit</button>
         <button className="underline" disabled={busy} onClick={() => void remove()}>Delete</button>
       </>}
     </div>
     {error && <p className="notice-error mt-2" role="alert">{error}{" "}
       <button className="underline" disabled={busy} onClick={() => void reload()}>Reload comment</button>
     </p>}
-    {replying && !comment.deleted && user && <CommentForm path={base} parentId={comment.id} label="Reply to this comment"
+    {replying && !comment.deleted && user && <div id={replyFormId} className="inline-reply-composer">
+      <CommentForm path={base} parentId={comment.id} label="Reply to this reply" autoFocus
       onCancel={() => setReplying(false)} onCreated={(created) => {
         setReplying(false);
         setExpanded(true);
-        setRecentReplies((items) => [...items, created]);
-        if (thread) onUpdate({ ...thread, replies_count: thread.replies_count + 1 });
+        setRecentReplies((items) => mergeListItems(items, [created], itemId));
+        if (thread && !recentReplies.some((item) => item.id === created.id))
+          onUpdate({ ...thread, replies_count: thread.replies_count + 1 });
         notifyInteractionChange({ kind, id: publicationId });
-      }} />}
+      }} />
+    </div>}
     {expanded && thread && <div className={thread.depth < 4 ? "mt-4 border-l border-neutral-200 pl-3 sm:pl-5" : "mt-4 border-t border-neutral-200"}>
       <CommentList kind={kind} id={publicationId} parentId={comment.id} newComments={recentReplies}
         onRecentUpdate={(updated) => setRecentReplies((items) => items.map((item) => item.id === updated.id ? updated : item))} />

@@ -11,9 +11,10 @@ import { Attachments } from "./Attachments";
 
 type Image = Extract<Attachment, { type: "image" }>;
 
-export function PublicationComposer({ post, replyPath, parentId, onSaved, onCancel, label, ariaLabel }: {
+export function PublicationComposer({ post, replyPath, parentId, onSaved, onCancel, label, ariaLabel, autoFocus = false }: {
   post?: MicroPost; replyPath?: string; parentId?: string;
   onSaved: (saved: MicroPost | DiscussionComment) => void; onCancel?: () => void; label?: string; ariaLabel?: string;
+  autoFocus?: boolean;
 }) {
   const { user } = useApp();
   const submitLabel = label ?? (post ? "Save changes" : replyPath ? "Reply" : "Post");
@@ -96,7 +97,8 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
       <Avatar src={user.avatars.original} name={user.display_name} size="sm" />
     </div>}
     <div className="composer-body">
-    <textarea className="field composer-text" aria-label={post ? "Edit post text" : "Publication text"}
+    <textarea className="field composer-text" aria-label={post ? "Edit post text" : replyPath ? "Reply text" : "Publication text"}
+      autoFocus={autoFocus}
       placeholder={replyPath ? "Write a reply or add an attachment…" : "What’s on your mind?"}
       maxLength={280} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
     {(files.length > 0 || retained.length > 0) && <div className="composer-image-previews">

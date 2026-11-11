@@ -37,6 +37,7 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
   const [editPost, setEditPost] = useState<MicroPost | null>(null);
   const [busy, setBusy] = useState(false);
   const [comments, setComments] = useState(showDiscussion);
+  const [focusReply, setFocusReply] = useState(false);
   const menu = useRef<HTMLDetailsElement>(null);
   const [author, ...featured] = item.authors;
   const own = user?.id === item.owner_id;
@@ -96,11 +97,11 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
           onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
       </> : <PreviewCard item={item} />}
       <PublicationActions key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id}
-        onComments={() => setComments((value) => !value)} commentsOpen={comments} onShare={() => void share()} copied={copied}
+        onComments={() => { setFocusReply(!comments); setComments(!comments); }} commentsOpen={comments} onShare={() => void share()} copied={copied}
         onChanged={(action) => { if (action === "repost") onChanged(); }} />
       {error && <p className="notice-error" role="alert">{error}</p>}
       {item.kind === "micro_post" && !comments && <HighlightedReplies postId={item.id} openDiscussion={() => setComments(true)} />}
-      {comments && <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} />}
+      {comments && <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} focusComposer={focusReply} />}
     </div>
   </div>;
 }

@@ -124,6 +124,7 @@ export function ArticlePresentation({ article, owner }: { article: Article; owne
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [comments, setComments] = useState(true);
+  const [focusReply, setFocusReply] = useState(false);
   const { hash } = useLocation();
   const { document, sections, images } = useMemo(() => readingSections(article.body), [article.body]);
 
@@ -160,9 +161,9 @@ export function ArticlePresentation({ article, owner }: { article: Article; owne
       <ArticleAuthors authors={article.authors} />
       {error && <p className="notice-error" role="alert">{error}</p>}
       {article.status === "published" && <>
-        <PublicationActions kind="article" id={article.id} onComments={() => setComments((value) => !value)}
+        <PublicationActions kind="article" id={article.id} onComments={() => { setFocusReply(!comments); setComments(!comments); }}
           commentsOpen={comments} onShare={() => void share()} copied={copied} />
-        {comments && <Discussion key={article.id} kind="article" id={article.id} deepLink />}
+        {comments && <Discussion key={article.id} kind="article" id={article.id} deepLink focusComposer={focusReply} />}
       </>}
       <Footer reading />
     </div>
