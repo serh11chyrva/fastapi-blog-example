@@ -24,7 +24,7 @@ function ArticleEditorForm() {
   function dropGap(clientY: number) {
     if (!editor || !workspace.current) return null;
     const gaps: { index: number; y: number }[] = [];
-    editor.state.doc.forEach((node, from, index) => {
+    editor.state.doc.forEach((_node, from, index) => {
       const element = editor.view.nodeDOM(from);
       if (element instanceof HTMLElement) {
         const rect = element.getBoundingClientRect();
@@ -92,7 +92,7 @@ function ArticleEditorForm() {
         if (file) void uploadInlineImage(file);
         event.currentTarget.value = "";
       }} />
-      {inlinePreview && <figure className="pending-article-image"><img src={inlinePreview} alt="Image awaiting insertion" /><figcaption>{saving ? "Uploading image…" : "Upload pending — retry to insert this image."}</figcaption></figure>}
+      {inlinePreview && <figure className="pending-article-image"><img src={inlinePreview} alt="Image awaiting insertion" /><figcaption>{saving ? "Uploading imageâ€¦" : "Upload pending â€” retry to insert this image."}</figcaption></figure>}
       {pendingInlineImage && <button type="button" className="button-secondary" disabled={saving}
         onClick={() => void uploadInlineImage(pendingInlineImage)}>Retry image upload</button>}
     </div>

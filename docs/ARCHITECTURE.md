@@ -345,3 +345,8 @@ operations to five seconds in the worker. Each batch settles before the next sta
 including when Redis fails, so unfinished jobs cannot exceed the four-job concurrency
 limit. Saved card text remains visible during pending resolution or fallback; a
 changed URL resets a previous player's error state.
+
+Closing an attachment chooser aborts its outstanding lookup and suppresses late
+results. A cancelled lookup cannot insert a card into a post or article afterward.
+The enclosing chooser supplies the attachment mode; the URL form does not ask the
+author to choose the same type twice. Editor source files use UTF-8 for UI labels.
