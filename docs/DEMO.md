@@ -105,7 +105,7 @@ and its repost. Article reposts are deliberately unsupported. Alice's Saved page
 both span multiple pages. Private saves are visible only to their owner.
 
 The rich note has 26 root entries, a six-level reply chain, and a deleted parent with two
-live children. Expand View replies one level at a time. The reading-room article has 26 root
+live children. Expand Show replies one level at a time. The reading-room article has 26 root
 comments, and the publishing workbench has six. Compare Most liked and Newest first on the
 workbench. The two ranked replies under the quote and the seeded comment likes demonstrate that
 order. Seeding restores missing demo likes without duplicating existing reactions.

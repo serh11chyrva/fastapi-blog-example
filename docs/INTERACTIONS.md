@@ -257,13 +257,21 @@ account handle stays on its own line below the name.
   Browsers without IntersectionObserver receive a manual fallback button.
 - Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
   Both article and post discussions are titled Replies. The root composer stays before
-  root replies. Reply and the comment icon open the same focused form immediately below
-  the selected reply's actions and before its children; View replies only toggles children.
+  root replies. The comment icon opens a focused form immediately below
+  the selected reply's actions and before its children. The comment icon is the single
+  reply action, including in highlighted replies; it does not open the root composer.
+  Show replies appears only for nonempty branches and only toggles that parent's children.
   Anonymous comment-icon actions toggle the readable branch instead of a write form.
   Successful nested creation expands the target branch and updates its direct-child count
   without duplicating the returned entry. There is no Refresh conversation button;
   failed reads retain their Retry action and loaded pages.
-  A post's View replies button loads only that parent's children. Reply forms appear only for live
+  Highlighted and full replies share the same thread component, actions, and form placement.
+  Reaction and discussion slots use distinct React keys. Opening/closing a discussion
+  hides its existing panel after the first open, preserving loaded pages and the root
+  draft without accumulating reaction rows. Closing a local reply form similarly
+  preserves its draft and reopening focuses that form. Owner Edit/Delete actions live
+  in the reply's menu rather than adding another toolbar beneath its reactions.
+  A post's Show replies button loads only that parent's children. Reply forms appear only for live
   parents. Deleted parents retain their existing branches; deeper live descendants remain usable.
   The article Reply action targets the selected reply. Article pages can
   load a scoped linked comment directly by ID when it falls outside the current page.

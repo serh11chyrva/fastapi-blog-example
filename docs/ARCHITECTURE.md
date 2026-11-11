@@ -357,6 +357,14 @@ paragraph; block movement selects the moved node through ProseMirror's valid
 selection resolution. Gallery resize preserves the current carousel slide, and
 removing the final image releases the viewer's page-scroll lock.
 
+Highlighted and full discussion entries share `ReplyThread`, including local reply
+forms and child loading. Highlighted reply actions retain the selected parent's ID
+instead of opening the original publication's composer. Reaction and discussion
+siblings have distinct React keys; visited discussion panels are hidden on close
+rather than remounted. This keeps one reaction row per rendered publication and
+preserves pagination and drafts across toggles. Reply owner actions use the byline
+menu; child disclosure appears only when the reply has children.
+
 Link resolution bounds each preview-image range probe to three seconds and all image
 selection to eight seconds, retaining text when no declared image is reachable. Probes
 use the same checked DNS, sockets, standard ports, and redirect limits as page fetches;

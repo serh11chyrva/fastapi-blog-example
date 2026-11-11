@@ -32,8 +32,13 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
   const draft = useRef<MicroPost | null>(null);
   const uploadedFiles = useRef<File[]>([]);
   const input = useRef<HTMLInputElement>(null);
+  const textInput = useRef<HTMLTextAreaElement>(null);
   const upload = useImageUploader();
   const hasAttachment = !!attachment || files.length > 0 || retained.length > 0;
+
+  useEffect(() => {
+    if (autoFocus) textInput.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     const urls = files.map((file) => URL.createObjectURL(file));
@@ -97,8 +102,7 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
       <Avatar src={user.avatars.original} name={user.display_name} size="sm" />
     </div>}
     <div className="composer-body">
-    <textarea className="field composer-text" aria-label={post ? "Edit post text" : replyPath ? "Reply text" : "Publication text"}
-      autoFocus={autoFocus}
+    <textarea ref={textInput} className="field composer-text" aria-label={post ? "Edit post text" : replyPath ? "Reply text" : "Publication text"}
       placeholder={replyPath ? "Write a reply or add an attachment…" : "What’s on your mind?"}
       maxLength={280} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
     {(files.length > 0 || retained.length > 0) && <div className="composer-image-previews">

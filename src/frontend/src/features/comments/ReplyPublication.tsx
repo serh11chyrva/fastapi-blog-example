@@ -1,12 +1,14 @@
 import { Link } from "react-router-dom";
-import type { MicroPost } from "../../shared/api/types";
+import type { ReactNode } from "react";
+import type { InteractionAction, MicroPost } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
 import { PublicationByline } from "../publications/PublicationByline";
 import { PostContent } from "../feed/PostContent";
 import { PublicationActions } from "../interactions/PublicationActions";
 
-export function ReplyPublication({ post, onComments, commentsOpen, onChanged }: {
-  post: MicroPost; onComments: () => void; commentsOpen?: boolean; onChanged?: () => void;
+export function ReplyPublication({ post, onComments, commentsOpen, onChanged, menu }: {
+  post: MicroPost; onComments: () => void; commentsOpen?: boolean;
+  onChanged?: (action: InteractionAction, enabled: boolean) => void; menu?: ReactNode;
 }) {
   const author = post.authors[0];
   return <div className="post-layout reply-publication">
@@ -15,7 +17,7 @@ export function ReplyPublication({ post, onComments, commentsOpen, onChanged }: 
     </Link>
     <div className="post-content">
       <PublicationByline author={author} reply={post.reply} href={post.share_url ?? `/posts/${post.id}`}
-        publishedAt={post.created_at} updatedAt={post.updated_at} />
+        publishedAt={post.created_at} updatedAt={post.updated_at}>{menu}</PublicationByline>
       <PostContent text={post.text} attachments={post.attachments} reply={post.reply} context={false} />
       <PublicationActions kind="micro_post" id={post.id} onComments={onComments}
         commentsOpen={commentsOpen} onChanged={onChanged} />

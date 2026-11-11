@@ -37,6 +37,7 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
   const [editPost, setEditPost] = useState<MicroPost | null>(null);
   const [busy, setBusy] = useState(false);
   const [comments, setComments] = useState(showDiscussion);
+  const [discussionVisited, setDiscussionVisited] = useState(showDiscussion);
   const [focusReply, setFocusReply] = useState(false);
   const menu = useRef<HTMLDetailsElement>(null);
   const [author, ...featured] = item.authors;
@@ -96,12 +97,17 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
         {editPost ? <PublicationComposer post={editPost} label="Save changes"
           onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
       </> : <PreviewCard item={item} />}
-      <PublicationActions key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id}
-        onComments={() => { setFocusReply(!comments); setComments(!comments); }} commentsOpen={comments} onShare={() => void share()} copied={copied}
+      <PublicationActions key={`actions:${item.kind}:${item.id}`} kind={item.kind} id={item.id}
+        onComments={() => { setDiscussionVisited(true); setFocusReply(!comments); setComments(!comments); }}
+        commentsOpen={comments} onShare={() => void share()} copied={copied}
         onChanged={(action) => { if (action === "repost") onChanged(); }} />
       {error && <p className="notice-error" role="alert">{error}</p>}
-      {item.kind === "micro_post" && !comments && <HighlightedReplies postId={item.id} openDiscussion={() => setComments(true)} />}
-      {comments && <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} focusComposer={focusReply} />}
+      {item.kind === "micro_post" && <div key="highlighted-replies" hidden={comments}>
+        <HighlightedReplies key={item.id} postId={item.id} />
+      </div>}
+      {discussionVisited && <div key="discussion" hidden={!comments}>
+        <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} focusComposer={comments && focusReply} />
+      </div>}
     </div>
   </div>;
 }

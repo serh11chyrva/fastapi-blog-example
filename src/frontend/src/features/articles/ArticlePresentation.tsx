@@ -163,7 +163,9 @@ export function ArticlePresentation({ article, owner }: { article: Article; owne
       {article.status === "published" && <>
         <PublicationActions kind="article" id={article.id} onComments={() => { setFocusReply(!comments); setComments(!comments); }}
           commentsOpen={comments} onShare={() => void share()} copied={copied} />
-        {comments && <Discussion key={article.id} kind="article" id={article.id} deepLink focusComposer={focusReply} />}
+        <div hidden={!comments}>
+          <Discussion key={article.id} kind="article" id={article.id} deepLink focusComposer={comments && focusReply} />
+        </div>
       </>}
       <Footer reading />
     </div>
