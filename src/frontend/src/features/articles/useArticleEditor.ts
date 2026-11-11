@@ -5,6 +5,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { Article } from "../../shared/api/types";
 import { useEditor } from "@tiptap/react";
 import { createEditorExtensions } from "./editorExtensions";
+import { replaceArticleImageEvent } from "./ArticleImage";
 import type { InsertionRange } from "./EditorToolbar";
 import type { Transaction } from "@tiptap/pm/state";
 import { fromEditorBody, toEditorBody } from "./contentNodes";
@@ -15,6 +16,7 @@ export function useArticleEditor() {
   const { user } = useApp();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
+  const [loadedBody, setLoadedBody] = useState<JSONContent | null>(null);
   const [body, setBody] = useState<JSONContent>({ type: "doc", content: [{ type: "paragraph" }] });
   const [article, setArticle] = useState<Article | null>(null);
   const [error, setError] = useState("");
@@ -26,6 +28,9 @@ export function useArticleEditor() {
   const [thumbnailPreview, setThumbnailPreview] = useState("");
   const [publishAt, setPublishAt] = useState("");
   const imageInput = useRef<HTMLInputElement>(null);
+  const imageAttributes = useRef<{ alt: string; title: string | null } | null>(null);
+  const operation = useRef(false);
+  const [inlinePreview, setInlinePreview] = useState("");
   const imagePosition = useRef<InsertionRange | null>(null);
   const editor = useEditor({
     extensions: createEditorExtensions(),
@@ -51,6 +56,7 @@ export function useArticleEditor() {
         setArticle(value);
         setTitle(value.title);
         setBody(value.body);
+        setLoadedBody(value.body);
         if (value.scheduled_at) {
           const local = new Date(value.scheduled_at);
           local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
@@ -77,9 +83,14 @@ export function useArticleEditor() {
     return () => URL.revokeObjectURL(url);
   }, [thumbnailFile]);
   useEffect(() => {
-    if (editor && JSON.stringify(fromEditorBody(editor.getJSON())) !== JSON.stringify(body))
-      editor.commands.setContent(toEditorBody(body), { emitUpdate: false });
-  }, [editor, body]);
+    if (editor && loadedBody) editor.commands.setContent(toEditorBody(loadedBody), { emitUpdate: false });
+  }, [editor, loadedBody]);
+  useEffect(() => {
+    if (!pendingInlineImage) { setInlinePreview(""); return; }
+    const url = URL.createObjectURL(pendingInlineImage);
+    setInlinePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingInlineImage]);
   useEffect(() => {
     if (!editor) return;
     function mapImage({ transaction }: { transaction: Transaction }) {
@@ -88,11 +99,19 @@ export function useArticleEditor() {
         to: transaction.mapping.map(imagePosition.current.to, 1),
       };
     }
+    function replace(event: Event) {
+      const detail = (event as CustomEvent<InsertionRange & { alt: string; title: string | null }>).detail;
+      imagePosition.current = { from: detail.from, to: detail.to };
+      imageAttributes.current = { alt: detail.alt, title: detail.title };
+      imageInput.current?.click();
+    }
+    editor.view.dom.addEventListener(replaceArticleImageEvent, replace);
     editor.on("transaction", mapImage);
-    return () => { editor.off("transaction", mapImage); };
+    return () => { editor.off("transaction", mapImage); editor.view.dom.removeEventListener(replaceArticleImageEvent, replace); };
   }, [editor]);
   function chooseInlineImage(range: InsertionRange) {
     imagePosition.current = range;
+    imageAttributes.current = null;
     imageInput.current?.click();
   }
   function validateContent() {
@@ -102,11 +121,12 @@ export function useArticleEditor() {
   }
   async function persist(): Promise<Article> {
     validateContent();
-    const payload = { title, body };
+    const currentBody = editor ? fromEditorBody(editor.getJSON()) : body;
+    const payload = { title, body: currentBody };
     let saved = article;
     if (!saved) {
       saved = await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
-    } else if (title.trim() !== saved.title || JSON.stringify(body) !== JSON.stringify(saved.body)) {
+    } else if (title.trim() !== saved.title || JSON.stringify(currentBody) !== JSON.stringify(saved.body)) {
       saved = await api<Article>(`/articles/${saved.id}`, { method: "PATCH", body: JSON.stringify(payload) });
     }
     setArticle(saved);
@@ -118,14 +138,20 @@ export function useArticleEditor() {
     return saved;
   }
   async function uploadInlineImage(file: File) {
-    if (saving)
-      return;
+    if (operation.current) return;
+    operation.current = true;
     setSaving(true);
     setError("");
     try {
       validateImages("/images", [file]);
       setPendingInlineImage(file);
-      const saved = article || await persist();
+      let saved = article;
+      if (!saved) {
+        saved = await api<Article>("/articles", {
+          method: "POST", body: JSON.stringify({ title: title.trim() || "Untitled", body: editor ? fromEditorBody(editor.getJSON()) : body }),
+        });
+        setArticle(saved);
+      }
       const uploaded = await uploadImages<{
         url: string;
         alt_text: string;
@@ -133,10 +159,12 @@ export function useArticleEditor() {
       if (editor) {
         const range = imagePosition.current ?? { from: editor.state.selection.from, to: editor.state.selection.to };
         imagePosition.current = null;
-        editor.chain().focus().insertContentAt(range, [
-          { type: "image", attrs: { src: uploaded.url, alt: uploaded.alt_text } }, { type: "paragraph" },
-        ]).run();
-        editor.commands.setTextSelection(Math.min(range.from + 2, editor.state.doc.content.size));
+        const replacing = range.to > range.from && editor.state.doc.nodeAt(range.from)?.type.name === "image";
+        const image = { type: "image", attrs: { src: uploaded.url, alt: imageAttributes.current?.alt || uploaded.alt_text,
+          title: imageAttributes.current?.title ?? null } };
+        editor.chain().focus().insertContentAt(range, replacing ? image : [image, { type: "paragraph" }]).run();
+        imageAttributes.current = null;
+        editor.commands.focus();
       }
       setPendingInlineImage(null);
     }
@@ -144,15 +172,17 @@ export function useArticleEditor() {
       setError(errorMessage(reason));
     }
     finally {
+      operation.current = false;
       setSaving(false);
     }
   }
   async function removeCover() {
-    if (saving) return;
+    if (operation.current) return;
     if (!article?.thumbnail_url) {
       setThumbnailFile(null);
       return;
     }
+    operation.current = true;
     setSaving(true);
     setError("");
     setNotice("");
@@ -164,18 +194,20 @@ export function useArticleEditor() {
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
+      operation.current = false;
       setSaving(false);
     }
   }
 
   async function runAction(action: "save" | "draft" | "delete" | "publish" | "schedule") {
-    if (saving) return;
+    if (operation.current) return;
     if (action === "delete" && (!article || !confirm("Delete this article? This removes it from public pages.")))
       return;
     if (action === "schedule" && !publishAt) {
       setError("Choose a date and time for publication.");
       return;
     }
+    operation.current = true;
     setSaving(true);
     setError("");
     setNotice("");
@@ -221,9 +253,10 @@ export function useArticleEditor() {
       }
     }
     finally {
+      operation.current = false;
       setSaving(false);
     }
   }
   useEffect(() => { editor?.setEditable(!saving); }, [editor, saving]);
-  return { loading, loadError, title, setTitle, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, chooseInlineImage, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
+  return { loading, loadError, title, setTitle, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, chooseInlineImage, editor, inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
 }

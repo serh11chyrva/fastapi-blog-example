@@ -191,6 +191,12 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     </div>
     {menu && <div className="block-menu" style={{ top: menuTop, maxHeight: Math.max(120, window.innerHeight - (workspace.current?.getBoundingClientRect().top ?? 0) - menuTop - 12), overflowY: "auto" }} onKeyDown={(event) => {
       if (event.key === "Escape") { setMenu(undefined); editor.commands.focus(); }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const options = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+        const current = options.indexOf(document.activeElement as HTMLButtonElement);
+        options[(current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length]?.focus();
+      }
     }}>
       <div className="block-menu-heading">{menu === "move" ? "Block options" : "Add a block"}
         <button type="button" className="icon-button" aria-label="Close block menu" onClick={() => setMenu(undefined)}><Icon name="close" width={15} height={15} /></button>

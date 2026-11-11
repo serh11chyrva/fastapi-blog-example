@@ -13,7 +13,7 @@ export function ArticleEditorPage() {
 
 function ArticleEditorForm() {
   const { loading, loadError, title, setTitle, article, error, saving, setThumbnailFile, thumbnailPreview,
-    publishAt, setPublishAt, imageInput, chooseInlineImage, editor, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
+    publishAt, setPublishAt, imageInput, chooseInlineImage, editor, inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
   const [dropTop, setDropTop] = useState<number | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
   const publishDialog = useRef<HTMLDialogElement>(null);
@@ -92,6 +92,7 @@ function ArticleEditorForm() {
         if (file) void uploadInlineImage(file);
         event.currentTarget.value = "";
       }} />
+      {inlinePreview && <figure className="pending-article-image"><img src={inlinePreview} alt="Image awaiting insertion" /><figcaption>{saving ? "Uploading image…" : "Upload pending — retry to insert this image."}</figcaption></figure>}
       {pendingInlineImage && <button type="button" className="button-secondary" disabled={saving}
         onClick={() => void uploadInlineImage(pendingInlineImage)}>Retry image upload</button>}
     </div>

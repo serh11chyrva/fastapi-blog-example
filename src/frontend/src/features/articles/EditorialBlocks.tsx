@@ -47,7 +47,7 @@ function CodeBlockView({ editor, node, updateAttributes }: NodeViewProps) {
 
 export const EditorialQuote = Blockquote.extend({
   addAttributes() {
-    return { ...this.parent?.(), citation: { default: null } };
+    return { ...this.parent?.(), citation: { default: null, parseHTML: (element) => element.getAttribute("data-citation") || element.querySelector("cite")?.textContent || null, renderHTML: ({ citation }) => citation ? { "data-citation": citation } : {} } };
   },
   addNodeView() { return ReactNodeViewRenderer(QuoteBlock); },
 });

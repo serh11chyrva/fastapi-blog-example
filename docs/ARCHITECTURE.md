@@ -325,3 +325,11 @@ pending image positions through TipTap transactions. Empty-paragraph slash comma
 open block insertion; gap controls add before, between, or after blocks. Dragging shows
 a destination indicator and Alt+ArrowUp/ArrowDown moves the active block. Formatting
 restores the selected range before applying marks, alignment, or link changes.
+
+Editor documents hydrate once per loaded article rather than resetting content after
+every local transaction. Save serializes the live TipTap document. Image nodes expose
+replacement, removal, alternate text, and caption controls; uploaded-image previews
+and retry state are retained on failure. A private Untitled draft can stage the first
+inline image before the author supplies a title. Removing an inline node does not
+immediately delete its owned image inventory, preserving undo and later reinsertion.
+Quote citations, code languages, and alignment remain part of persisted node attributes.
