@@ -248,7 +248,13 @@ account handle stays on its own line below the name.
   when it differs from publication.
 - Saved is a protected page at `/saved`, linked from desktop and mobile site navigation. It lists
   saved posts/articles with their ordinary controls; unsaving removes the item from the shelf.
-  Saved/repost lists retain Load more even when unavailable originals empty a visible page.
+  Explore, Following, profile Posts/Articles, and saved publications load the next page
+  automatically within 400px of the list end, including empty cursor pages with older results.
+  Only one page is requested at a time; repeated cursors stop automatic loading.
+  Errors pause loading and Retry repeats the failed page without clearing loaded entries.
+  Deduplication preserves order; offset lists advance by received rows, not visible rows.
+  Discussions, follower lists, and article management retain manual pagination.
+  Browsers without IntersectionObserver receive a manual fallback button.
 - Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
   A post's View replies button loads only that parent's children. Reply forms appear only for live
   parents. Deleted parents retain their existing branches; deeper live descendants remain usable.

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useApp } from "../../app/AuthProvider";
 import type { SavedPublication } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
+import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
 import { FeedCard } from "../feed/FeedCard";
 import { interactionEvent } from "./events";
 import type { InteractionChange } from "./events";
@@ -39,7 +40,7 @@ function SavedList() {
     {!list.loading && !list.error && !list.items.length && <p className="list-status">
       {list.cursor ? "No available publications in this part of your shelf. Continue to see older saves." : "Your shelf is empty. Save a note or article to find it here."}
     </p>}
-    {list.cursor && <button className="list-more" disabled={list.loading} onClick={() => void list.loadMore()}>Load more saves</button>}
+    <InfiniteScroll hasMore={!!list.cursor} loading={list.loading} error={list.error} loadMore={list.loadMore} />
     <button className="list-more" disabled={list.loading} onClick={list.refresh}>Refresh shelf</button>
   </div>;
 }

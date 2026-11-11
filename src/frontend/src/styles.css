@@ -72,6 +72,7 @@ summary::-webkit-details-marker { display: none; }
 .notice-error { background: #f9f4ef; color: #804e42; }
 .notice-success { background: #f4f6ef; color: #586045; }
 .list-status { padding: 22px 24px; color: var(--muted); font-size: 13px; }
+.infinite-scroll-marker { min-height: 1px; }
 .list-more { display: block; width: calc(100% - 48px); margin: 17px 24px; padding: 9px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 12px; }
 .list-more:hover:not(:disabled) { background: var(--soft); color: var(--ink); }
 .design-dialog {
