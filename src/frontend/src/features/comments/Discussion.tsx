@@ -132,7 +132,6 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction,
   const [replying, setReplying] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [recentReplies, setRecentReplies] = useState<DiscussionComment[]>([]);
-  const [text, setText] = useState(comment.text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
@@ -143,31 +142,19 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction,
   }, []);
   const thread = comment;
   const own = !!user && user.id === comment.author?.id && !comment.deleted;
-  async function change(remove = false) {
-    if (pending.current || (!remove && !text.trim())) return;
-    if (remove && !window.confirm("Delete your comment? Replies will remain available.")) return;
-    pending.current = true;
-    setBusy(true);
-    setError("");
+  async function remove() {
+    if (pending.current || !window.confirm("Delete your reply? Its children will remain available.")) return;
+    pending.current = true; setBusy(true); setError("");
     try {
-      if (remove) {
-        await api(`${base}/${comment.id}`, { method: "DELETE" });
-        if (!active.current) return;
-        onUpdate({ ...comment, deleted: true, text: null, author: null, publication: null, likes_count: 0, liked: false, updated_at: new Date().toISOString() });
-      } else {
-        const updated = await api<DiscussionComment>(`${base}/${comment.id}`, { method: "PATCH", body: JSON.stringify({ text }) });
-        if (!active.current) return;
-        onUpdate(updated);
-      }
-      setEditing(false);
+      await api(`${base}/${comment.id}`, { method: "DELETE" });
+      if (!active.current) return;
+      onUpdate({ ...comment, deleted: true, text: null, author: null, publication: null,
+        likes_count: 0, liked: false, updated_at: new Date().toISOString() });
       notifyInteractionChange({ kind, id: publicationId });
-    } catch (reason) {
-      if (active.current) setError(errorMessage(reason));
-    } finally {
-      pending.current = false;
-      if (active.current) setBusy(false);
-    }
+    } catch (reason) { if (active.current) setError(errorMessage(reason)); }
+    finally { pending.current = false; if (active.current) setBusy(false); }
   }
+
   async function reload() {
     if (pending.current) return;
     pending.current = true;
@@ -197,12 +184,9 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction,
       </Link> : <span className="text-neutral-500">{comment.deleted ? "Deleted comment" : "Unavailable account"}</span>}
       <RelativeTime publishedAt={comment.created_at} updatedAt={comment.updated_at} />
     </div>
-    {editing && !comment.deleted ? <form className="mt-3 space-y-2" onSubmit={(event) => { event.preventDefault(); void change(); }}>
-      <label className="form-label block">Edit your comment<textarea className="field mt-2" maxLength={280} required
-        value={text} disabled={busy} onChange={(event) => setText(event.target.value)} /></label>
-      <button className="button-secondary" disabled={busy || !text.trim()}>Save changes</button>{" "}
-      <button type="button" className="button-quiet" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>
-    </form> : <p className="comment-copy">
+    {editing && !comment.deleted && comment.publication ? <PublicationComposer post={comment.publication}
+      label="Save changes" onCancel={() => setEditing(false)}
+      onSaved={() => { setEditing(false); void reload(); notifyInteractionChange({ kind, id: publicationId }); }} /> : <p className="comment-copy">
       {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : comment.text}
     </p>}
     </>}
@@ -212,8 +196,8 @@ function CommentItem({ comment, kind, publicationId, base, onUpdate, onReaction,
       </button>}
       {thread && user && !comment.deleted && <button className="underline" aria-expanded={replying} onClick={() => setReplying((value) => !value)}>Reply</button>}
       {own && <>
-        <button className="underline" disabled={busy} onClick={() => { setText(comment.text ?? ""); setEditing(true); }}>Edit</button>
-        <button className="underline" disabled={busy} onClick={() => void change(true)}>Delete</button>
+        <button className="underline" disabled={busy} onClick={() => setEditing(true)}>Edit</button>
+        <button className="underline" disabled={busy} onClick={() => void remove()}>Delete</button>
       </>}
     </div>
     {error && <p className="notice-error mt-2" role="alert">{error}{" "}

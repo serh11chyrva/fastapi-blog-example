@@ -276,3 +276,9 @@ The publication composer presents mutually exclusive image, URL, and publication
 choices. Images have local thumbnail previews and per-image removal before upload.
 Post and reply creation use private staging targets; failed requests keep the local
 draft and retry identity. Text is optional when an attachment is ready.
+
+Post and reply editors reuse the same composer. Existing images can be removed
+individually, replaced as a gallery, or replaced with another attachment type. Save
+commits the final content and queues removed objects for cleanup; Cancel does not
+change the saved publication. Edits include the loaded update timestamp to reject
+concurrent changes rather than silently overwriting them.

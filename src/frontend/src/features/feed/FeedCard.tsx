@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
-import type { FeedItem, OriginalFeedItem, RepostFeedItem } from "../../shared/api/types";
+import type { FeedItem, OriginalFeedItem, RepostFeedItem, MicroPost } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
@@ -10,6 +10,7 @@ import { HighlightedReplies } from "../comments/HighlightedReplies";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
 import { PreviewCard } from "../publications/PreviewCard";
+import { PublicationComposer } from "../publications/PublicationComposer";
 import { PostContent } from "./PostContent";
 
 export function FeedCard({ item, onChanged, showDiscussion = false }: {
@@ -33,8 +34,7 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
   const { user } = useApp();
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(item.kind === "micro_post" ? item.text : "");
+  const [editPost, setEditPost] = useState<MicroPost | null>(null);
   const [busy, setBusy] = useState(false);
   const [comments, setComments] = useState(showDiscussion);
   const menu = useRef<HTMLDetailsElement>(null);
@@ -49,16 +49,19 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
     } catch (reason) { setError(errorMessage(reason)); }
   }
 
-  async function changePost(remove = false) {
-    if (busy || (remove && !window.confirm("Delete this post?"))) return;
-    setBusy(true);
-    setError("");
-    try {
-      await api(`/posts/${item.id}`, { method: remove ? "DELETE" : "PATCH",
-        ...(remove ? {} : { body: JSON.stringify({ text }) }) });
-      setEditing(false);
-      onChanged();
-    } catch (reason) { setError(errorMessage(reason)); }
+  async function deletePost() {
+    if (busy || !window.confirm("Delete this post?")) return;
+    setBusy(true); setError("");
+    try { await api(`/posts/${item.id}`, { method: "DELETE" }); onChanged(); }
+    catch (reason) { setError(errorMessage(reason)); }
+    finally { setBusy(false); }
+  }
+
+  async function beginEdit() {
+    if (busy) return;
+    closeMenu(); setBusy(true); setError("");
+    try { setEditPost(await api<MicroPost>(`/posts/${item.id}`)); }
+    catch (reason) { setError(errorMessage(reason)); }
     finally { setBusy(false); }
   }
 
@@ -91,8 +94,8 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
           <div className="post-menu-list">
             <Link to={page} onClick={closeMenu}>Open {item.kind === "micro_post" ? "post" : "article"}</Link>
             {own && item.kind === "micro_post" && <>
-              <button type="button" disabled={busy} onClick={() => { setText(item.text); setEditing(true); closeMenu(); }}>Edit post</button>
-              <button type="button" disabled={busy} onClick={() => { closeMenu(); void changePost(true); }}>Delete post</button>
+              <button type="button" disabled={busy} onClick={() => void beginEdit()}>Edit post</button>
+              <button type="button" disabled={busy} onClick={() => { closeMenu(); void deletePost(); }}>Delete post</button>
             </>}
             {own && item.kind === "article" && <Link to={`/articles/${item.id}/edit`} onClick={closeMenu}>Edit article</Link>}
           </div>
@@ -102,12 +105,8 @@ function OriginalCard({ item, repost, onChanged, showDiscussion }: {
         {index > 0 && ", "}<Link to={`/@${person.username}`}>{person.display_name}</Link>
       </span>)}</div>}
       {item.kind === "micro_post" ? <>
-        {editing ? <form className="post-edit" onSubmit={(event) => { event.preventDefault(); void changePost(); }}>
-          <label className="form-label">Edit post<textarea className="field" maxLength={280}
-            value={text} disabled={busy} onChange={(event) => setText(event.target.value)} /></label>
-          <button className="button-primary" disabled={busy || !text.trim()}>Save</button>{" "}
-          <button type="button" className="button-quiet" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>
-        </form> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
+        {editPost ? <PublicationComposer post={editPost} label="Save changes"
+          onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
       </> : <PreviewCard item={item} />}
       <PublicationActions key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id}
         onComments={() => setComments((value) => !value)} commentsOpen={comments} onShare={() => void share()} copied={copied}
