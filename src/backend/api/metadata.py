@@ -9,7 +9,10 @@ Origin = Annotated[
     str,
     Header(
         alias="Origin",
-        description="Must match APP_ORIGIN. Browsers set it automatically; missing or foreign origins are rejected with 403 before dispatch.",
+        description=(
+            "Must match APP_ORIGIN or a configured APP_ADDITIONAL_ORIGIN. "
+            "Browsers set it automatically. Missing or foreign origins are rejected with 403 before dispatch."
+        ),
     ),
 ]
 

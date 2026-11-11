@@ -150,7 +150,7 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def enforce_same_origin(request: Request, call_next: RequestResponseEndpoint) -> Response:
-        """Require the configured origin for mutating versioned API requests.
+        """Require an explicitly configured origin for mutating versioned API requests.
 
         :param request: Incoming HTTP request and its application state.
         :param call_next: Callable that dispatches the request to the next HTTP handler.
@@ -163,8 +163,9 @@ def create_app() -> FastAPI:
             "DELETE",
         }:
             origin = request.headers.get("origin", "").rstrip("/")
+            settings = get_settings()
 
-            if origin != get_settings().app_origin:
+            if not origin or origin not in (settings.app_origin, settings.app_additional_origin):
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
                     content={"detail": "Cross-origin request rejected"},

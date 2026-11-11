@@ -8,6 +8,7 @@ services:
     environment:
       PYTHONPATH: /app/src
       APP_ORIGIN: ${FRONTEND_DEV_ORIGIN:-http://localhost:5173}
+      APP_ADDITIONAL_ORIGIN: ${APP_ORIGIN:-http://localhost:${API_PORT:-8080}}
     volumes:
       - ./src/backend:/app/src/backend:ro
 
@@ -19,7 +20,7 @@ services:
     ports:
       - "127.0.0.1:${FRONTEND_DEV_PORT:-5173}:5173"
     environment:
-      CHOKIDAR_USEPOLLING: ${FRONTEND_DEV_POLLING:-false}
+      CHOKIDAR_USEPOLLING: ${FRONTEND_DEV_POLLING:-true}
     volumes:
       - ./src/frontend/src:/app/src:ro
     depends_on:

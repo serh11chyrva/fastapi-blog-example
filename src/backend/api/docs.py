@@ -20,7 +20,8 @@ Register or log in to receive an HttpOnly session cookie. Browsers send it autom
 on subsequent same-origin requests; API clients must retain it in a cookie jar.
 Protected operations show the **SessionCookie** security requirement.
 Every POST, PUT, PATCH, and DELETE request under `/api/v1` must include an `Origin`
-header matching the configured application origin (`http://localhost:8080` by default).
+header matching `APP_ORIGIN` (`http://localhost:8080` by default) or the optional
+`APP_ADDITIONAL_ORIGIN`.
 Registration and login accept `client_type`: `web` (default), `mobile`, or `desktop`.
 Native apps may supply a `device_name` and must also retain the cookie and send `Origin`.
 Session lists return readable location and browser/device labels instead of raw IP and User-Agent.
