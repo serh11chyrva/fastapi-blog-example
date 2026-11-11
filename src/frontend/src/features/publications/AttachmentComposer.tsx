@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { api, errorMessage } from "../../shared/api/client";
 import type { Article, Attachment, MicroPost } from "../../shared/api/types";
-import { embedSource } from "./embedSource";
 
 type LinkCard = Extract<Attachment, { type: "og_card" }>;
-const providers = ["youtube", "vimeo", "spotify", "soundcloud"] as const;
 
 async function publicationReference(url: URL): Promise<Attachment> {
   if (url.origin !== window.location.origin) throw new Error("Use a link to a publication on this site.");
@@ -48,15 +46,13 @@ export function AttachmentComposer({ onAdd, disabled = false, initialMode }: {
       if (!["http:", "https:"].includes(link.protocol) || link.username || link.password)
         throw new Error("Use an HTTP or HTTPS URL without credentials.");
 
-      if (mode === "link") {
-        setCard(await api<LinkCard>("/links/preview", { method: "POST", body: JSON.stringify({ url: link.href }) }));
-      } else if (mode === "quote") {
+      if (mode === "quote") {
         add(await publicationReference(link));
       } else {
-        const player = providers.map((provider) => ({ type: "embed" as const, provider, url: link.href }))
-          .find((item) => embedSource(item) !== null);
-        if (!player) throw new Error("Use a YouTube, Vimeo, Spotify, or SoundCloud resource link.");
-        add(player);
+        const resolved = await api<{ attachment: Attachment }>("/links/resolve", {
+          method: "POST", body: JSON.stringify({ url: link.href }),
+        });
+        add(resolved.attachment);
       }
     } catch (reason) {
       setError(errorMessage(reason));
@@ -72,7 +68,7 @@ export function AttachmentComposer({ onAdd, disabled = false, initialMode }: {
           setCard(null);
           setError("");
         }}>
-          <option value="link">Link card</option>
+          <option value="link">Link or player (automatic)</option>
           <option value="player">Embedded player</option>
           <option value="quote">Quote a publication</option>
         </select>

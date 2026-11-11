@@ -307,3 +307,10 @@ editor state retains its current API payload; custom TipTap nodes convert variab
 attributes into one editor-local descriptor and back before persistence, preserving strict backend
 union shapes. Article images already present in the body are not repeated in the attachment list.
 No new frontend runtime dependency is required.
+
+Media resource resolution uses approved URL forms and provider oEmbed confirmation.
+Provider HTML is inspected only for confirmation and is never returned as executable
+content. Player URLs are constructed independently from recognized resource IDs.
+Provider contracts: [SoundCloud](https://developers.soundcloud.com/docs/oembed),
+[Spotify](https://developer.spotify.com/documentation/embeds/reference/oembed), and
+[Vimeo](https://developer.vimeo.com/api/oembed/videos).

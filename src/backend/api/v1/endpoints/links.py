@@ -7,6 +7,7 @@ from backend.api.metadata import Origin, Username, documented_responses
 from backend.auth.dependencies import CurrentUser
 from backend.auth.rate_limit import enforce_rate_limit
 from backend.links.preview import LinkPreviewRequest, link_preview
+from backend.links.resolution import LinkResolution, resolve_link
 from backend.links.service import LinkService
 from backend.profiles.repository import ProfileRepository
 from backend.publications.attachments import OpenGraphAttachment
@@ -43,6 +44,27 @@ async def preview_link(
     response.headers["Cache-Control"] = "private, no-store"
 
     return await link_preview(payload.url)
+
+
+@router.post(
+    "/links/resolve", response_model=LinkResolution, tags=["Links"],
+    summary="Resolve a link to a player or card",
+    description="Confirm a concrete provider resource using bounded metadata; unsupported or unavailable resources become cards.",
+    responses=documented_responses(401, 403, 422, 429, 503),
+)
+async def resolve_external_link(
+    _origin: Origin, payload: LinkPreviewRequest, request: Request, current_user: CurrentUser,
+) -> LinkResolution:
+    """Resolve an editor URL without accepting iframe markup.
+
+    :param _origin: Required same-origin mutation header.
+    :param payload: Public URL to resolve.
+    :param request: Request used for rate limiting.
+    :param current_user: Authenticated editor.
+    :return: Safe card or verified player presentation.
+    """
+    await enforce_rate_limit(request, "link-preview", str(current_user.id), limit=20, window_seconds=60)
+    return await resolve_link(payload.url)
 
 
 @router.get(

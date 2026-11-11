@@ -679,3 +679,8 @@ attachments are preserved. `retain_image_urls: []` removes the entire gallery; a
 retains and orders only the owned images listed. `image_draft_id` transfers a completed
 private gallery atomically on save. `expected_updated_at` returns 409 on a stale edit.
 Removing the final attachment from a textless post is rejected.
+
+`POST /links/resolve` returns `status`, a fallback `card`, the resolved `attachment`,
+and an optional server-constructed `player_url`. Provider homepages and unsupported
+resources become cards. Provider metadata is confirmation at resolution time, not a
+guarantee of future playback. Arbitrary iframe markup is never stored or rendered.

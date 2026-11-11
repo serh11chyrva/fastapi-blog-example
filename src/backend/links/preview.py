@@ -112,7 +112,7 @@ class PageMetadata(HTMLParser):
             fields = dict(attrs)
             key = (fields.get("property") or fields.get("name") or "").lower()
             value = " ".join((fields.get("content") or "").split())
-            if key in {"og:title", "og:description", "og:site_name", "description"} and value:
+            if key in {"og:title", "og:description", "og:site_name", "og:image", "description"} and value:
                 self.values.setdefault(key, value)
 
     def handle_endtag(self, tag: str) -> None:
@@ -158,15 +158,14 @@ def checked_url(url: str) -> str:
         raise InvalidOperation("Use a public HTTP(S) hostname on its standard port") from exc
 
 
-async def link_preview(url: str) -> OpenGraphAttachment:
-    """Retrieve a bounded preview, falling back to the original hostname.
+async def fetch_public(url: str, content_type: str) -> tuple[bytes, str] | None:
+    """Fetch bounded public content with checked DNS and redirect destinations.
 
-    :param url: Author-supplied absolute link destination.
-    :return: Validated attachment with textual metadata or the hostname fallback.
+    :param url: Public HTTP(S) destination using standard ports.
+    :param content_type: Expected response media type.
+    :return: Response bytes and final URL, or None on unavailable or oversized content.
     """
     target = checked_url(url)
-    host = urlsplit(target).hostname or target
-    metadata = PageMetadata()
     try:
         async with asyncio.timeout(5):
             connector = aiohttp.TCPConnector(
@@ -180,35 +179,50 @@ async def link_preview(url: str) -> OpenGraphAttachment:
                         if response.status in REDIRECT_STATUSES:
                             location = response.headers.get("Location")
                             if step == MAX_REDIRECTS or not location:
-                                break
-
+                                return None
                             target = checked_url(urljoin(target, location))
                             continue
-
-                        if (
-                            response.status != 200 or response.content_type != "text/html"
+                        if (response.status != 200 or response.content_type != content_type
                             or response.headers.get("Content-Encoding", "identity").lower() != "identity"
-                            or (response.content_length or 0) > MAX_HTML_BYTES
-                        ):
-                            break
-
+                            or (response.content_length or 0) > MAX_HTML_BYTES):
+                            return None
                         body = bytearray()
                         async for chunk in response.content.iter_chunked(16384):
                             if len(body) + len(chunk) > MAX_HTML_BYTES:
-                                break
-
+                                return None
                             body.extend(chunk)
-                        else:
-                            metadata.feed(body.decode(response.charset or "utf-8", errors="replace"))
-                            metadata.close()
+                        return bytes(body), target
+    except (aiohttp.ClientError, TimeoutError, LookupError, UnicodeError, InvalidOperation, OSError):
+        return None
+    return None
 
-                        break
-    except (aiohttp.ClientError, TimeoutError, LookupError, UnicodeError, AssertionError):
-        pass
 
+async def link_preview(url: str) -> OpenGraphAttachment:
+    """Extract public card metadata, falling back to the original hostname.
+
+    :param url: Author-supplied absolute link destination.
+    :return: Bounded card metadata with no executable markup.
+    """
+    target = checked_url(url)
+    host = urlsplit(target).hostname or target
+    metadata = PageMetadata()
+    response = await fetch_public(target, "text/html")
+    image = None
+    if response:
+        metadata.feed(response[0].decode("utf-8", errors="replace"))
+        metadata.close()
+        raw_image = metadata.values.get("og:image")
+        if raw_image:
+            try:
+                image = checked_url(urljoin(response[1], raw_image))
+                image_parts = urlsplit(image)
+                await PublicResolver().resolve(image_parts.hostname, 443 if image_parts.scheme == "https" else 80)
+                if len(image) > 2048:
+                    image = None
+            except (ValueError, InvalidOperation, OSError):
+                image = None
     return OpenGraphAttachment(
-        url=url,
-        title=(metadata.values.get("og:title") or " ".join(metadata.title.split()) or host)[:300],
+        url=url, title=(metadata.values.get("og:title") or " ".join(metadata.title.split()) or host)[:300],
         description=(metadata.values.get("og:description") or metadata.values.get("description") or "")[:1000],
-        site_name=(metadata.values.get("og:site_name") or host)[:200],
+        site_name=(metadata.values.get("og:site_name") or host)[:200], image_url=image,
     )

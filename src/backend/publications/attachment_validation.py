@@ -4,11 +4,13 @@ from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.articles.models import Article
+from backend.links.players import player_resource
 from backend.core.errors import InvalidOperation
 from backend.posts.models import MicroPost
 from backend.profiles.models import User
 from backend.publications.attachments import (
     ArticleAttachment,
+    EmbedAttachment,
     ImageAttachment,
     MentionAttachment,
     PostAttachment,
@@ -45,6 +47,12 @@ async def validate_attachment_references(
     old_posts = {PydanticObjectId(item.post_id) for item in retained or [] if isinstance(item, PostAttachment)}
 
     for item in attachments:
+        if isinstance(item, EmbedAttachment):
+            resource = player_resource(item.url)
+            if resource is None or resource[0] != item.provider:
+                if item not in (retained or []):
+                    raise InvalidOperation("Use a concrete media resource or attach this URL as a link card")
+
         if isinstance(item, VideoAttachment):
             raise InvalidOperation("Video attachments are reserved and are not supported yet")
 
