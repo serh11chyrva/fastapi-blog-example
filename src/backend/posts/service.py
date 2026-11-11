@@ -199,6 +199,7 @@ class PostService:
 
         await invalidate_public_feed(self.resources.redis)
 
+        await enqueue_attachments(self.resources.redis, post.attachments)
         return post
 
     async def get_post(self, resource_id: str) -> tuple[MicroPost, list[User]]:

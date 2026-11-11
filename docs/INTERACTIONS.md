@@ -260,7 +260,7 @@ deletions preserve tombstones and descendants. See [migration operations](MIGRAT
   Article attachments render outside the body unless the same image already occurs within it.
 - Typed TipTap mentions, hashtags, and attachment blocks render and survive editor round trips.
   Account mentions retain their ID label because no public account-by-ID resolver is provided.
-  Supported external providers load a player on demand. Link cards and quoted originals can
+  Confirmed external players load automatically near the viewport without media autoplay. Link cards and quoted originals can
   be attached from the composer or the editor.
 
 Request failures remain visible with retry/refresh controls. Viewer changes reset private flags;
@@ -282,3 +282,7 @@ individually, replaced as a gallery, or replaced with another attachment type. S
 commits the final content and queues removed objects for cleanup; Cancel does not
 change the saved publication. Edits include the loaded update timestamp to reject
 concurrent changes rather than silently overwriting them.
+
+URL cards use cached metadata with deduplicated reads and at most ten pending refreshes.
+Saved metadata remains visible while resolving. The application no longer requires a
+Load player button; provider playback controls still require the reader to start media.

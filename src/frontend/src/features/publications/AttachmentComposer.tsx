@@ -80,7 +80,7 @@ export function AttachmentComposer({ onAdd, disabled = false, initialMode }: {
           if (event.key === "Enter") { event.preventDefault(); void resolve(); }
         }} /></label>
       {!card && <button type="button" className="button-secondary" disabled={busy || disabled || !url.trim()}
-        onClick={() => void resolve()}>{busy ? "Loading…" : mode === "link" ? "Preview link" : "Add attachment"}</button>}
+        onClick={() => void resolve()}>{busy ? "Loading…" : "Add attachment"}</button>}
       {card && <>
         <label className="form-label block">Card title<input className="field mt-1" maxLength={300} value={card.title} disabled={disabled}
           onChange={(event) => setCard({ ...card, title: event.target.value })} /></label>
