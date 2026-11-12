@@ -4,6 +4,8 @@
 @import "./features/articles/editorial.css";
 @import "./features/auth/auth.css";
 @import "./features/profiles/settings.css";
+@import "./shared/ui/skeleton.css";
+@import "./shared/ui/motion.css";
 
 @font-face {
   font-family: Inter;
@@ -99,7 +101,13 @@ summary::-webkit-details-marker { display: none; }
 .dialog-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 17px; border-bottom: 1px solid var(--line); }
 .dialog-heading h2 { font-size: 17px; font-weight: 650; letter-spacing: -.03em; }
 .dialog-body { display: grid; gap: 15px; padding: 18px; color: var(--muted); font-size: 13px; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
 /* Hashtags share their appearance across publication and profile text. */
 .post-copy .hashtag, .tiptap-content .hashtag, .hashtag { color: #42634b; font-weight: 650; overflow-wrap: anywhere; }
 a.hashtag:hover { text-decoration: underline; text-underline-offset: 3px; }

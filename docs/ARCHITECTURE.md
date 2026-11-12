@@ -230,6 +230,15 @@ Login failures remain local to the credential form. Session generations prevent 
 Loading failures remain distinct
 from successfully loaded empty lists.
 
+Shared presentation primitives include `Skeleton` (line, circle, and block shapes)
+and `SkeletonGroup` (one accessible loading message with decorative shapes). Feature
+areas compose these primitives to match their layouts. Shared CSS defines 120 ms
+control feedback, 180 ms entrances, and 220 ms expansion timing. Skeletons use a
+neutral background and a 1.6-second shimmer starting after 150 ms; this never delays
+the response or imposes a minimum loading duration. Hidden and inert panels pause
+the shimmer. Reduced motion disables CSS animations, transitions, and smooth scrolling
+while keeping static loading shapes visible. No animation dependency is required.
+
 Cookie security is generated from authentication dependencies. Optional-session
 reads explicitly allow anonymous access in OpenAPI. Shared schema generation only
 adds examples; it does not infer authentication or response policy from URL text.
