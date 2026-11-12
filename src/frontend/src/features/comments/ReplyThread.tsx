@@ -211,7 +211,7 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
     {editing && !comment.deleted && comment.publication ? <PublicationComposer post={comment.publication}
       label="Save changes" onCancel={() => setEditing(false)}
       onSaved={() => { setEditing(false); void reload(); notifyInteractionChange({ kind, id: publicationId }); }} /> : <p className="comment-copy">
-      {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : <HashtagText text={comment.text} />}
+      {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : <HashtagText text={comment.text ?? ""} />}
     </p>}
     </>}
     {(thread.replies_count > 0 || (!comment.publication && user && !readOnly && !comment.deleted)) && <div className="comment-actions">
