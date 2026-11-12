@@ -200,7 +200,7 @@ function ProfileContent({ username }: { username: string }) {
       {activeTab === "archive" && own && user ? <ProfileArchive key={`${user.id}:${refreshKey}`} /> : <>
         {pinError && <p className="notice-error" role="alert">{pinError}{" "}
           <button type="button" className="text-link" onClick={refreshActivity}>Retry pins</button></p>}
-        {pinsLoading ? <div className={activeTab === "articles" ? "profile-articles-loading" : ""} aria-busy="true">
+        {pinsLoading ? <div className={activeTab === "articles" ? "profile-articles-loading" : ""}>
           <PublicationListSkeleton variant={activeTab === "articles" ? "article" : "post"} />
         </div> : activeTab === "posts"
           ? <ProfileTimeline key={`${profile.username}-${refreshKey}`} username={profile.username}

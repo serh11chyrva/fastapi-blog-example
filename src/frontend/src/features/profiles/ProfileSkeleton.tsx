@@ -2,7 +2,7 @@ import { Skeleton, SkeletonGroup } from "../../shared/ui/Skeleton";
 import { PublicationSkeleton } from "../publications/PublicationSkeleton";
 
 export function ProfileSkeleton() {
-  return <div aria-busy="true">
+  return <div>
     <SkeletonGroup label="Loading profile…">
       <div className="profile-section">
         <div className="profile-cover"><Skeleton variant="block" style={{ height: "100%", borderRadius: 0 }} /></div>

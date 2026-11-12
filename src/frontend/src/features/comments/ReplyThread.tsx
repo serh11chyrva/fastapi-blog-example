@@ -14,6 +14,7 @@ import { ReplyPublication } from "./ReplyPublication";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
 import { ReplySkeleton } from "./ReplySkeleton";
+import { Collapsible } from "../../shared/ui/Collapsible";
 
 function CommentForm({ path, parentId, label, onCreated, onCancel, autoFocus = false }: {
   path: string; parentId?: string; label: string; autoFocus?: boolean;
@@ -23,12 +24,15 @@ function CommentForm({ path, parentId, label, onCreated, onCancel, autoFocus = f
     onCancel={onCancel} onSaved={(saved) => onCreated(saved as DiscussionComment)} />;
 }
 
-export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, commentId, focusComposer = false, readOnly = false }: {
+export function ReplyList({
+  kind, id, parentId, newComments, onRecentUpdate, commentId, focusComposer = false, readOnly = false, visible = true,
+}: {
   kind: PublicationKind; id: string; parentId?: string; newComments?: DiscussionComment[];
   onRecentUpdate?: (comment: DiscussionComment) => void;
   commentId?: string;
   focusComposer?: boolean;
   readOnly?: boolean;
+  visible?: boolean;
 }) {
   const { user } = useApp();
   const base = `${publicationPath(kind, id)}/${kind === "micro_post" ? "replies" : "comments"}`;
@@ -57,8 +61,9 @@ export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, com
 
   const linkReady = listed || linked?.id === commentId;
   useEffect(() => {
-    if (commentId && linkReady) document.getElementById(`comment-${commentId}`)?.scrollIntoView({ block: "center" });
-  }, [commentId, linkReady]);
+    if (visible && commentId && linkReady)
+      document.getElementById(`comment-${commentId}`)?.scrollIntoView({ block: "center" });
+  }, [commentId, linkReady, visible]);
   useEffect(() => {
     if (newComments?.length) {
       setRecent((items) => mergeListItems(items, newComments, itemId));
@@ -127,7 +132,6 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
   const { user } = useApp();
   const [editing, setEditing] = useState(false);
   const [replying, setReplying] = useState(false);
-  const [replyVisited, setReplyVisited] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [recentReplies, setRecentReplies] = useState<DiscussionComment[]>([]);
   const [busy, setBusy] = useState(false);
@@ -147,7 +151,6 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
   function toggleReply() {
     if (!user || readOnly) { setExpanded((value) => !value); return; }
     if (comment.deleted) return;
-    setReplyVisited(true);
     setReplying((value) => !value);
   }
 
@@ -226,7 +229,7 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
     {error && <p className="notice-error mt-2" role="alert">{error}{" "}
       <button className="underline" disabled={busy} onClick={() => void reload()}>Reload comment</button>
     </p>}
-    {replyVisited && !readOnly && !comment.deleted && user && <div id={replyFormId} className="inline-reply-composer" hidden={!replying}>
+    {!readOnly && !comment.deleted && user && <Collapsible id={replyFormId} className="inline-reply-composer" open={replying}>
       <CommentForm path={base} parentId={comment.id} label="Reply to this reply" autoFocus={replying}
       onCancel={() => setReplying(false)} onCreated={(created) => {
         setReplying(false);
@@ -236,10 +239,10 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
           onUpdate({ ...thread, replies_count: thread.replies_count + 1 });
         notifyInteractionChange({ kind, id: publicationId });
       }} />
-    </div>}
-    {expanded && thread && <div className={thread.depth < 4 ? "mt-4 border-l border-neutral-200 pl-3 sm:pl-5" : "mt-4 border-t border-neutral-200"}>
+    </Collapsible>}
+    <Collapsible open={expanded} className={thread.depth < 4 ? "mt-4 border-l border-neutral-200 pl-3 sm:pl-5" : "mt-4 border-t border-neutral-200"}>
       <ReplyList kind={kind} id={publicationId} parentId={comment.id} readOnly={readOnly} newComments={recentReplies}
         onRecentUpdate={(updated) => setRecentReplies((items) => items.map((item) => item.id === updated.id ? updated : item))} />
-    </div>}
+    </Collapsible>
   </article>;
 }

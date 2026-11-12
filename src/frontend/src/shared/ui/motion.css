@@ -12,6 +12,7 @@
 
 .motion-enter { animation: content-enter var(--motion-enter) var(--motion-ease); }
 .motion-fade { animation: content-fade var(--motion-enter) var(--motion-ease); }
+.collapsible-content { display: flow-root; }
 .post-menu[open] > .post-menu-list {
   animation: content-enter var(--motion-enter) var(--motion-ease);
 }

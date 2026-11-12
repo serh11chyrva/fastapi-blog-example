@@ -15,6 +15,7 @@ import { PublicationStatus } from "../publications/PublicationStatus";
 import { Attachments } from "../publications/Attachments";
 import { TipTapDocument } from "./TipTapDocument";
 import { HashtagText } from "../../shared/text/HashtagText";
+import { Collapsible } from "../../shared/ui/Collapsible";
 
 function readingSections(body: JSONContent) {
   const sections: { id: string; label: string }[] = [];
@@ -174,9 +175,10 @@ export function ArticlePresentation({ article, owner, onChanged }: {
       {article.status === "published" && !article.archived_at && <>
         <PublicationActions kind="article" id={article.id} onComments={() => { setFocusReply(!comments); setComments(!comments); }}
           commentsOpen={comments} onShare={() => void share()} copied={copied} />
-        <div hidden={!comments}>
-          <Discussion key={article.id} kind="article" id={article.id} deepLink focusComposer={comments && focusReply} />
-        </div>
+        <Collapsible open={comments} instant={hash.startsWith("#comment-")}>
+          <Discussion key={article.id} kind="article" id={article.id} deepLink visible={comments}
+            focusComposer={comments && focusReply} />
+        </Collapsible>
       </>}
       {article.archived_at && <Discussion key={article.id} kind="article" id={article.id} deepLink readOnly />}
       <Footer reading />

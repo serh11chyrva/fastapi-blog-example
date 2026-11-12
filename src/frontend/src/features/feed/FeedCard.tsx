@@ -13,6 +13,7 @@ import { PublicationMenu } from "../publications/PublicationMenu";
 import { PublicationByline } from "../publications/PublicationByline";
 import { PostContent } from "./PostContent";
 import { HashtagText } from "../../shared/text/HashtagText";
+import { Collapsible } from "../../shared/ui/Collapsible";
 
 export function FeedCard({ item, onChanged, showDiscussion = false, excerpt }: {
   item: FeedItem;
@@ -46,7 +47,6 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, ex
   const [editPost, setEditPost] = useState<MicroPost | null>(null);
   const [busy, setBusy] = useState(false);
   const [comments, setComments] = useState(showDiscussion);
-  const [discussionVisited, setDiscussionVisited] = useState(showDiscussion);
   const [focusReply, setFocusReply] = useState(false);
   const menu = useRef<HTMLDetailsElement>(null);
   const [author, ...featured] = item.authors;
@@ -105,19 +105,20 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, ex
           onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
       </> : <PreviewCard item={item} excerpt={excerpt} />}
       {!readOnly && <PublicationActions key={`actions:${item.kind}:${item.id}`} kind={item.kind} id={item.id}
-        onComments={() => { setDiscussionVisited(true); setFocusReply(!comments); setComments(!comments); }}
+        onComments={() => { setFocusReply(!comments); setComments(!comments); }}
         commentsOpen={comments} onShare={() => void share()} copied={copied}
         onChanged={(action) => { if (action === "repost") onChanged(); }} />}
       {readOnly && <button type="button" className="text-link" aria-expanded={comments}
-        onClick={() => { setDiscussionVisited(true); setComments(!comments); }}>
+        onClick={() => setComments(!comments)}>
         {comments ? "Hide discussion" : "View discussion"}</button>}
       {error && <p className="notice-error" role="alert">{error}</p>}
-      {item.kind === "micro_post" && !readOnly && <div key="highlighted-replies" hidden={comments}>
+      {item.kind === "micro_post" && !readOnly && <Collapsible key="highlighted-replies" open={!comments}>
         <HighlightedReplies key={item.id} postId={item.id} />
-      </div>}
-      {discussionVisited && <div key="discussion" hidden={!comments}>
-        <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} readOnly={readOnly} focusComposer={comments && focusReply} />
-      </div>}
+      </Collapsible>}
+      <Collapsible key="discussion" open={comments} animateInitial={!showDiscussion}>
+        <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} readOnly={readOnly}
+          visible={comments} focusComposer={comments && focusReply} />
+      </Collapsible>
     </div>
   </div>;
 }

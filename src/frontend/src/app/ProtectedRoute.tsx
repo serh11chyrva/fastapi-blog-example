@@ -8,7 +8,7 @@ export function ProtectedRoute() {
   usePageTitle(auth.status === "loading" ? "Restoring session" : auth.status === "error" ? "Session unavailable" : null);
   if (auth.status === "loading")
     return location.pathname === "/following" || location.pathname === "/saved"
-      ? <div aria-busy="true"><PublicationListSkeleton label="Restoring your session…" /></div>
+      ? <PublicationListSkeleton label="Restoring your session…" />
       : <p role="status">Restoring your session…</p>;
   if (auth.status === "error")
     return <div className="notice-error">

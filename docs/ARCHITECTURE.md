@@ -232,12 +232,27 @@ from successfully loaded empty lists.
 
 Shared presentation primitives include `Skeleton` (line, circle, and block shapes)
 and `SkeletonGroup` (one accessible loading message with decorative shapes). Feature
-areas compose these primitives to match their layouts. Shared CSS defines 120 ms
+areas compose these primitives to match their layouts. The loading message is outside
+the busy placeholder region so its announcement is not deferred by `aria-busy`.
+Shared CSS defines 120 ms
 control feedback, 180 ms entrances, and 220 ms expansion timing. Skeletons use a
 neutral background and a 1.6-second shimmer starting after 150 ms; this never delays
 the response or imposes a minimum loading duration. Hidden and inert panels pause
 the shimmer. Reduced motion disables CSS animations, transitions, and smooth scrolling
 while keeping static loading shapes visible. No animation dependency is required.
+
+`Collapsible` lazily mounts its children on first open and keeps them mounted when
+closed. `useDisclosureAnimation` measures the inner content, animates height with
+the Web Animations API, and restores automatic height when open or `hidden` when
+closed. The closing panel becomes inert and hidden from assistive technology at
+once; focus inside returns to the opening control. Rapid toggles preserve the current
+animated height before canceling and reversing direction. A ResizeObserver retargets
+an opening animation when asynchronous content changes size. Enabling reduced motion
+finishes the current transition immediately; unsupported animation APIs use the same
+instant fallback. Effect cleanup disconnects observers and media listeners. Initial
+reading discussions and comment deep links use their final geometry immediately.
+The discussion passes its visibility to the reply list so a linked comment scrolls
+into view only after its panel is visible, including links to already loaded replies.
 
 Cookie security is generated from authentication dependencies. Optional-session
 reads explicitly allow anonymous access in OpenAPI. Shared schema generation only

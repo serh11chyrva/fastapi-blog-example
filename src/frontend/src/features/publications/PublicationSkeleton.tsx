@@ -32,7 +32,7 @@ export function PublicationListSkeleton({ count = 3, variant = "post", label = "
 }
 
 export function PublicationPageSkeleton({ kind }: { kind?: "article" | "micro_post" }) {
-  return <div className={kind === "article" ? "reader" : "post-detail"} aria-busy="true">
+  return <div className={kind === "article" ? "reader" : "post-detail"}>
     <SkeletonGroup label={kind === "article" ? "Loading article…" : kind === "micro_post" ? "Loading post…" : "Loading publication…"}>
       {kind === "micro_post" ? <PublicationSkeleton /> : <div className="reader-skeleton">
         <Skeleton style={{ width: "28%", height: 11 }} />

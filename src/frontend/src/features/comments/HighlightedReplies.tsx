@@ -6,6 +6,7 @@ import type { CursorPage, PostReply } from "../../shared/api/types";
 import { itemId, mergeListItems } from "../../shared/hooks/listItems";
 import { interactionEvent } from "../interactions/events";
 import type { InteractionChange } from "../interactions/events";
+import { Collapsible } from "../../shared/ui/Collapsible";
 
 export function HighlightedReplies({ postId }: { postId: string }) {
   const { user } = useApp();
@@ -49,14 +50,18 @@ export function HighlightedReplies({ postId }: { postId: string }) {
     return () => controller.abort();
   }, [visible, postId, user?.id, version]);
 
+  function renderReply(item: PostReply) {
+    return item.publication && <ReplyThread key={`${user?.id ?? "anonymous"}:${item.id}`} comment={item} kind="micro_post" publicationId={postId}
+      base={`/posts/${encodeURIComponent(postId)}/replies`}
+      onUpdate={(updated) => setItems((previous) => previous.map((reply) => reply.id === updated.id
+        ? { ...reply, ...updated } : reply))} />;
+  }
+
   return <div ref={marker}>
     {!!items.length && <aside className="highlighted-replies space-y-2" aria-label="Highlighted replies">
       <p>Top reply</p>
-      {items.slice(0, expanded ? 2 : 1).map((item) => item.publication &&
-        <ReplyThread key={`${user?.id ?? "anonymous"}:${item.id}`} comment={item} kind="micro_post" publicationId={postId}
-          base={`/posts/${encodeURIComponent(postId)}/replies`}
-          onUpdate={(updated) => setItems((previous) => previous.map((reply) => reply.id === updated.id
-            ? { ...reply, ...updated } : reply))} />)}
+      {items.slice(0, 1).map(renderReply)}
+      <Collapsible open={expanded}>{items.slice(1, 2).map(renderReply)}</Collapsible>
       {items.length > 1 && <button type="button" className="text-sm underline" aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}>{expanded ? "Hide additional reply" : "Show another reply"}</button>}
     </aside>}

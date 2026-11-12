@@ -294,6 +294,15 @@ account handle stays on its own line below the name.
   draft without accumulating reaction rows. Closing a local reply form similarly
   preserves its draft and reopening focuses that form. Owner Edit/Delete actions live
   in the reply's menu rather than adding another toolbar beneath its reactions.
+  Discussion panels, additional highlighted replies, nested branches, and local reply forms expand and collapse
+  over 220 ms while preserving their mounted content after the first open. Closed
+  panels are inert and unavailable to assistive technology; closing from within a
+  panel returns focus to its opening control. Height returns to automatic sizing
+  after expansion, including asynchronously loaded replies. Fast toggles continue
+  from the current height. Reduced motion settles the panel immediately. Reading
+  discussions are initially open without expansion, and comment deep links bypass
+  expansion to keep anchor scrolling stable. Linked comments scroll into view only
+  after the discussion is visible, including comments that were already loaded.
   A post's Show replies button loads only that parent's children. Reply forms appear only for live
   parents. Deleted parents retain their existing branches; deeper live descendants remain usable.
   The article Reply action targets the selected reply. Article pages can

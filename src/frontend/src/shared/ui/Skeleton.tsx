@@ -13,8 +13,10 @@ export function SkeletonGroup({ label, children, className = "" }: {
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={`loading-skeleton ${className}`}>
+  return <>
     <span className="sr-only" role="status">{label}</span>
-    <div className="skeleton-shapes" aria-hidden="true">{children}</div>
-  </div>;
+    <div className={`loading-skeleton ${className}`} aria-busy="true">
+      <div className="skeleton-shapes" aria-hidden="true">{children}</div>
+    </div>
+  </>;
 }

@@ -3,8 +3,10 @@ import { useApp } from "../../app/AuthProvider";
 import type { PublicationKind } from "../../shared/api/types";
 import { ReplyList } from "./ReplyThread";
 
-export function Discussion({ kind, id, deepLink = false, focusComposer = false, readOnly = false }: {
-  kind: PublicationKind; id: string; deepLink?: boolean; focusComposer?: boolean; readOnly?: boolean;
+export function Discussion({
+  kind, id, deepLink = false, focusComposer = false, readOnly = false, visible = true,
+}: {
+  kind: PublicationKind; id: string; deepLink?: boolean; focusComposer?: boolean; readOnly?: boolean; visible?: boolean;
 }) {
   const { user } = useApp();
   const location = useLocation();
@@ -14,7 +16,7 @@ export function Discussion({ kind, id, deepLink = false, focusComposer = false, 
     {!readOnly && !user && <p className="discussion-signin"><Link className="text-link" to="/login"
       state={{ from: location.pathname + location.search + location.hash }}>Sign in</Link> to join the conversation.</p>}
     <ReplyList key={`${kind}:${id}:${user?.id ?? "anonymous"}`} kind={kind} id={id} commentId={commentId}
-      readOnly={readOnly} focusComposer={focusComposer} />
+      readOnly={readOnly} focusComposer={focusComposer} visible={visible} />
   </section>;
 }
 
