@@ -54,6 +54,25 @@ featured authors empty. Featured-author management and collaboration permissions
 Profiles and author cards expose `avatars: {"original": URL-or-null}`. The object is always present;
 only the original uploaded image is available today. These replace flat author fields and avatar URLs.
 
+### Archives and profile pins
+Owners can archive unlimited posts, replies, and published articles with PUT/DELETE
+`/posts/{id}/archive` or `/articles/{id}/archive`. Archiving clears the pin and preserves
+content, original dates, images, reactions, and discussions. Archived data and media
+require the owner's session; featured authors have no private access. Archived replies
+hide their descendant branches. Existing discussions can be read by an authorized
+archive owner; new interactions still require public, unarchived content.
+GET `/me/archive` pages through owned archives by archived_at, kind, and ID descending,
+with a default limit of 20 and maximum 100. `/me/articles` excludes archived articles.
+PUT/DELETE `/posts/{id}/pin` and `/articles/{id}/pin` manage up to five pins in total.
+A sixth pin returns 409; archived and unpublished content cannot be newly pinned.
+GET `/users/{username}/pins` returns public pins newest first, separately from chronological
+profile lists. Post/reply pins lead Posts; article pins lead Articles. Other feeds keep
+chronological order. `archived_at` and `pinned_at` are UTC timestamps or null; repeated
+state requests preserve timestamps, and neither operation changes content updated_at.
+The derived read_only response flag disables interactions for private content and discussion contexts.
+Restoring an archive preserves the original publication date without restoring a pin.
+Archived articles retain their published status and must be restored before status changes.
+State writes require the owner's session and Origin and are audited transactionally.
 ### Interactions and discussions
 Use PUT or DELETE on a publication's `/like` or `/save` endpoint to set an idempotent account state.
 Post-only `/repost` endpoints create or remove public repost events without quotation text.
@@ -69,12 +88,12 @@ GET `/profiles/{username}/reposts` returns public repost history. The profile ti
 Comment events carry their own `created_at` and `updated_at`.
 Post discussions use `/posts/{id}/replies`, with optional parent_id and immutable root_id/depth.
 Read roots first, then request each parent's direct children with bounded pagination at any depth.
-Article `/articles/{id}/comments` are flat and reject parent_id. Both accept trimmed plain text up
-to 5,000 characters. Only the comment author may edit or delete. Deleted entries retain a tombstone
+Article `/articles/{id}/comments` also support parent_id. Both accept trimmed plain text up
+to 280 characters, with an attachment required for blank text. Only the comment author may edit or delete. Deleted entries retain a tombstone
 with null text/author, preserving children. New replies require a live parent in the same post.
 Live entries support idempotent likes, optional viewer flags, and ranked pages.
-Interactions and discussion reads/creates require public originals; drafts and scheduled articles
-return 404 even to their owner. Interaction removal remains available for inaccessible originals.
+Interactions and discussion creation require public, unarchived originals. Discussion reads also
+allow authorized archive owners; drafts and scheduled articles return 404 even to their owner. Interaction removal remains available for inaccessible originals.
 All mutations require a session and Origin and commit audit events in the same transaction.
 
 ### Pagination and conventions
@@ -93,6 +112,10 @@ using their IDs in live requests, and choose a future time when scheduling an ar
 """
 
 OPENAPI_TAGS = [
+    {
+        "name": "Publication state",
+        "description": "Manage owner-only archives and up to five profile pins shared across posts, replies, and articles.",
+    },
     {
         "name": "Links",
         "description": "Open saved HTTP(S) links through temporary redirects independent of profile handles. Query parameters are not forwarded; analytics is not implemented yet.",
@@ -119,7 +142,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Publications",
-        "description": "Resolve a public publication from its owner handle and readable share slug with a stable UUID. Responses can contain either a micro-post or a published article.",
+        "description": "Resolve a public or owner-only archived publication from its owner handle and readable share slug with a stable UUID. Responses can contain either a micro-post or a published article.",
     },
     {
         "name": "Feeds",
@@ -127,7 +150,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Media",
-        "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and post images are public; unpublished article media requires the owner's session.",
+        "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and banners are public; publication images enforce archive, discussion, and owner-only private visibility.",
     },
     {
         "name": "Interactions",
@@ -139,7 +162,7 @@ OPENAPI_TAGS = [
     {
         "name": "Comments",
         "description": (
-            "Discuss posts through threaded replies or articles through flat comments. "
+            "Discuss posts and articles through threaded replies stored as short publications. "
             "Like live entries and sort article comments or highlighted root replies by rank. "
             "Authors may edit and erase their own text; legacy reads retain navigation tombstones."
         ),

@@ -127,7 +127,7 @@ async def create_article(
     summary="List your articles",
     description=(
         "Returns your articles. Filter status by all, draft, scheduled, or published; "
-        "defaults to all. Unpublished articles are visible only to their owner. Offset "
+        "defaults to all. Archived articles are excluded and are listed in /me/archive. Offset "
         "defaults to 0; limit defaults to 20 and is capped at 100. Ordering is updated_at and "
         "ID descending."
     ),
@@ -169,16 +169,18 @@ async def list_my_articles(
     response_model=ArticleResponse,
     summary="Get an article",
     description=(
-        "Returns the full TipTap body and media URLs. Published articles are public; drafts "
-        "and scheduled articles require their owner's session. Missing, deleted, "
+        "Returns the full TipTap body and media URLs. Published articles are public; drafts, "
+        "scheduled, and archived articles require their owner's session. Missing, deleted, "
         "inaccessible, and malformed IDs return 404."
     ),
     tags=["Articles"],
     responses=documented_responses(404, 503),
     openapi_extra={"security": [{}, {"SessionCookie": []}]},
 )
-async def get_article(article_id: ArticleId, current_user: OptionalUser, articles: Articles) -> ArticleResponse:
-    """Read a visible article, allowing private drafts only for their owner.
+async def get_article(
+    article_id: ArticleId, current_user: OptionalUser, articles: Articles, response: Response,
+) -> ArticleResponse:
+    """Read a public article or owner-only draft, scheduled article, or archive.
 
     Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
 
@@ -186,8 +188,10 @@ async def get_article(article_id: ArticleId, current_user: OptionalUser, article
     :param current_user: Account resolved from the session cookie, or None for anonymous
         access.
     :param articles: Articles application service injected for this request.
+    :param response: HTTP response for the private cache policy.
     :return: The article response including its body.
     """
+    response.headers["Cache-Control"] = "private, no-store"
     article, authors = await articles.get_article(article_id, current_user)
 
     return await hydrate_publications(
@@ -248,7 +252,7 @@ async def update_article(
     description=(
         "Makes your draft or scheduled article public immediately, assigns its publication "
         "timestamp, and clears the schedule. Publishing an already published article leaves "
-        "its timestamp unchanged."
+        "its timestamp unchanged. Restore an archived article before changing publication status."
     ),
     tags=["Articles"],
     responses=documented_responses(
@@ -293,7 +297,7 @@ async def publish_article(
     "/articles/{article_id}/draft",
     response_model=ArticleResponse,
     summary="Return an article to draft",
-    description="Unpublishes or unschedules your article and makes it private to you.",
+    description="Unpublishes or unschedules your article, clears its pin, and makes it private. Unarchive first.",
     tags=["Articles"],
     responses=documented_responses(
         401,
@@ -332,7 +336,8 @@ async def return_article_to_draft(
     "/articles/{article_id}/schedule",
     response_model=ArticleResponse,
     summary="Schedule an article",
-    description=("Sets a future timezone-aware publication time; the background worker publishes it automatically."),
+    description=("Sets a future timezone-aware publication time; the background worker publishes it automatically. "
+                 "Restore archived articles before changing their publication status."),
     tags=["Articles"],
     responses=documented_responses(
         401,

@@ -130,7 +130,7 @@ async def get_post_comment(
     :param current_user: Optional session used to resolve reaction state.
     :return: A live entry or its deleted tombstone.
     """
-    item = await comments.get("micro_post", post_id, comment_id)
+    item = await comments.get("micro_post", post_id, comment_id, current_user.id if current_user else None)
     response.headers["Cache-Control"] = "private, no-store"
 
     return await hydrate_publications(
@@ -288,7 +288,7 @@ async def get_article_comment(
     :param current_user: Optional session used to resolve reaction state.
     :return: A live entry or its deleted tombstone.
     """
-    item = await comments.get("article", article_id, comment_id)
+    item = await comments.get("article", article_id, comment_id, current_user.id if current_user else None)
     response.headers["Cache-Control"] = "private, no-store"
 
     return await hydrate_publications(

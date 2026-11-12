@@ -99,6 +99,9 @@ POST = {
     "link_resolutions": {},
     "reply": None,
     "pending": False,
+    "read_only": False,
+    "archived_at": None,
+    "pinned_at": None,
     "owner_id": ACCOUNT["id"],
     "authors": [AUTHOR],
     "created_at": "2026-10-12T10:03:27Z",
@@ -155,6 +158,9 @@ ARTICLE = {
     "attachments": [],
     "link_resolutions": {},
     "status": "draft",
+    "read_only": True,
+    "archived_at": None,
+    "pinned_at": None,
     "owner_id": ACCOUNT["id"],
     "authors": [AUTHOR],
     "created_at": "2026-10-12T13:14:08Z",
@@ -166,6 +172,7 @@ ARTICLE_WITH_FEATURED_AUTHORS = ARTICLE | {"authors": [AUTHOR, PROFILE_USER]}
 THUMBNAIL_URL = "/static/images/article-covers/65c924eb1f8d4a36b2907d83ef6a015c.jpg"
 ARTICLE_PUBLISHED = ARTICLE | {
     "status": "published",
+    "read_only": False,
     "thumbnail_url": THUMBNAIL_URL,
     "updated_at": "2026-10-13T09:26:41Z",
     "published_at": "2026-10-13T09:26:41Z",
@@ -247,6 +254,9 @@ FEED_ARTICLE = {
         "authors",
         "attachments",
         "link_resolutions",
+        "read_only",
+        "archived_at",
+        "pinned_at",
         "published_at",
         "updated_at",
     )
@@ -260,6 +270,9 @@ FEED_POST = {
         "text",
         "attachments",
         "link_resolutions",
+        "read_only",
+        "archived_at",
+        "pinned_at",
         "owner_id",
         "authors",
         "updated_at",
@@ -372,3 +385,18 @@ SAVED_PAGE = {
     }],
     "next_cursor": None,
 }
+
+# Archive and pin operations preserve the publication's content timestamps.
+POST_ARCHIVED = POST | {"archived_at": "2026-11-12T09:00:00Z", "pinned_at": None, "read_only": True}
+POST_PINNED = POST | {"archived_at": None, "pinned_at": "2026-11-12T09:05:00Z"}
+ARTICLE_ARCHIVED = ARTICLE_PUBLISHED | {
+    "archived_at": "2026-11-12T09:10:00Z", "pinned_at": None, "read_only": True,
+}
+ARCHIVE_PAGE = {
+    "items": [
+        FEED_ARTICLE | {"archived_at": ARTICLE_ARCHIVED["archived_at"], "pinned_at": None, "read_only": True},
+        FEED_POST | {"archived_at": POST_ARCHIVED["archived_at"], "pinned_at": None, "read_only": True},
+    ],
+    "next_cursor": None,
+}
+PROFILE_PINS = [FEED_POST | {"pinned_at": POST_PINNED["pinned_at"]}]

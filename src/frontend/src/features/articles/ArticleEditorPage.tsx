@@ -39,7 +39,7 @@ function ArticleEditorForm() {
   const status = article?.status ?? "draft";
   return <article className="writer">
     <div className="writer-actions">
-      <span className="writer-state">{saving ? "Saving…" : status}</span>
+      <span className="writer-state">{saving ? "Saving…" : article?.archived_at ? "archived" : status}</span>
       <button type="button" className="button-secondary" disabled={saving} onClick={() => void runAction("save")}>Save</button>
       <button type="button" className="button-primary" disabled={saving} onClick={() => publishDialog.current?.showModal()}>Publish</button>
     </div>
@@ -106,14 +106,15 @@ function ArticleEditorForm() {
         </button>
       </div>
       <div className="dialog-body">
-        <p className="writer-state">Status · {status}</p>
+        <p className="writer-state">Status · {article?.archived_at ? "archived" : status}</p>
+        {article?.archived_at && <p>Unarchive this article from its page before changing publication settings.</p>}
         {article?.scheduled_at && <p className="writer-state">Scheduled for {new Date(article.scheduled_at).toLocaleString()}</p>}
         <label className="form-label">Schedule for<input className="field" type="datetime-local" disabled={saving}
           value={publishAt} onChange={(event) => setPublishAt(event.target.value)} /></label>
         <div className="publish-actions">
-          <button type="button" className="button-primary" disabled={saving} onClick={() => void runAction("publish")}>Publish now</button>
-          <button type="button" className="button-secondary" disabled={saving || !publishAt} onClick={() => void runAction("schedule")}>Schedule</button>
-          {article && status !== "draft" && <button type="button" className="button-secondary" disabled={saving}
+          <button type="button" className="button-primary" disabled={saving || !!article?.archived_at} onClick={() => void runAction("publish")}>Publish now</button>
+          <button type="button" className="button-secondary" disabled={saving || !!article?.archived_at || !publishAt} onClick={() => void runAction("schedule")}>Schedule</button>
+          {article && status !== "draft" && <button type="button" className="button-secondary" disabled={saving || !!article.archived_at}
             onClick={() => void runAction("draft")}>Move to draft</button>}
           {article && <button type="button" className="button-quiet" disabled={saving} onClick={() => void runAction("delete")}>Delete article</button>}
         </div>

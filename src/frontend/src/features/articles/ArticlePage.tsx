@@ -7,8 +7,9 @@ import { api } from "../../shared/api/client";
 import { EmptyState } from "../../shared/ui/EmptyState";
 import { ArticlePresentation } from "./ArticlePresentation";
 export function ArticlePage() {
+  const { user } = useApp();
   const { articleId = "" } = useParams();
-  return <ArticleContent key={articleId} articleId={articleId} />;
+  return <ArticleContent key={`${articleId}:${user?.id ?? "anonymous"}`} articleId={articleId} />;
 }
 
 function ArticleContent({ articleId }: { articleId: string }) {
@@ -29,11 +30,13 @@ function ArticleContent({ articleId }: { articleId: string }) {
           setError(reason instanceof Error ? reason.message : "Could not load this page.");
       });
     return () => controller.abort();
-  }, [articleId]);
+  }, [articleId, user?.id]);
   usePageTitle(error ? "Article unavailable" : article?.title ?? "Loading article");
+  if (article && (article.archived_at || article.status !== "published") && user?.id !== article.owner_id)
+    return <p role="status">Loading article…</p>;
   if (error)
     return <EmptyState title="Article unavailable" body={error} />;
   if (!article)
     return <div className="surface p-8 text-center text-sm text-slate-500">Loading article…</div>;
-  return <ArticlePresentation key={article.id} article={article} owner={user?.id === article.owner_id} />;
+  return <ArticlePresentation key={article.id} article={article} owner={user?.id === article.owner_id} onChanged={setArticle} />;
 }

@@ -171,7 +171,8 @@ class ArticleService:
         """Change visibility and its timestamps together with the corresponding audit event.
 
         Publishing an already published article preserves its original timestamp.
-        Draft and scheduled transitions clear published_at. Conflicts require an
+        Draft and scheduled transitions clear published_at and pinned_at. Archived
+        articles must be restored before a status change. Conflicts require an
         explicit reload; the transaction body is not automatically repeated.
 
         :param article_id: MongoDB identifier of the article.
@@ -184,6 +185,9 @@ class ArticleService:
         async with transaction(self.resources.mongo) as session:
             article = await self.owned(article_id, owner, session)
 
+            if article.archived_at is not None:
+                raise InvalidOperation("Unarchive this article before changing its publication status")
+
             if state == "published" and article.status == "published":
                 return article
 
@@ -192,6 +196,8 @@ class ArticleService:
             if state == "scheduled" and (publish_at is None or publish_at <= now):
                 raise InvalidOperation("Publish time must be in the future")
 
+            if state != "published":
+                article.pinned_at = None
             article.status = state
             article.published_at = now if state == "published" else None
             article.scheduled_at = publish_at if state == "scheduled" else None
@@ -218,7 +224,7 @@ class ArticleService:
         return article
 
     async def get_article(self, resource_id: str, viewer: User | None) -> tuple[Article, list[User]]:
-        """Load an article after enforcing publication visibility.
+        """Load a public article, or private drafts, schedules, and archives for their owner.
 
         :param resource_id: String identifier of the publication to load or mutate.
         :param viewer: Current account, or None for an anonymous reader.
@@ -229,7 +235,10 @@ class ArticleService:
         if (
             article is None
             or article.deleted_at is not None
-            or (article.status != "published" and (viewer is None or viewer.id != article.owner_id))
+            or (
+                (article.status != "published" or article.archived_at is not None)
+                and (viewer is None or viewer.id != article.owner_id)
+            )
         ):
             raise NotFound("Article not found")
 
@@ -293,6 +302,7 @@ class ArticleService:
         async with transaction(self.resources.mongo) as session:
             item = await self.owned(resource_id, owner, session)
             item.deleted_at = item.updated_at = datetime.now(UTC)
+            item.pinned_at = item.archived_at = None
             await item.save(session=session)
 
             keys = ([item.thumbnail_key] if item.thumbnail_key else []) + item.inline_image_keys

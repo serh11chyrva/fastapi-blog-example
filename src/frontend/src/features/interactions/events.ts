@@ -16,3 +16,10 @@ export function notifyInteractionChange(change: InteractionChange) {
 export function publicationPath(kind: PublicationKind, id: string) {
   return `/${kind === "micro_post" ? "posts" : "articles"}/${encodeURIComponent(id)}`;
 }
+
+export const publicationStateEvent = "publication-state-changed";
+export type PublicationStateChange = { kind: PublicationKind; id: string };
+
+export function notifyPublicationStateChange(change: PublicationStateChange) {
+  window.dispatchEvent(new CustomEvent<PublicationStateChange>(publicationStateEvent, { detail: change }));
+}

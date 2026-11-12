@@ -14,7 +14,7 @@ from backend.audit.service import record_audit
 from backend.core.errors import InvalidOperation, NotFound
 from backend.posts.models import MicroPost
 from backend.posts.content import validate_post_content
-from backend.publications.access import public_publication
+from backend.publications.access import readable_publication
 from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostResponse
 from backend.profiles.models import AvatarImage, User
@@ -78,9 +78,9 @@ class ImageAttachments:
         if publication is None or publication.deleted_at is not None or publication.owner_id != owner.id:
             raise NotFound("Resource not found")
 
-        if isinstance(publication, MicroPost) and publication.reply is not None:
-            await public_publication(
-                publication.reply.kind, str(publication.reply.publication_id), session, touch=session is not None,
+        if isinstance(publication, MicroPost) and publication.reply is not None and publication.archived_at is None:
+            await readable_publication(
+                "micro_post", str(publication.id), owner.id, session, touch=session is not None,
             )
         return publication
 

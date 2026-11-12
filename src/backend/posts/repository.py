@@ -39,10 +39,10 @@ class PostRepository:
 
     @staticmethod
     async def find_shared(owner_id: PydanticObjectId, share_id: str) -> MicroPost | None:
-        """Find an undeleted public publication by its owner's stable share identity.
+        """Find an undeleted post; the caller must enforce pending, archive, and discussion visibility.
 
         :param owner_id: Account owning the publication.
         :param share_id: Persisted stable share identity.
-        :return: The public publication, or None when absent or private.
+        :return: The post, possibly private, or None when absent or deleted.
         """
         return await MicroPost.find_one({"owner_id": owner_id, "share_id": share_id, "deleted_at": None})

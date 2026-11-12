@@ -2,10 +2,12 @@
 
 from beanie import PydanticObjectId
 
-from backend.interactions.models import PublicationInteraction
-from backend.posts.presenters import post_response
 from backend.comments.repository import CommentRepository, Discussion
 from backend.comments.schemas import ArticleCommentResponse, PostReplyResponse
+from backend.interactions.models import PublicationInteraction
+from backend.posts.models import MicroPost
+from backend.posts.presenters import post_response
+from backend.posts.visibility import visible_post_stages
 from backend.profiles.presenters import user_card
 from backend.profiles.repository import ProfileRepository
 
@@ -23,7 +25,7 @@ async def comment_responses(
         list({comment.owner_id for comment in comments if comment.deleted_at is None})
     )
     by_id = {author.id: author for author in authors}
-    counts = await CommentRepository.child_counts([item.id for item in comments])
+    counts = await CommentRepository.child_counts([item.id for item in comments], viewer_id)
     liked = set()
     if comments and viewer_id is not None:
         reactions = await PublicationInteraction.find({
@@ -32,6 +34,12 @@ async def comment_responses(
             "user_id": viewer_id,
         }).to_list()
         liked = {reaction.publication_id for reaction in reactions}
+
+    public_rows = await MicroPost.aggregate([
+        {"$match": {"_id": {"$in": [item.id for item in comments]}, "deleted_at": None}},
+        *visible_post_stages(), {"$project": {"_id": 1}},
+    ]).to_list() if comments else []
+    public_ids = {row["_id"] for row in public_rows}
 
     result: list[PostReplyResponse | ArticleCommentResponse] = []
 
@@ -48,6 +56,9 @@ async def comment_responses(
             liked=item.id in liked,
         )
 
+        publication = post_response(item, [author]) if author is not None else None
+        if publication is not None:
+            publication.read_only = item.id not in public_ids
         context = item.reply
         response_type = PostReplyResponse if context.kind == "micro_post" else ArticleCommentResponse
         result.append(response_type(
@@ -56,7 +67,7 @@ async def comment_responses(
             article_id=str(context.publication_id) if context.kind == "article" else None,
             parent_id=str(context.parent_id) if context.parent_id else None,
             root_id=str(context.root_id), depth=context.depth, replies_count=counts.get(item.id, 0),
-            publication=post_response(item, [author]) if author is not None else None,
+            publication=publication,
         ))
 
     return result

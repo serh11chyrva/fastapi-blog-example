@@ -7,7 +7,7 @@ The Scalar reference at `/api/docs` includes the request/response schemas and ex
 
 ## Visibility and ownership
 
-Only undeleted posts and published, undeleted articles participate. Draft and scheduled
+Only public, unarchived posts and published, unarchived articles participate in interactions. Draft and scheduled
 articles return 404 from interaction summaries and discussion endpoints, even for their
 owner. Returning an article to draft hides its comments and saves from reads; republishing
 restores access to existing relationships and comments. Deleted posts hide their reposts
@@ -63,7 +63,7 @@ Example post summary:
 ```
 
 `comments_count` includes live entries at every depth of the original post or article
-discussion, excluding tombstones. For a reply publication it counts live direct children. Article `reposts_count` and `reposted` are null.
+discussion, excluding tombstones and inaccessible archived branches. For a reply publication it counts live direct children. Article `reposts_count` and `reposted` are null.
 Anonymous `liked` and `saved` are false, as is anonymous post `reposted`. Counts and
 viewer flags are read separately and can change concurrently; they are not a single
 snapshot. Summaries and private saved-list responses use `Cache-Control: private,
@@ -349,3 +349,29 @@ width, capped at 50% of the viewport height. Slides use proportional
 widths up to the gallery width and contain the complete image without cropping.
 Unknown dimensions reserve a 3:2 frame; a failed first photo yields to the first
 available photo. Image loading and resizing retain the selected slide.
+
+## Archive visibility and profile pins
+
+Owners can archive their posts, replies, and published articles without deleting
+content or relationships. Archived publications, reposts of them, saved cards,
+and archived reply branches disappear from public reads and counts. Reference
+previews omit them and direct publication/media reads require the archive owner's
+session. Featured authors receive no private access. Restoring an original restores
+its existing relationships wherever the whole discussion path permits access.
+
+Discussion reads allow an archive owner to inspect its existing conversation,
+while independently archived entries belonging to other accounts remain private.
+Archived discussions are read only for new interactions. Existing interaction
+removal remains idempotent and available for inaccessible originals. Reply authors
+can still edit or delete their own accessible content. Deleting a reply preserves
+its navigation tombstone and surviving children.
+
+A pin belongs to the original publication and its owner, independently of repost
+relationships. Up to five posts, replies, and articles may be pinned in total.
+Pins change profile presentation, retain original publication and edit dates,
+and do not create feed events or reorder public/following feeds. Archiving or
+deleting a publication clears its pin; moving an article out of published state
+also clears its pin. Restoring an archive does not restore the pin.
+
+See [Archives and profile pins](API.md#archives-and-profile-pins) for routes,
+response timestamps, pagination, visibility, and concurrent limit enforcement.

@@ -4,6 +4,7 @@ import type { Attachment, PublicationPreview } from "../../shared/api/types";
 import { Icon } from "../../shared/ui/Icon";
 import { ResolvedLink } from "./ResolvedLink";
 import { MediaGallery } from "./MediaGallery";
+import { publicationStateEvent } from "../interactions/events";
 import { PreviewCard } from "./PreviewCard";
 
 function reference(item: Attachment): string | null {
@@ -20,6 +21,11 @@ export function Attachments({ items }: { items: Attachment[] }) {
   const params = query.toString();
   const [request, setRequest] = useState<{ params: string; cards: PublicationPreview[]; error?: string }>();
   const [version, setVersion] = useState(0);
+  useEffect(() => {
+    function changed() { setVersion((value) => value + 1); }
+    window.addEventListener(publicationStateEvent, changed);
+    return () => window.removeEventListener(publicationStateEvent, changed);
+  }, []);
 
   useEffect(() => {
     if (!params) return;

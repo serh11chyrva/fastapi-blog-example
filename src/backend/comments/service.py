@@ -23,7 +23,8 @@ from backend.core.errors import InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.profiles.models import User
-from backend.publications.access import PublicationKind, object_id, public_publication
+from backend.publications.access import PublicationKind, object_id, public_publication, readable_publication
+from backend.posts.visibility import visible_post_stages
 
 
 class CommentService:
@@ -70,6 +71,7 @@ class CommentService:
                 parent = await self.repository.get(kind, publication.id, object_id(parent_id), session)
                 if parent is None or parent.deleted_at is not None:
                     raise NotFound("Parent reply not found")
+                await public_publication("micro_post", str(parent.id), session, touch=True)
             elif original is not None:
                 parent = publication
             context_kind = original.kind if original else kind
@@ -137,7 +139,7 @@ class CommentService:
         :param payload: Replacement text, or None to soft-delete; repeated deletion is idempotent.
         :return: The changed discussion entry, committed with its audit event.
         """
-        item = await self.get(kind, publication_id, comment_id)
+        item = await self.get(kind, publication_id, comment_id, owner.id)
         service = PostService(self.resources, self.audit)
         if item.owner_id != owner.id:
             raise NotFound("Comment not found")
@@ -161,7 +163,7 @@ class CommentService:
         """
         from backend.interactions.service import InteractionService
 
-        item = await self.get(kind, publication_id, comment_id)
+        item = await self.get(kind, publication_id, comment_id, owner.id)
         await InteractionService(self.resources, self.audit).set_state(
             "micro_post", str(item.id), "like", enabled, owner,
         )
@@ -183,15 +185,16 @@ class CommentService:
         :param parent_id: Optional parent reply; omission selects roots or children of a reply publication.
         :param cursor: Position from the same sort, or None for the first page.
         :param limit: Bounded page size supplied by the HTTP adapter.
-        :param viewer_id: Current viewer for reaction state, or None for anonymous reads.
+        :param viewer_id: Current viewer for reaction flags and owned archive access, or None for anonymous reads.
         :param sort: Discussion order; post ranking applies to live roots only.
         :return: Typed discussion page with a continuation cursor when another row exists.
         """
-        publication = await public_publication(kind, publication_id)
+        publication = await readable_publication(kind, publication_id, viewer_id)
         parent = object_id(parent_id) if parent_id is not None else None
 
-        if parent is not None and await self.repository.get(kind, publication.id, parent) is None:
-            raise NotFound("Parent reply not found")
+        if parent is not None:
+            parent_item = await self.get(kind, publication_id, str(parent), viewer_id)
+            parent = parent_item.id
 
         if kind == "micro_post" and sort != "oldest" and (parent is not None or sort != "most_liked"):
             raise InvalidOperation("Only root replies can be ranked")
@@ -211,7 +214,7 @@ class CommentService:
                     raise InvalidOperation("Invalid discussion cursor rank")
                 last_id = object_id(fields[2])
 
-        rows = await self.repository.page(kind, publication.id, parent, last_id, limit, sort, last_count)
+        rows = await self.repository.page(kind, publication.id, parent, last_id, limit, sort, last_count, viewer_id)
         page = rows[:limit]
         next_cursor = None
         if len(rows) > limit:
@@ -222,18 +225,25 @@ class CommentService:
 
         return PostReplyPage(**result) if kind == "micro_post" else ArticleCommentPage(**result)
 
-    async def get(self, kind: PublicationKind, publication_id: str, comment_id: str) -> Discussion:
+    async def get(
+        self, kind: PublicationKind, publication_id: str, comment_id: str,
+        viewer_id: PydanticObjectId | None = None,
+    ) -> Discussion:
         """Read a single visible discussion entry, including a deleted thread tombstone.
 
         :param kind: Containing publication type.
         :param publication_id: Public containing publication identifier.
         :param comment_id: Scoped comment identifier.
-        :return: The entry after publication visibility and publication membership checks.
+        :param viewer_id: Optional owner permitted to read its own archived content.
+        :return: The entry after publication, branch visibility, and membership checks.
         """
-        publication = await public_publication(kind, publication_id)
+        publication = await readable_publication(kind, publication_id, viewer_id)
         comment = await self.repository.get(kind, publication.id, object_id(comment_id))
 
-        if comment is None:
+        visible = await MicroPost.aggregate([
+            {"$match": {"_id": comment.id}}, *visible_post_stages(viewer_id=viewer_id), {"$limit": 1},
+        ]).to_list() if comment is not None else []
+        if not visible:
             raise NotFound("Comment not found")
 
         return comment

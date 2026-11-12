@@ -7,6 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.comments.conversion import ReplyMapping
 from backend.posts.models import MicroPost
+from backend.posts.visibility import visible_post_stages
 from backend.publications.access import PublicationKind
 
 type Discussion = MicroPost
@@ -51,6 +52,7 @@ class CommentRepository:
         limit: int,
         sort: DiscussionSort = "oldest",
         likes_count: int | None = None,
+        viewer_id: PydanticObjectId | None = None,
     ) -> list[Discussion]:
         """Read one bounded discussion level, retaining tombstones in oldest order.
 
@@ -61,6 +63,7 @@ class CommentRepository:
         :param limit: Requested page size; one additional row is read to detect continuation.
         :param sort: Legacy oldest order or a live-only newest or ranked order.
         :param likes_count: Last seen rank when continuing a most-liked page.
+        :param viewer_id: Optional owner for reading its own archived discussion.
         :return: At most limit plus one scoped entries in the requested order.
         """
         publication = await MicroPost.get(publication_id) if kind == "micro_post" else None
@@ -87,21 +90,30 @@ class CommentRepository:
         elif cursor is not None:
             conditions["_id"] = {"$gt" if sort == "oldest" else "$lt": cursor}
 
-        return await MicroPost.find(conditions).sort(*order).limit(limit + 1).to_list()
+        rows = await MicroPost.aggregate([
+            {"$match": conditions}, *visible_post_stages(viewer_id=viewer_id),
+            {"$sort": dict(order)}, {"$limit": limit + 1},
+        ]).to_list()
+        return [MicroPost.model_validate(row) for row in rows]
 
     @staticmethod
-    async def child_counts(reply_ids: list[PydanticObjectId]) -> dict[PydanticObjectId, int]:
+    async def child_counts(
+        reply_ids: list[PydanticObjectId], viewer_id: PydanticObjectId | None = None,
+    ) -> dict[PydanticObjectId, int]:
         """Count direct children for a page in one aggregation.
 
         :param reply_ids: Bounded page of parent reply identifiers.
-        :return: Counts indexed by parent ID, including deleted children to retain thread navigation.
+        :param viewer_id: Optional account permitted to see its own archived branches.
+        :return: Visible child counts by parent ID, retaining deleted children but excluding inaccessible archives.
         """
         if not reply_ids:
             return {}
 
-        rows = await MicroPost.find({"reply.parent_id": {"$in": reply_ids}}).aggregate(
-            [{"$group": {"_id": "$reply.parent_id", "count": {"$sum": 1}}}]
-        ).to_list()
+        rows = await MicroPost.aggregate([
+            {"$match": {"reply.parent_id": {"$in": reply_ids}}},
+            *visible_post_stages(viewer_id=viewer_id),
+            {"$group": {"_id": "$reply.parent_id", "count": {"$sum": 1}}},
+        ]).to_list()
 
         return {row["_id"]: row["count"] for row in rows}
 
@@ -114,8 +126,10 @@ class CommentRepository:
         :return: Number of live comments or replies.
         """
         publication = await MicroPost.get(publication_id) if kind == "micro_post" else None
+        conditions = {"reply.kind": kind, "reply.publication_id": publication_id, "deleted_at": None}
         if publication is not None and publication.reply is not None:
-            return await MicroPost.find({"reply.parent_id": publication_id, "deleted_at": None}).count()
-        return await MicroPost.find({
-            "reply.kind": kind, "reply.publication_id": publication_id, "deleted_at": None,
-        }).count()
+            conditions = {"reply.parent_id": publication_id, "deleted_at": None}
+        rows = await MicroPost.aggregate([
+            {"$match": conditions}, *visible_post_stages(), {"$count": "count"},
+        ]).to_list()
+        return rows[0]["count"] if rows else 0

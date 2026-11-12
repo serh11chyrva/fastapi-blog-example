@@ -9,6 +9,7 @@ from backend.links.schemas import LinkPresentation
 from backend.posts.models import ReplyMetadata
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment, PublicationAttachments
+from backend.publications.state import PublicationState
 
 
 class PostDraftRequest(BaseModel):
@@ -62,12 +63,15 @@ class MicroPostCreate(BaseModel):
         return value
 
 
-class MicroPostResponse(LinkPresentation):
-    """Public post or owner-only staging response with typed attachments and ordered authors."""
+class MicroPostResponse(LinkPresentation, PublicationState):
+    """Public post or owner-only archive or staging response with ordered authors and state timestamps."""
 
     model_config = ConfigDict(
         title="Published micro-post",
-        json_schema_extra={"examples": [examples.POST_WITH_IMAGES, examples.POST_WITH_FEATURED_AUTHORS, examples.POST_WITH_CONTENT]},
+        json_schema_extra={"examples": [
+            examples.POST_WITH_IMAGES, examples.POST_WITH_FEATURED_AUTHORS, examples.POST_WITH_CONTENT,
+            examples.POST_ARCHIVED, examples.POST_PINNED,
+        ]},
     )
 
     reply: ReplyMetadata | None = Field(default=None, description="Immutable discussion context, or null for a post.")
@@ -94,7 +98,7 @@ class MicroPostResponse(LinkPresentation):
         "Resolve account and article IDs through their endpoints to apply current visibility rules.",
     )
     text: str = Field(
-        description="Public post text, without surrounding whitespace.",
+        description="Post text, without surrounding whitespace; archived text is owner-only.",
         examples=[examples.POST_TEXT],
     )
     owner_id: str = Field(

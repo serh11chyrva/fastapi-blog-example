@@ -108,6 +108,7 @@ class InteractionRepository:
 
             if kind == "article":
                 conditions["status"] = "published"
+                conditions["archived_at"] = None
                 conditions["published_at"] = {"$ne": None}
 
             if kind == "micro_post":

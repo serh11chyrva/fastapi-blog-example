@@ -69,6 +69,9 @@ export type Attachment =
   | { type: "embed"; provider: "soundcloud" | "spotify" | "youtube" | "twitch" | "vimeo"; url: string }
   | { type: "video"; url: string };
 export type PublicationBase = {
+  read_only?: boolean;
+  archived_at?: string | null;
+  pinned_at?: string | null;
   link_resolutions?: Record<string, LinkResolution>;
   reply?: ReplyMetadata | null;
   id: string;

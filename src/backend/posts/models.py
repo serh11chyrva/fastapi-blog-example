@@ -21,7 +21,7 @@ class ReplyMetadata(BaseModel):
 
 
 class MicroPost(Document, PublicationAuthors):
-    """Public short-form publication with ordered authors, stable sharing, and typed content attachments."""
+    """Short-form publication with ordered authors, owner-only archive state, and profile pins."""
 
     attachments: PublicationAttachments = Field(default_factory=list)
     reply: ReplyMetadata | None = None
@@ -37,12 +37,19 @@ class MicroPost(Document, PublicationAuthors):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+    archived_at: datetime | None = None
+    pinned_at: datetime | None = None
 
     class Settings:
         """Beanie collection and index configuration for MicroPost."""
 
         name = "micro_posts"
         indexes = [
+            IndexModel(
+                [("owner_id", ASCENDING), ("archived_at", DESCENDING), ("_id", DESCENDING)],
+                name="posts_owner_archive",
+            ),
+            IndexModel([("owner_id", ASCENDING), ("pinned_at", DESCENDING)], name="posts_owner_pins"),
             IndexModel(
                 [("draft_key", ASCENDING)], unique=True,
                 partialFilterExpression={"draft_key": {"$type": "string"}}, name="post_draft_key",

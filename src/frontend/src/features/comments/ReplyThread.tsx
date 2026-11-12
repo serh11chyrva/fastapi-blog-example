@@ -8,6 +8,7 @@ import { itemId, mergeListItems } from "../../shared/hooks/listItems";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
 import { PublicationComposer } from "../publications/PublicationComposer";
+import { PublicationMenu } from "../publications/PublicationMenu";
 import { ReplyPublication } from "./ReplyPublication";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
@@ -20,11 +21,12 @@ function CommentForm({ path, parentId, label, onCreated, onCancel, autoFocus = f
     onCancel={onCancel} onSaved={(saved) => onCreated(saved as DiscussionComment)} />;
 }
 
-export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, commentId, focusComposer = false }: {
+export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, commentId, focusComposer = false, readOnly = false }: {
   kind: PublicationKind; id: string; parentId?: string; newComments?: DiscussionComment[];
   onRecentUpdate?: (comment: DiscussionComment) => void;
   commentId?: string;
   focusComposer?: boolean;
+  readOnly?: boolean;
 }) {
   const { user } = useApp();
   const base = `${publicationPath(kind, id)}/${kind === "micro_post" ? "replies" : "comments"}`;
@@ -76,7 +78,7 @@ export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, com
   function renderComment(comment: DiscussionComment) {
     return <ReplyThread key={comment.id} comment={comment} kind={kind} publicationId={id}
       base={base} onUpdate={update}
-      anchor={comment.id === commentId} onReaction={kind === "article" && sort === "most_liked" ? list.refresh : undefined} />;
+      readOnly={readOnly} anchor={comment.id === commentId} onReaction={kind === "article" && sort === "most_liked" ? list.refresh : undefined} />;
   }
   return <div>
     {!parentId && <div className="discussion-header">
@@ -86,7 +88,7 @@ export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, com
         <option value="most_liked">Most liked</option><option value="newest">Newest first</option>
       </select>}
     </div>}
-    {user && !parentId && <CommentForm path={base} label="Your reply" autoFocus={focusComposer} onCreated={created} />}
+    {user && !readOnly && !parentId && <CommentForm path={base} label="Your reply" autoFocus={focusComposer} onCreated={created} />}
     {commentId && linked?.id === commentId && !listed && <div className="my-4">
       <p className="text-xs font-semibold text-neutral-600">Linked comment</p>
       {renderComment(linked)}
@@ -104,13 +106,13 @@ export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, com
       <button className="underline" onClick={list.cursor ? () => void list.loadMore() : list.refresh}>Retry</button>
     </p>}
     {!list.loading && !list.error && !list.items.length && !visibleRecent.length && <p className="py-3 text-sm text-neutral-500">
-      {parentId ? "No replies yet." : "No replies yet. Be the first to reply."}
+      {readOnly || parentId ? "No replies yet." : "No replies yet. Be the first to reply."}
     </p>}
     {list.cursor && <button className="button-secondary mt-4" disabled={list.loading} onClick={() => void list.loadMore()}>Load more</button>}
   </div>;
 }
 
-export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onReaction, anchor }: {
+export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onReaction, anchor, readOnly: inheritedReadOnly = false }: {
   comment: DiscussionComment;
   kind: PublicationKind;
   publicationId: string;
@@ -118,6 +120,7 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
   onUpdate: (comment: DiscussionComment) => void;
   onReaction?: () => void;
   anchor?: boolean;
+  readOnly?: boolean;
 }) {
   const { user } = useApp();
   const [editing, setEditing] = useState(false);
@@ -135,11 +138,12 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
     return () => { active.current = false; };
   }, []);
   const thread = comment;
+  const readOnly = inheritedReadOnly || !!comment.publication?.archived_at || !!comment.publication?.read_only;
   const own = !!user && user.id === comment.author?.id && !comment.deleted;
   const replyFormId = useId();
 
   function toggleReply() {
-    if (!user) { setExpanded((value) => !value); return; }
+    if (!user || readOnly) { setExpanded((value) => !value); return; }
     if (comment.deleted) return;
     setReplyVisited(true);
     setReplying((value) => !value);
@@ -183,17 +187,19 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
   return <article id={anchor ? `comment-${comment.id}` : undefined}
     className={`discussion-comment ${anchor ? "is-linked" : ""}`}>
     {!editing && !comment.deleted && comment.publication ? <ReplyPublication post={comment.publication}
-      commentsOpen={user ? replying : expanded} onComments={toggleReply}
+      readOnly={readOnly} commentsOpen={user && !readOnly ? replying : expanded} onComments={toggleReply}
       onChanged={(action) => { void reload(); if (action === "like") onReaction?.(); }}
-      menu={own && <details className="post-menu" ref={menu}>
-        <summary className="icon-button" aria-label="More reply actions"><Icon name="more" /></summary>
-        <div className="post-menu-list">
-          <button type="button" disabled={busy} onClick={beginEdit}>Edit</button>
-          <button type="button" disabled={busy} onClick={() => {
-            menu.current?.removeAttribute("open"); void remove();
-          }}>Delete</button>
-        </div>
-      </details>} /> : <>
+      menu={own && <PublicationMenu item={comment.publication} menuRef={menu} disabled={busy} readOnly={readOnly}
+        onReconciled={(updated) => {
+          if (updated.kind === "micro_post") onUpdate({
+            ...comment, publication: updated, text: updated.text, updated_at: updated.updated_at,
+          });
+        }} onChanged={() => void reload()}>
+        <button type="button" disabled={busy} onClick={beginEdit}>Edit</button>
+        <button type="button" disabled={busy} onClick={() => {
+          menu.current?.removeAttribute("open"); void remove();
+        }}>Delete</button>
+      </PublicationMenu>} /> : <>
     <div className="comment-byline">
       {comment.author ? <Link className="inline-flex items-center gap-2 font-semibold" to={`/@${comment.author.username}`}>
         <Avatar src={comment.author.avatars.original} name={comment.author.display_name} size="sm" />
@@ -207,18 +213,18 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
       {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : comment.text}
     </p>}
     </>}
-    {(thread.replies_count > 0 || (!comment.publication && user && !comment.deleted)) && <div className="comment-actions">
+    {(thread.replies_count > 0 || (!comment.publication && user && !readOnly && !comment.deleted)) && <div className="comment-actions">
       {thread.replies_count > 0 && <button type="button" className="text-link" aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}>
         {expanded ? "Hide replies" : `Show replies (${thread.replies_count})`}
       </button>}
-      {!comment.publication && user && !comment.deleted && <button type="button" className="text-link"
+      {!comment.publication && user && !readOnly && !comment.deleted && <button type="button" className="text-link"
         aria-expanded={replying} aria-controls={replyFormId} onClick={toggleReply}><Icon name="comment" />Reply</button>}
     </div>}
     {error && <p className="notice-error mt-2" role="alert">{error}{" "}
       <button className="underline" disabled={busy} onClick={() => void reload()}>Reload comment</button>
     </p>}
-    {replyVisited && !comment.deleted && user && <div id={replyFormId} className="inline-reply-composer" hidden={!replying}>
+    {replyVisited && !readOnly && !comment.deleted && user && <div id={replyFormId} className="inline-reply-composer" hidden={!replying}>
       <CommentForm path={base} parentId={comment.id} label="Reply to this reply" autoFocus={replying}
       onCancel={() => setReplying(false)} onCreated={(created) => {
         setReplying(false);
@@ -230,7 +236,7 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
       }} />
     </div>}
     {expanded && thread && <div className={thread.depth < 4 ? "mt-4 border-l border-neutral-200 pl-3 sm:pl-5" : "mt-4 border-t border-neutral-200"}>
-      <ReplyList kind={kind} id={publicationId} parentId={comment.id} newComments={recentReplies}
+      <ReplyList kind={kind} id={publicationId} parentId={comment.id} readOnly={readOnly} newComments={recentReplies}
         onRecentUpdate={(updated) => setRecentReplies((items) => items.map((item) => item.id === updated.id ? updated : item))} />
     </div>}
   </article>;

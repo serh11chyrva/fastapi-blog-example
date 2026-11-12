@@ -5,7 +5,7 @@ import type { SavedPublication } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
 import { FeedCard } from "../feed/FeedCard";
-import { interactionEvent } from "./events";
+import { interactionEvent, publicationStateEvent } from "./events";
 import type { InteractionChange } from "./events";
 
 export function SavedPage() {
@@ -17,6 +17,10 @@ export function SavedPage() {
 function SavedList() {
   const list = useCursorList<SavedPublication>("/me/saved");
   const { setItems } = list;
+  useEffect(() => {
+    window.addEventListener(publicationStateEvent, list.refresh);
+    return () => window.removeEventListener(publicationStateEvent, list.refresh);
+  }, [list.refresh]);
   useEffect(() => {
     function changed(event: Event) {
       const detail = (event as CustomEvent<InteractionChange>).detail;

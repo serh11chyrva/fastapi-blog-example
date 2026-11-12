@@ -11,7 +11,7 @@ from backend.feeds.presenters import publication_preview
 from backend.feeds.schemas import PublicationPreview
 from backend.posts.models import MicroPost
 from backend.posts.visibility import visible_post_stages
-from backend.publications.access import public_publication
+from backend.publications.access import readable_publication
 from backend.posts.repository import PostRepository
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
@@ -48,7 +48,7 @@ async def publication_previews(refs: list[str]) -> list[PublicationPreview]:
     article_ids = [value for kind, value in keys if kind == "article"]
     post_ids = [value for kind, value in keys if kind == "micro_post"]
     articles = await Article.find({
-        "_id": {"$in": article_ids}, "deleted_at": None, "status": "published", "published_at": {"$ne": None},
+        "_id": {"$in": article_ids}, "deleted_at": None, "archived_at": None, "status": "published", "published_at": {"$ne": None},
     }).project(ArticlePreviewSource).to_list() if article_ids else []
     rows = await MicroPost.aggregate([
         {"$match": {"_id": {"$in": post_ids}, "deleted_at": None}}, *visible_post_stages(),
@@ -69,12 +69,13 @@ async def publication_previews(refs: list[str]) -> list[PublicationPreview]:
     ]
 
 
-async def shared(username: str, slug: str) -> tuple[MicroPost | Article, list[User]]:
-    """Resolve a stable share ID for an owner's public publication.
+async def shared(username: str, slug: str, viewer_id: PydanticObjectId | None = None) -> tuple[MicroPost | Article, list[User]]:
+    """Resolve a stable share ID with current public or owner-only archive visibility.
 
     :param username: Public profile handle, optionally prefixed with @.
     :param slug: Readable share slug ending with the stable publication share ID.
-    :return: The visible publication and all its authors in stored order.
+    :param viewer_id: Optional owner permitted to read archived content.
+    :return: The accessible publication and its ordered author accounts.
     """
     share_id = slug.rsplit("--", 1)[-1]
 
@@ -89,7 +90,8 @@ async def shared(username: str, slug: str) -> tuple[MicroPost | Article, list[Us
     post = await PostRepository.find_shared(owner.id, share_id)
 
     if post is not None:
-        await public_publication("micro_post", str(post.id))
+        if post.archived_at is None or post.owner_id != viewer_id:
+            await readable_publication("micro_post", str(post.id), viewer_id)
         return post, await load_authors(post.author_ids)
 
     article = await ArticleRepository.find_shared(owner.id, share_id)
@@ -97,4 +99,5 @@ async def shared(username: str, slug: str) -> tuple[MicroPost | Article, list[Us
     if article is None:
         raise NotFound("Publication not found")
 
+    await readable_publication("article", str(article.id), viewer_id)
     return article, await load_authors(article.author_ids)

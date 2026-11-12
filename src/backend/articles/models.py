@@ -23,7 +23,7 @@ class ArticlePreviewSource(PublicationAuthors):
 
 
 class Article(Document, PublicationAuthors):
-    """Long-form publication with ordered authors, a TipTap body, and publication state."""
+    """Long-form publication with ordered authors, publication state, private archives, and profile pins."""
 
     attachments: PublicationAttachments = Field(default_factory=list)
     interaction_revision: int = 0
@@ -39,12 +39,19 @@ class Article(Document, PublicationAuthors):
     scheduled_at: datetime | None = None
     published_at: datetime | None = None
     deleted_at: datetime | None = None
+    archived_at: datetime | None = None
+    pinned_at: datetime | None = None
 
     class Settings:
         """Beanie collection and index configuration for Article."""
 
         name = "articles"
         indexes = [
+            IndexModel(
+                [("owner_id", ASCENDING), ("archived_at", DESCENDING), ("_id", DESCENDING)],
+                name="articles_owner_archive",
+            ),
+            IndexModel([("owner_id", ASCENDING), ("pinned_at", DESCENDING)], name="articles_owner_pins"),
             IndexModel(
                 [("owner_id", ASCENDING), ("created_at", DESCENDING)],
                 name="articles_owner_time",

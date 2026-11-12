@@ -23,7 +23,7 @@ from backend.profiles.models import User
 from backend.publications.attachments import ImageAttachment
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.publications.queries import load_authors
-from backend.publications.access import public_publication
+from backend.publications.access import readable_publication
 from backend.storage.cleanup import queue_deletion
 from backend.storage.urls import publication_image_url
 
@@ -72,8 +72,8 @@ class PostService:
         if item is None or item.deleted_at is not None or item.owner_id != owner.id:
             raise NotFound("Publication not found")
 
-        if item.reply is not None:
-            await public_publication(item.reply.kind, str(item.reply.publication_id), session, touch=True)
+        if item.reply is not None and item.archived_at is None:
+            await readable_publication("micro_post", str(item.id), owner.id, session, touch=True)
 
         return item
 
@@ -201,13 +201,18 @@ class PostService:
         await enqueue_attachments(self.resources.redis, post.attachments)
         return post
 
-    async def get_post(self, resource_id: str) -> tuple[MicroPost, list[User]]:
-        """Load a public undeleted micro-post and its authors in stored order.
+    async def get_post(self, resource_id: str, viewer: User | None = None) -> tuple[MicroPost, list[User]]:
+        """Load a public post or the owner's archive with its ordered authors.
 
         :param resource_id: String identifier of the publication to load or mutate.
-        :return: The micro-post and its author accounts in stored order.
+        :param viewer: Optional account allowed to read its own archived post.
+        :return: The accessible micro-post and its author accounts in stored order.
         """
-        post = await public_publication("micro_post", resource_id)
+        post = await self.repository.get_post(publication_id(resource_id))
+        if post is None or post.deleted_at is not None or post.pending:
+            raise NotFound("Publication not found")
+        if post.archived_at is None or viewer is None or viewer.id != post.owner_id:
+            post = await readable_publication("micro_post", resource_id, viewer.id if viewer else None)
 
         return post, await load_authors(post.author_ids)
 
@@ -221,6 +226,7 @@ class PostService:
         async with transaction(self.resources.mongo) as session:
             item = await self.owned(resource_id, owner, session)
             item.deleted_at = item.updated_at = datetime.now(UTC)
+            item.pinned_at = item.archived_at = None
             if item.reply is not None:
                 item.text = ""
             await item.save(session=session)

@@ -20,6 +20,9 @@ def post_response(post: MicroPost, authors: list[User]) -> MicroPostResponse:
         id=str(post.id),
         reply=post.reply,
         pending=post.pending,
+        read_only=post.archived_at is not None,
+        archived_at=post.archived_at,
+        pinned_at=post.pinned_at,
         owner_id=str(post.owner_id),
         attachments=display_attachments(
             post.attachments, [publication_image_url(key, "post-images") for key in post.image_keys]

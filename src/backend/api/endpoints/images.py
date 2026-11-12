@@ -8,7 +8,7 @@ from backend.auth.dependencies import OptionalUser
 from backend.core.config import get_settings
 from backend.core.resources import get_resources
 from backend.posts.models import MicroPost
-from backend.publications.access import public_publication
+from backend.publications.access import readable_publication
 from backend.profiles.models import User
 from backend.storage.models import ImagePurpose
 from backend.storage.s3 import get_object
@@ -20,8 +20,8 @@ router = APIRouter()
     "/static/images/{collection}/{object_name}",
     summary="Read an attached image",
     description=(
-        "Avatars, profile banners, and post images are public. Article images require a published article or "
-        "its owner's session. Unattached or inaccessible objects return 404."
+        "Avatars and profile banners are public. Publication images follow archive and discussion visibility; "
+        "private images require their owner's session. Unattached or inaccessible objects return 404."
     ),
     tags=["Media"],
     responses={
@@ -73,8 +73,10 @@ async def read_image(
         if attached is not None and attached.pending:
             if current_user is None or current_user.id != attached.owner_id:
                 attached = None
-        elif attached is not None:
-            await public_publication("micro_post", str(attached.id))
+        elif attached is not None and not (
+            attached.archived_at is not None and current_user is not None and current_user.id == attached.owner_id
+        ):
+            await readable_publication("micro_post", str(attached.id), current_user.id if current_user else None)
         cache_control = "private, no-store"
         bucket = settings.publication_bucket
     else:
@@ -83,7 +85,7 @@ async def read_image(
 
         if (
             attached is not None
-            and attached.status != "published"
+            and (attached.status != "published" or attached.archived_at is not None)
             and (current_user is None or current_user.id != attached.owner_id)
         ):
             attached = None

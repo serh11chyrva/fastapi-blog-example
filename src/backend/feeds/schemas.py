@@ -8,10 +8,11 @@ from backend.links.schemas import LinkPresentation
 from backend.posts.models import ReplyMetadata
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment
+from backend.publications.state import PublicationState
 
 
-class FeedBase(LinkPresentation):
-    """Shared author and ordering data for a public feed entry."""
+class FeedBase(LinkPresentation, PublicationState):
+    """Shared author, visibility, and date fields for a public or owner-only archive card."""
 
     model_config = ConfigDict(
         title="Feed publication",
@@ -54,13 +55,13 @@ class FeedBase(LinkPresentation):
 
 
 class PostFeedItem(FeedBase):
-    """Compact micro-post whose images are represented only in attachments."""
+    """Public or owner-only archived micro-post with images represented only in attachments."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_POST]})
 
     kind: Literal["micro_post"] = "micro_post"
     reply: ReplyMetadata | None = None
-    text: str = Field(description="Public micro-post text.")
+    text: str = Field(description="Micro-post text; archived cards are owner-only.")
     title: None = None
     summary: None = None
     thumbnail_url: None = None
@@ -72,7 +73,7 @@ class ArticleFeedItem(FeedBase):
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_ARTICLE]})
 
     kind: Literal["article"] = "article"
-    title: str = Field(description="Public article title.")
+    title: str = Field(description="Article title; archived cards are owner-only.")
     summary: str = Field(description="Article preview; may be empty.")
     thumbnail_url: str | None = Field(default=None, description="Article cover URL, if present.")
     text: None = None

@@ -7,14 +7,45 @@ from loguru import logger
 from pydantic import ValidationError
 from redis.exceptions import RedisError
 
+from backend.articles.models import Article
 from backend.core.resources import AppResources
 from backend.feeds.cursors import FeedCursor
 from backend.feeds.presenters import feed_item, repost_item
 from backend.feeds.repository import FeedEntry, FeedKind, FeedRepository, PublicationKind
 from backend.feeds.schemas import FeedResponse
 from backend.posts.models import MicroPost
+from backend.posts.visibility import visible_post_stages
 from backend.profiles.models import Follow, User
 from backend.profiles.repository import ProfileRepository
+
+
+async def current_cached_feed(page: FeedResponse) -> FeedResponse | None:
+    """Recheck cached originals in batches so failed invalidation cannot expose archives.
+
+    :param page: Parsed public feed page read from Redis.
+    :return: The page with current pin state, or None when it must be rebuilt.
+    """
+    originals = [item.post if item.kind == "repost" else item for item in page.items]
+    if any(not PydanticObjectId.is_valid(item.id) for item in originals):
+        return None
+    post_ids = [PydanticObjectId(item.id) for item in originals if item.kind == "micro_post"]
+    article_ids = [PydanticObjectId(item.id) for item in originals if item.kind == "article"]
+    rows = await MicroPost.aggregate([
+        {"$match": {"_id": {"$in": post_ids}, "deleted_at": None}}, *visible_post_stages(),
+    ]).to_list() if post_ids else []
+    current = {("micro_post", str(row["_id"])): MicroPost.model_validate(row) for row in rows}
+    articles = await Article.find({
+        "_id": {"$in": article_ids}, "deleted_at": None, "archived_at": None, "status": "published",
+    }).to_list() if article_ids else []
+    current.update({("article", str(item.id)): item for item in articles})
+    for original in originals:
+        publication = current.get((original.kind, original.id))
+        if publication is None:
+            return None
+        original.pinned_at = publication.pinned_at
+        original.archived_at = None
+        original.read_only = False
+    return page
 
 
 async def make_feed(
@@ -42,7 +73,9 @@ async def make_feed(
             cached = await resources.redis.get(cache_key)
 
             if cached:
-                return FeedResponse.model_validate_json(cached)
+                current = await current_cached_feed(FeedResponse.model_validate_json(cached))
+                if current is not None:
+                    return current
         except (RedisError, ValidationError):
             logger.warning("Public feed cache unavailable or incompatible")
 

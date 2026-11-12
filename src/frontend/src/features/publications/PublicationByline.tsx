@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { ProfileCard, ReplyMetadata, RepostFeedItem } from "../../shared/api/types";
 import { Icon } from "../../shared/ui/Icon";
+import { PublicationStatus } from "./PublicationStatus";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 
-export function PublicationByline({ author, reply, repost, href, publishedAt, updatedAt, children }: {
+export function PublicationByline({ author, reply, repost, href, publishedAt, updatedAt, pinnedAt, archivedAt, children }: {
   author?: ProfileCard; reply?: ReplyMetadata | null; repost?: RepostFeedItem;
+  pinnedAt?: string | null; archivedAt?: string | null;
   href: string; publishedAt: string; updatedAt?: string | null; children?: ReactNode;
 }) {
   const replyHref = reply?.parent_id ? `/posts/${reply.parent_id}`
@@ -28,10 +30,11 @@ export function PublicationByline({ author, reply, repost, href, publishedAt, up
       <Link to={`/@${repost.reposted_by.username}`}>{repost.reposted_by.display_name}</Link>
       <span>reposted</span>
     </span>}
+    <PublicationStatus pinnedAt={pinnedAt} archivedAt={archivedAt} />
     <span className="post-meta">
       {(author || reply || repost) && <span aria-hidden="true">· </span>}
       <Link to={href}>
-        <RelativeTime publishedAt={publishedAt} updatedAt={updatedAt} repostedAt={repost?.published_at} />
+        <RelativeTime publishedAt={publishedAt} updatedAt={updatedAt} repostedAt={repost?.published_at} pinnedAt={pinnedAt} archivedAt={archivedAt} />
       </Link>
     </span>
     {children}

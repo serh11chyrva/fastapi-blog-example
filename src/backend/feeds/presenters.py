@@ -32,6 +32,9 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> PostFeed
         authors=[user_card(author) for author in authors],
         attachments=display_attachments(publication.attachments, image_urls),
         updated_at=publication.updated_at,
+        read_only=publication.archived_at is not None,
+        archived_at=publication.archived_at,
+        pinned_at=publication.pinned_at,
     )
 
     if isinstance(publication, MicroPost):

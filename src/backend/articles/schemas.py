@@ -8,6 +8,7 @@ from backend.articles.validation import ArticleBody, validate_tiptap_document
 from backend.links.schemas import LinkPresentation
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment, PublicationAttachments
+from backend.publications.state import PublicationState
 
 
 class ArticleCreate(BaseModel):
@@ -159,8 +160,8 @@ class ArticleScheduleRequest(BaseModel):
         return value
 
 
-class ArticleResponse(LinkPresentation):
-    """Full article data. Drafts and scheduled articles are visible only to their owner."""
+class ArticleResponse(LinkPresentation, PublicationState):
+    """Full article data. Drafts, scheduled articles, and archives are visible only to their owner."""
 
     model_config = ConfigDict(
         title="Article",
@@ -170,6 +171,7 @@ class ArticleResponse(LinkPresentation):
                 examples.ARTICLE,
                 examples.ARTICLE_WITH_FEATURED_AUTHORS,
                 examples.ARTICLE_WITH_CONTENT,
+                examples.ARTICLE_ARCHIVED,
             ]
         },
     )

@@ -7,9 +7,11 @@ import { api, errorMessage } from "../../shared/api/client";
 import type { Article, Profile, ProfileCard } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { publicationDate } from "../../shared/ui/dates";
+import { exactDateTime, publicationDate } from "../../shared/ui/dates";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
+import { PublicationMenu } from "../publications/PublicationMenu";
+import { PublicationStatus } from "../publications/PublicationStatus";
 import { Attachments } from "../publications/Attachments";
 import { TipTapDocument } from "./TipTapDocument";
 
@@ -89,7 +91,7 @@ function ArticleDates({ article }: { article: Article }) {
   if (!article.published_at) return <span className="article-timestamps">{article.status === "scheduled" && article.scheduled_at
     ? `Scheduled for ${new Date(article.scheduled_at).toLocaleString()}` : "Private draft"}</span>;
   return <span className="article-timestamps">
-    <time dateTime={article.published_at}>{publicationDate(article.published_at)}</time>
+    <time dateTime={article.published_at} title={article.pinned_at ? `Pinned ${exactDateTime(article.pinned_at)}` : undefined}>{publicationDate(article.published_at)}</time>
     {Date.parse(article.updated_at) > Date.parse(article.published_at) && <> (updated at{" "}
       <time dateTime={article.updated_at}>{publicationDate(article.updated_at)}</time>)</>}
   </span>;
@@ -120,7 +122,9 @@ function SectionNavigation({ sections }: { sections: ReturnType<typeof readingSe
   </nav>;
 }
 
-export function ArticlePresentation({ article, owner }: { article: Article; owner: boolean }) {
+export function ArticlePresentation({ article, owner, onChanged }: {
+  article: Article; owner: boolean; onChanged?: (article: Article) => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [comments, setComments] = useState(true);
@@ -146,6 +150,12 @@ export function ArticlePresentation({ article, owner }: { article: Article; owne
       <div className="reader-meta">
         {owner && <Link to={`/articles/${article.id}/edit`} className="text-link"><Icon name="write" width={14} height={14} /> Edit article</Link>}
         <ArticleDates article={article} />
+        <PublicationStatus pinnedAt={article.pinned_at} archivedAt={article.archived_at} />
+        {owner && <PublicationMenu item={article} onReconciled={(updated) => {
+          if (updated.kind === "article") onChanged?.(updated);
+        }} onChanged={(updated) => {
+          if (updated.kind === "article") onChanged?.(updated);
+        }}><Link to={`/articles/${article.id}/edit`}>Edit article</Link></PublicationMenu>}
       </div>
       <h1>{article.title}</h1>
       {article.summary && <p className="reader-deck">{article.summary}</p>}
@@ -160,13 +170,14 @@ export function ArticlePresentation({ article, owner }: { article: Article; owne
       <div className="reader-end-date"><ArticleDates article={article} /></div>
       <ArticleAuthors authors={article.authors} />
       {error && <p className="notice-error" role="alert">{error}</p>}
-      {article.status === "published" && <>
+      {article.status === "published" && !article.archived_at && <>
         <PublicationActions kind="article" id={article.id} onComments={() => { setFocusReply(!comments); setComments(!comments); }}
           commentsOpen={comments} onShare={() => void share()} copied={copied} />
         <div hidden={!comments}>
           <Discussion key={article.id} kind="article" id={article.id} deepLink focusComposer={comments && focusReply} />
         </div>
       </>}
+      {article.archived_at && <Discussion key={article.id} kind="article" id={article.id} deepLink readOnly />}
       <Footer reading />
     </div>
   </article>;

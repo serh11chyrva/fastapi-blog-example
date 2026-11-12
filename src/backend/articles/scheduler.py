@@ -24,6 +24,7 @@ async def publish_due_articles(mongo_client: AsyncMongoClient) -> int:
             Article.status == "scheduled",
             Article.scheduled_at <= now,
             Article.deleted_at == None,  # noqa: E711
+            Article.archived_at == None,  # noqa: E711
         )
         .sort(("scheduled_at", 1), ("_id", 1))
         .limit(100)
@@ -39,6 +40,7 @@ async def publish_due_articles(mongo_client: AsyncMongoClient) -> int:
                 current is None
                 or current.deleted_at is not None
                 or current.status != "scheduled"
+                or current.archived_at is not None
                 or current.scheduled_at is None
                 or current.scheduled_at > now
             ):

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { usePageTitle } from "../../app/usePageTitle";
 import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
-import { publicationEvent } from "../interactions/events";
+import { publicationEvent, publicationStateEvent } from "../interactions/events";
 import { FeedCard } from "./FeedCard";
 import { useFeed } from "./useFeed";
 
@@ -15,7 +15,11 @@ export function FeedPage({ following = false }: { following?: boolean }) {
   useEffect(() => {
     function refresh() { setRefreshKey((value) => value + 1); }
     window.addEventListener(publicationEvent, refresh);
-    return () => window.removeEventListener(publicationEvent, refresh);
+    window.addEventListener(publicationStateEvent, refresh);
+    return () => {
+      window.removeEventListener(publicationEvent, refresh);
+      window.removeEventListener(publicationStateEvent, refresh);
+    };
   }, []);
 
   return <section className="feed-list" aria-label={following ? "Following" : "Explore"}>

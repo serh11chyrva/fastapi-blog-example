@@ -3,14 +3,15 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { usePageTitle } from "../../app/usePageTitle";
 import { api, errorMessage } from "../../shared/api/client";
-import type { Profile, ProfileCard, ProfileLink } from "../../shared/api/types";
+import type { OriginalFeedItem, Profile, ProfileCard, ProfileLink } from "../../shared/api/types";
 import { useOffsetList } from "../../shared/hooks/useOffsetList";
 import { Avatar } from "../../shared/ui/Avatar";
 import { EmptyState } from "../../shared/ui/EmptyState";
 import { Icon } from "../../shared/ui/Icon";
-import { publicationEvent } from "../interactions/events";
+import { publicationEvent, publicationStateEvent } from "../interactions/events";
 import { BadgeIcon } from "./BadgeIcon";
 import { ProfilePublications } from "./ProfilePublications";
+import { ProfileArchive } from "./ProfileArchive";
 import { ProfileTimeline } from "./ProfileTimeline";
 
 function PublicLink({ link }: { link: ProfileLink }) {
@@ -21,8 +22,9 @@ function PublicLink({ link }: { link: ProfileLink }) {
 }
 
 export function ProfilePage() {
+  const { user } = useApp();
   const { handle = "" } = useParams();
-  return <ProfileContent key={handle} username={handle.replace(/^@/, "")} />;
+  return <ProfileContent key={`${handle}:${user?.id ?? "anonymous"}`} username={handle.replace(/^@/, "")} />;
 }
 
 function ProfileContent({ username }: { username: string }) {
@@ -34,8 +36,11 @@ function ProfileContent({ username }: { username: string }) {
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [tab, setTab] = useState<"posts" | "articles">("posts");
+  const [tab, setTab] = useState<"posts" | "articles" | "archive">("posts");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pins, setPins] = useState<OriginalFeedItem[]>([]);
+  const [pinError, setPinError] = useState("");
+  const [pinsLoading, setPinsLoading] = useState(true);
   const [networkKind, setNetworkKind] = useState<"followers" | "following" | null>(null);
   const linksDialog = useRef<HTMLDialogElement>(null);
   const networkDialog = useRef<HTMLDialogElement>(null);
@@ -48,17 +53,34 @@ function ProfileContent({ username }: { username: string }) {
       .then((value) => { if (!controller.signal.aborted) setProfile(value); })
       .catch((reason: unknown) => { if (!controller.signal.aborted) setError(errorMessage(reason)); });
     return () => controller.abort();
-  }, [profilePath, user?.id]);
+  }, [profilePath, user?.id, refreshKey]);
 
   const refreshActivity = useCallback(() => {
     setRefreshKey((value) => value + 1);
   }, []);
 
   useEffect(() => {
-    if (profile?.id !== user?.id || !user) return;
     window.addEventListener(publicationEvent, refreshActivity);
-    return () => window.removeEventListener(publicationEvent, refreshActivity);
-  }, [profile?.id, user, refreshActivity]);
+    window.addEventListener(publicationStateEvent, refreshActivity);
+    return () => {
+      window.removeEventListener(publicationEvent, refreshActivity);
+      window.removeEventListener(publicationStateEvent, refreshActivity);
+    };
+  }, [refreshActivity]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setPins([]);
+    setPinError("");
+    setPinsLoading(true);
+    api<OriginalFeedItem[]>(`${profilePath}/pins`, { signal: controller.signal, cache: "no-store" })
+      .then((items) => { if (!controller.signal.aborted) setPins(items); })
+      .catch((reason: unknown) => { if (!controller.signal.aborted) setPinError(errorMessage(reason)); })
+      .finally(() => { if (!controller.signal.aborted) setPinsLoading(false); });
+    return () => controller.abort();
+  }, [profilePath, refreshKey, user?.id]);
+
+  useEffect(() => { setTab("posts"); }, [user?.id]);
 
   async function toggleFollow() {
     if (!profile || busy) return;
@@ -93,6 +115,8 @@ function ProfileContent({ username }: { username: string }) {
     : <p className="list-status" role="status">Loading profile…</p>;
 
   const own = user?.id === profile.id;
+  const activeTab = tab === "archive" && !own ? "posts" : tab;
+  const tabs: ("posts" | "articles" | "archive")[] = own ? ["posts", "articles", "archive"] : ["posts", "articles"];
   const authReturn = { from: location.pathname };
   return <>
     <section className="profile-section" aria-label="Profile">
@@ -154,22 +178,30 @@ function ProfileContent({ username }: { username: string }) {
       </div>
     </section>
     <div className="rich-tabs" role="tablist" aria-label="Profile sections">
-      {(["posts", "articles"] as const).map((kind) => <button key={kind} type="button" role="tab" id={`tab-${kind}`}
-        aria-controls={`panel-${kind}`} aria-selected={tab === kind} tabIndex={tab === kind ? 0 : -1}
+      {tabs.map((kind, index) => <button key={kind} type="button" role="tab" id={`tab-${kind}`}
+        aria-controls={`panel-${kind}`} aria-selected={activeTab === kind} tabIndex={activeTab === kind ? 0 : -1}
         onClick={() => setTab(kind)} onKeyDown={(event) => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
-          const next = event.key === "Home" ? "posts" : event.key === "End" ? "articles" : kind === "posts" ? "articles" : "posts";
+          const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+            : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+          const next = tabs[nextIndex];
           setTab(next);
           document.getElementById(`tab-${next}`)?.focus();
         }}>
-        {kind === "posts" ? "Posts" : "Articles"}
+        {kind === "posts" ? "Posts" : kind === "articles" ? "Articles" : "Archive"}
       </button>)}
     </div>
-    <section id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
-      {tab === "posts"
-        ? <ProfileTimeline key={`${profile.username}-${refreshKey}`} username={profile.username} onChanged={refreshActivity} />
-        : <ProfilePublications key={profile.username} username={profile.username} />}
+    <section id={`panel-${activeTab}`} role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
+      {activeTab === "archive" && own && user ? <ProfileArchive key={`${user.id}:${refreshKey}`} /> : <>
+        {pinError && <p className="notice-error" role="alert">{pinError}{" "}
+          <button type="button" className="text-link" onClick={refreshActivity}>Retry pins</button></p>}
+        {pinsLoading ? <p className="list-status" role="status">Loading publications…</p> : activeTab === "posts"
+          ? <ProfileTimeline key={`${profile.username}-${refreshKey}`} username={profile.username}
+              pins={pins.filter((item) => item.kind === "micro_post")} onChanged={refreshActivity} />
+          : <ProfilePublications key={`${profile.username}-${refreshKey}`} username={profile.username}
+              pins={pins.filter((item) => item.kind === "article")} onChanged={refreshActivity} />}
+      </>}
     </section>
     <dialog className="design-dialog" ref={linksDialog}>
       <div className="dialog-heading"><h2>All links</h2>

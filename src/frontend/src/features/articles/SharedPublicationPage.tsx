@@ -8,8 +8,9 @@ import { ArticlePresentation } from "./ArticlePresentation";
 import { useApp } from "../../app/AuthProvider";
 import { FeedCard } from "../feed/FeedCard";
 export function SharedPublicationPage() {
+  const { user } = useApp();
   const { handle = "", shareSlug = "" } = useParams();
-  return <SharedPublicationContent key={`${handle}/${shareSlug}`} handle={handle} shareSlug={shareSlug} />;
+  return <SharedPublicationContent key={`${handle}/${shareSlug}:${user?.id ?? "anonymous"}`} handle={handle} shareSlug={shareSlug} />;
 }
 
 function SharedPublicationContent({ handle, shareSlug }: { handle: string; shareSlug: string }) {
@@ -32,15 +33,17 @@ function SharedPublicationContent({ handle, shareSlug }: { handle: string; share
           setError(reason instanceof Error ? reason.message : "Could not load this page.");
       });
     return () => controller.abort();
-  }, [username, shareSlug, version]);
+  }, [username, shareSlug, version, user?.id]);
   usePageTitle(error ? "Publication unavailable" : publication?.kind === "article" ? publication.title
     : publication ? `Post by ${publication.authors[0]?.display_name ?? "Unknown author"}` : "Loading publication");
+  if (publication && (publication.archived_at || (publication.kind === "article" && publication.status !== "published"))
+      && user?.id !== publication.owner_id) return <p role="status">Loading publication…</p>;
   if (error)
     return <EmptyState title="Publication unavailable" body={error} />;
   if (!publication)
     return <div className="surface p-8 text-center text-sm text-slate-500">Loading publication…</div>;
   if (publication.kind === "article")
-    return <ArticlePresentation key={publication.id} article={publication} owner={user?.id === publication.owner_id} />;
+    return <ArticlePresentation key={publication.id} article={publication} owner={user?.id === publication.owner_id} onChanged={setPublication} />;
   return <div className="post-detail">
     <FeedCard key={publication.id} item={{ ...publication, published_at: publication.created_at }}
       showDiscussion onChanged={() => setVersion((value) => value + 1)} />

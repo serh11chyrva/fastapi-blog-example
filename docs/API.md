@@ -354,7 +354,7 @@ Downloads are at the application root, outside `/api/v1`:
 | GET | `/static/images/article-covers/{object_name}` | Published article or its owner |
 | GET | `/static/images/article-images/{object_name}` | Published article or its author |
 
-Only attached images are served. Missing, deleted, or inaccessible images return `404`; unavailable storage returns `503`. Article images use `Cache-Control: private, no-store`, including published articles, so returning an article to draft does not leave a publicly cached copy. Avatars and post images use a one-hour public cache. TipTap image sources must use the new relative article-image paths and belong to the article being saved. Legacy multipart upload routes and `/api/v1/media/` download routes are removed, without migration or redirects.
+Only attached images are served. Missing, deleted, or inaccessible images return `404`; unavailable storage returns `503`. Article images use `Cache-Control: private, no-store`, including published articles, so returning an article to draft does not leave a publicly cached copy. Avatars use a one-hour public cache; post images use private, no-store caching and follow archive and ancestor visibility. TipTap image sources must use the new relative article-image paths and belong to the article being saved. Legacy multipart upload routes and `/api/v1/media/` download routes are removed, without migration or redirects.
 
 Following yourself returns `400`. Repeated follow/unfollow requests are safe and return `204`.
 
@@ -715,3 +715,77 @@ reply or transferring an image draft as well as when editing a post; omitted URL
 are queued for cleanup after the transaction. Edit timestamps compare at MongoDB's
 millisecond precision. New quoted posts must be public, including their original
 discussion; private staging posts cannot be quoted.
+
+## Archives and profile pins
+
+These routes use the `/api/v1` prefix. State mutations require the publication
+owner's session and the configured `Origin` header. Featured authors cannot manage
+archives or pins. Mutations return the updated `MicroPostResponse` or
+`ArticleResponse`, including `archived_at` and `pinned_at` (UTC timestamps or null).
+The derived `read_only` flag disables new interactions for private responses and
+replies with a private context. State mutations preserve content `updated_at`, original publication dates, stable URLs,
+attachments, reactions, and discussion records.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| PUT / DELETE | `/posts/{post_id}/archive` | Archive / restore your post or reply |
+| PUT / DELETE | `/articles/{article_id}/archive` | Archive / restore your published article |
+| PUT / DELETE | `/posts/{post_id}/pin` | Pin / unpin your public post or reply |
+| PUT / DELETE | `/articles/{article_id}/pin` | Pin / unpin your public published article |
+| GET | `/me/archive` | Current account's private, cursor-paginated archive |
+| GET | `/users/{username}/pins` | Up to five currently public profile pin cards |
+
+Archive size is unlimited. Archiving sets `archived_at` and clears `pinned_at` in
+the same audited transaction. Restoring clears `archived_at` without restoring a
+pin or changing the original publication date. Repeated PUT/DELETE requests retain
+the current timestamp or null state. Removing and later setting a state assigns a
+new timestamp; earlier transitions remain in the audit log. Article archives keep
+`status=published`; archiving drafts, scheduled articles, or post upload drafts
+returns 422. Restore an archived article before publishing, scheduling, or moving
+it to draft. Archived content remains editable and can be deleted by its owner.
+
+Archived publications and their media are owner-only; other viewers, including
+featured authors, receive 404. ID and stable-share reads accept an optional owner
+session and use `Cache-Control: private, no-store`. Public feeds, profile activity,
+profile counters, reposts, bookmarks, and publication-reference previews omit
+archived content. An archived reply hides its descendant branch. The owner can
+read an archived discussion where the original and all private ancestors permit
+access, but cannot add interactions to archived content. Independently archived
+replies belonging to other accounts remain private. Your own archived reply text
+and media remain accessible even if its original later becomes unavailable.
+
+Existing relationships and discussion records are retained. Restoring visibility
+makes them available again wherever the original and ancestors permit access.
+Post images and article images use private, no-store caching. Public feed cache
+hits recheck current database visibility before serving cached publication data;
+state mutations also invalidate the public feed cache after commit.
+
+The shared allowance is five pinned publications per account across both post and
+article collections. A sixth pin returns 409 with
+`{"detail":"You can pin up to 5 publications. Unpin one first."}`. A dedicated
+internal account revision serializes concurrent state mutations; it does not alter
+the profile edit revision. Archived or unpublished content cannot be newly pinned.
+Deleting a pinned publication or moving an article out of published state clears
+its pin. Replies hidden by an unavailable original or ancestor are omitted from
+public pin lists; any retained pin still occupies its slot until explicitly removed.
+
+`GET /me/archive` returns `{ "items": [...], "next_cursor": null-or-string }`.
+Items are post/article feed cards ordered by `archived_at`, kind, and ID descending.
+The default limit is 20, with a range of 1–100; pass `next_cursor` unchanged as
+`cursor` to continue. Refresh the archive after mutations. Missing state fields in
+older MongoDB documents mean null, so no data conversion is required; normal
+Beanie initialization creates the added owner/archive and owner/pin indexes.
+
+`GET /users/{username}/pins` returns an array of original publication cards ordered
+by `pinned_at`, kind, and ID descending, without a cursor. Profile clients prepend
+post/reply pins to Posts and article pins to Articles, then omit those original
+cards from their chronological lists. Repost events remain independent. Timeline
+and publication APIs retain their original chronological pagination, and general
+and following feeds retain their chronological order.
+
+On the frontend, the owner's kebab menus provide Archive/Unarchive and Pin/Unpin.
+The Archive tab is the third tab of the owner's profile and is never shown to
+other accounts. Pinned labels show the exact pin date on hover; archive cards show
+the archive date. Signing out or switching accounts clears the private archive
+view and returns the active profile tab to Posts. `/me/articles` excludes archives;
+manage archived articles through Archive instead.

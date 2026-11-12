@@ -73,7 +73,7 @@ class AvatarVariants(BaseModel):
 
 
 class User(Document):
-    """Account profile with versioned links, badge assignments, and edit revision."""
+    """Account profile with independent profile-edit and publication-state revisions."""
 
     email: str
     username: str
@@ -85,6 +85,7 @@ class User(Document):
     avatars: AvatarVariants = Field(default_factory=AvatarVariants)
     badges: list[BadgeAssignment] = Field(default_factory=list)
     revision: int = Field(default=0, ge=0)
+    publication_state_revision: int = Field(default=0, ge=0)
     profile_schema_version: Literal[2] = 2
     created_at: datetime
     updated_at: datetime

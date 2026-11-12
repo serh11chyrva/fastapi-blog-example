@@ -1,18 +1,29 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { ArticleFeedItem, PublicationPreview } from "../../shared/api/types";
+import { PublicationMenu } from "./PublicationMenu";
+import { PublicationStatus } from "./PublicationStatus";
+import { useApp } from "../../app/AuthProvider";
+import type { Article, ArticleFeedItem, MicroPost, PublicationPreview } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { publicationDate } from "../../shared/ui/dates";
+import { exactDateTime, publicationDate } from "../../shared/ui/dates";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 
 function ArticleExcerpt({ text }: { text: string }) {
   return <div className="article-excerpt"><p>{text}</p></div>;
 }
 
-export function PreviewCard({ item, standalone = false }: {
+export function PreviewCard({ item: initialItem, standalone = false, onChanged }: {
   item: PublicationPreview | ArticleFeedItem;
   standalone?: boolean;
+  onChanged?: () => void;
 }) {
+  const { user } = useApp();
+  const [item, setItem] = useState(initialItem);
+  useEffect(() => { setItem(initialItem); }, [initialItem]);
+  function reconcile(updated: Article | MicroPost) {
+    if (updated.kind === "article") setItem({ ...updated, published_at: updated.published_at ?? initialItem.published_at });
+  }
   const href = item.share_url ?? `/articles/${item.id}`;
   if (item.kind === "micro_post") {
     const author = item.authors[0];
@@ -33,8 +44,16 @@ export function PreviewCard({ item, standalone = false }: {
     <div className="longread-body">
       <div className="longread-title-row">
         <h2><Link to={href}>{item.title}</Link></h2>
-        <time dateTime={item.published_at}>{publicationDate(item.published_at)}</time>
+        <time dateTime={item.published_at}
+          title={"pinned_at" in item && item.pinned_at ? `Pinned ${exactDateTime(item.pinned_at)}` : undefined}>
+          {publicationDate(item.published_at)}
+        </time>
+        {standalone && "owner_id" in item && user?.id === item.owner_id &&
+          <PublicationMenu item={item} onChanged={() => onChanged?.()} onReconciled={reconcile}>
+            <Link to={`/articles/${item.id}/edit`}>Edit article</Link>
+          </PublicationMenu>}
       </div>
+      {standalone && "owner_id" in item && <PublicationStatus pinnedAt={item.pinned_at} archivedAt={item.archived_at} />}
       {item.summary && <ArticleExcerpt text={item.summary} />}
       <div className="article-bottom">
         <Link className="article-read-button" to={href}>Read article <Icon name="right" width={18} height={18} /></Link>

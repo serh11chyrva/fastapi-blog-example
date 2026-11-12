@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, Response
 from backend.api import examples
 from backend.api.metadata import Origin, PostId, documented_responses
 from backend.audit.dependencies import Audit
-from backend.auth.dependencies import CurrentUser
+from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.resources import Resources
 from backend.links.presentation import hydrate_publications
 from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostCreate, MicroPostResponse, PostDraftRequest
 from backend.posts.service import PostService
+from backend.publications.access import publication_is_public
 from backend.publications.queries import load_authors
 
 router = APIRouter()
@@ -103,25 +104,29 @@ async def create_micro_post(
     "/posts/{post_id}",
     response_model=MicroPostResponse,
     summary="Get a micro-post",
-    description="Returns a public post; deleted or malformed identifiers return 404.",
+    openapi_extra={"security": [{}, {"SessionCookie": []}]},
+    description="Returns a public post, or archived content only for its owner. Inaccessible IDs return 404.",
     tags=["Micro-posts"],
     responses=documented_responses(404, 503),
 )
-async def get_micro_post(post_id: PostId, posts: Posts) -> MicroPostResponse:
-    """Read a public, undeleted micro-post and its authors.
+async def get_micro_post(post_id: PostId, posts: Posts, current_user: OptionalUser, response: Response) -> MicroPostResponse:
+    """Read a public micro-post or the owner's archived publication.
 
     Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
 
     :param post_id: MongoDB identifier of the micro-post.
     :param posts: Posts application service injected for this request.
-    :return: The public micro-post response.
+    :param current_user: Optional session for owner-only archived reads.
+    :param response: HTTP response for the private cache policy.
+    :return: The accessible micro-post response.
     """
-    post, authors = await posts.get_post(post_id)
+    response.headers["Cache-Control"] = "private, no-store"
+    post, authors = await posts.get_post(post_id, current_user)
 
-    return await hydrate_publications(
-        posts.resources.redis,
-        post_response(post, authors),
-    )
+    result = post_response(post, authors)
+    if post.reply is not None:
+        result.read_only = not await publication_is_public("micro_post", str(post.id))
+    return await hydrate_publications(posts.resources.redis, result)
 
 
 @router.patch(

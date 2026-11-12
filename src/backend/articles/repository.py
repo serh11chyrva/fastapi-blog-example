@@ -35,7 +35,7 @@ class ArticleRepository:
         offset: int = 0,
         limit: int = 20,
     ) -> list[Article]:
-        """List an owner's undeleted articles with optional status filtering.
+        """List an owner's unarchived, undeleted articles with optional status filtering.
 
         :param owner_id: MongoDB identifier of the publication owner.
         :param status: Optional article publication status filter.
@@ -43,7 +43,7 @@ class ArticleRepository:
         :param limit: Maximum number of entries to return in this page.
         :return: The requested page ordered by update time and ID descending.
         """
-        conditions: dict[str, Any] = {"owner_id": owner_id, "deleted_at": None}
+        conditions: dict[str, Any] = {"owner_id": owner_id, "deleted_at": None, "archived_at": None}
 
         if status is not None:
             conditions["status"] = status
@@ -58,15 +58,17 @@ class ArticleRepository:
         :param limit: Page size before the extra continuation candidate.
         :return: Documents ordered by publication time and identifier descending.
         """
-        return await Article.find(conditions).sort(("published_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+        return await Article.find({"$and": [conditions, {"archived_at": None}]}).sort(
+            ("published_at", -1), ("_id", -1),
+        ).limit(limit + 1).to_list()
 
     @staticmethod
     async def find_shared(owner_id: PydanticObjectId, share_id: str) -> Article | None:
-        """Find an undeleted public publication by its owner's stable share identity.
+        """Find a published, undeleted article; the caller must enforce archive visibility.
 
         :param owner_id: Account owning the publication.
         :param share_id: Persisted stable share identity.
-        :return: The public publication, or None when absent or private.
+        :return: The article, possibly archived, or None when absent or unpublished.
         """
         return await Article.find_one(
             {"owner_id": owner_id, "share_id": share_id, "deleted_at": None, "status": "published"}

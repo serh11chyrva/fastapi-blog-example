@@ -19,6 +19,8 @@ const drawings = {
   comment: <path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9 9 0 0 1-3.6-.7L3 21l1.6-4.9A8.1 8.1 0 0 1 3 11.5a8.5 8.5 0 0 1 9-8.5 8.4 8.4 0 0 1 9 8.5Z" />,
   share: <><path d="M12 15V3m-4 4 4-4 4 4M5 12v8h14v-8" /></>,
   external: <path d="M7 17 17 7M8 7h9v9" />,
+  pushpin: <><path d="m16 3 5 5-3 2-2 5-3 1-5-5 1-3 5-2Z" /><path d="m11 13-8 8" /></>,
+  archive: <><rect x="3" y="3" width="18" height="5" rx="1" /><path d="M5 8v13h14V8M10 12h4" /></>,
   pin: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></>,
   link: <><path d="M10 13a4 4 0 0 0 6 0l4-4a4 4 0 0 0-6-6l-2 2m2 6a4 4 0 0 0-6 0l-4 4a4 4 0 0 0 6 6l2-2" /></>,
