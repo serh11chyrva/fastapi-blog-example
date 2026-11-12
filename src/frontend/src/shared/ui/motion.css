@@ -9,3 +9,22 @@
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes content-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.motion-enter { animation: content-enter var(--motion-enter) var(--motion-ease); }
+.motion-fade { animation: content-fade var(--motion-enter) var(--motion-ease); }
+.post-menu[open] > .post-menu-list {
+  animation: content-enter var(--motion-enter) var(--motion-ease);
+}
+.motion-dialog[open] { animation: content-enter var(--motion-enter) var(--motion-ease); }
+.motion-dialog[open]::backdrop { animation: content-fade var(--motion-enter) var(--motion-ease); }
+
+.icon-button, .engage, .text-link, .article-read-button, .rich-tabs button,
+.post-menu-list a, .post-menu-list button, .longread-card, .quote-card, .og-card {
+  transition: color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+.engage > svg, .icon-button > svg {
+  transition: transform var(--motion-fast) var(--motion-ease), fill var(--motion-fast) var(--motion-ease);
+}
+.engage:not(:disabled):active > svg, .icon-button:not(:disabled):active > svg { transform: scale(.9); }

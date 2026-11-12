@@ -22,7 +22,7 @@ export function FeedCard({ item, onChanged, showDiscussion = false, excerpt }: {
 }) {
   const repost = item.kind === "repost" ? item : undefined;
   const original = item.kind === "repost" ? item.post : item;
-  return <article className="feed-post">
+  return <article className="feed-post motion-enter">
     <OriginalCard key={original.id} item={original} repost={repost} onChanged={onChanged} showDiscussion={showDiscussion} excerpt={excerpt} />
   </article>;
 }

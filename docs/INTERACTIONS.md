@@ -268,6 +268,16 @@ account handle stays on its own line below the name.
   regions expose `aria-busy`. Errors remove loading placeholders and retain Retry
   controls and any previously loaded rows. Empty states appear only after a successful
   read. Reaction skeletons occupy only unknown count slots; the controls stay in place.
+- Newly mounted publication cards, search results, and replies enter over 180 ms with
+  a 4 px offset and a fade, without staggered delays. Article reading content and
+  profile headers use opacity only. Ordinary data updates do not remount cards or
+  replay their entrances. Shared controls transition colors over 120 ms; pressing a
+  reaction or icon button briefly scales its icon without changing layout or confirming
+  a mutation before the server response. Publication menus and profile/photo dialogs
+  animate only their opening, including dialog backdrops. Closing remains immediate,
+  retaining native Escape, focus behavior, and photo-viewer scroll locking. Route
+  navigation is immediate and does not wait for page-exit animations. Reduced motion
+  removes these effects while retaining the same controls and content.
 - Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
   Both article and post discussions are titled Replies. The root composer stays before
   root replies. The comment icon opens a focused form immediately below

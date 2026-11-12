@@ -144,7 +144,7 @@ export function ArticlePresentation({ article, owner, onChanged }: {
     } catch (reason) { setError(errorMessage(reason)); }
   }
 
-  return <article className="reader">
+  return <article className="reader motion-fade">
     <a className="skip-link" href="#article">Skip to article</a>
     <header className="reader-hero">
       {article.thumbnail_url && <figure className="article-cover"><img src={article.thumbnail_url} alt="" /></figure>}

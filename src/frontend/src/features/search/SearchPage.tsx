@@ -22,7 +22,7 @@ function UsersResults({ query }: { query: string }) {
   return <section className="search-users" aria-labelledby="search-users-heading">
     <h2 id="search-users-heading">People</h2>
     {!results.loading && !results.error && !results.items.length && <p>No people found.</p>}
-    <ul aria-busy={results.loading}>{(expanded ? results.items : results.items.slice(0, 3)).map((person) => <li key={person.id} className="search-person">
+    <ul aria-busy={results.loading}>{(expanded ? results.items : results.items.slice(0, 3)).map((person) => <li key={person.id} className="search-person motion-enter">
       <Link to={`/@${person.username}`} aria-label={`${person.display_name}'s profile`}>
         <Avatar src={person.avatars.original} name={person.display_name} size="sm" />
       </Link>

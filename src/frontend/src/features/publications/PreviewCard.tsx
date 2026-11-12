@@ -40,7 +40,7 @@ export function PreviewCard({ item: initialItem, standalone = false, onChanged, 
       <Link className="text-link quote-open" to={href}>View post <Icon name="right" width={13} height={13} /></Link>
     </div>;
   }
-  return <div className="card-surface article-surface">
+  return <div className={`card-surface article-surface${standalone ? " motion-enter" : ""}`}>
     <article className={`longread-card ${standalone ? "longread-standalone" : ""}`}>
     {item.thumbnail_url && <Link className="longread-cover" to={href} aria-label={`Read ${item.title}`}>
       <img className="longread-image" src={item.thumbnail_url} alt="" loading="lazy" />

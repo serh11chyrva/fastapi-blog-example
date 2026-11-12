@@ -187,7 +187,7 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
     }
   }
   return <article id={anchor ? `comment-${comment.id}` : undefined}
-    className={`discussion-comment ${anchor ? "is-linked" : ""}`}>
+    className={`discussion-comment motion-enter ${anchor ? "is-linked" : ""}`}>
     {!editing && !comment.deleted && comment.publication ? <ReplyPublication post={comment.publication}
       readOnly={readOnly} commentsOpen={user && !readOnly ? replying : expanded} onComments={toggleReply}
       onChanged={(action) => { void reload(); if (action === "like") onReaction?.(); }}

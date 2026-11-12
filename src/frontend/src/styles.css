@@ -66,7 +66,8 @@ summary::-webkit-details-marker { display: none; }
   font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
-  transition: background .14s, border-color .14s;
+  transition: background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
 .button-primary { border-color: #292924; background: #292924; color: #fff; }
 .button-primary:hover:not(:disabled) { background: #424239; }

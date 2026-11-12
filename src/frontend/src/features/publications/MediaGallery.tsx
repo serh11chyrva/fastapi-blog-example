@@ -139,7 +139,7 @@ export function MediaGallery({ images }: { images: Image[] }) {
       </>}
     </div>
     {count > 1 && <p className="gallery-count" aria-live="polite">{slide + 1} / {count}</p>}
-    <dialog ref={dialog} className="photo-viewer carousel-viewer" aria-label={`Photo ${selected + 1} of ${count}`}
+    <dialog ref={dialog} className="photo-viewer carousel-viewer motion-dialog" aria-label={`Photo ${selected + 1} of ${count}`}
       onClose={() => { restore(); go(selectedRef.current, false); opener.current?.focus({ preventScroll: true }); }}
       onKeyDown={(event) => {
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); move(event.key === "ArrowRight" ? 1 : -1); }

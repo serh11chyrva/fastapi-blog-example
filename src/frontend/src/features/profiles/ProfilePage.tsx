@@ -123,7 +123,7 @@ function ProfileContent({ username }: { username: string }) {
   const tabs: ("posts" | "articles" | "archive")[] = own ? ["posts", "articles", "archive"] : ["posts", "articles"];
   const authReturn = { from: location.pathname };
   return <>
-    <section className="profile-section" aria-label="Profile">
+    <section className="profile-section motion-fade" aria-label="Profile">
       <div className="profile-cover">
         {profile.banner_url && <img src={profile.banner_url} alt="" />}
       </div>
@@ -209,19 +209,19 @@ function ProfileContent({ username }: { username: string }) {
               pins={pins.filter((item) => item.kind === "article")} onChanged={refreshActivity} />}
       </>}
     </section>
-    <dialog className="design-dialog" ref={linksDialog}>
+    <dialog className="design-dialog motion-dialog" ref={linksDialog}>
       <div className="dialog-heading"><h2>All links</h2>
         <button type="button" className="icon-button" aria-label="Close links" onClick={() => linksDialog.current?.close()}><Icon name="close" /></button>
       </div>
       <div className="dialog-body profile-links">{profile.links.map((link) => <PublicLink key={link.id} link={link} />)}</div>
     </dialog>
-    <dialog className="design-dialog" ref={networkDialog} onClose={() => setNetworkKind(null)}>
+    <dialog className="design-dialog motion-dialog" ref={networkDialog} onClose={() => setNetworkKind(null)}>
       <div className="dialog-heading"><h2>{networkKind === "followers" ? "Followers" : "Following"}</h2>
         <button type="button" className="icon-button" aria-label="Close profiles" onClick={() => networkDialog.current?.close()}><Icon name="close" /></button>
       </div>
       <div className="dialog-body profile-links">
         <div className="profile-network-results" aria-busy={network.loading}>
-          {network.items.map((person) => <div className="discovery-person" key={person.id}
+          {network.items.map((person) => <div className="discovery-person motion-enter" key={person.id}
             onClick={(event) => { if (event.target instanceof Element && event.target.closest("a")) networkDialog.current?.close(); }}>
             <Link to={`/@${person.username}`}><Avatar src={person.avatars.original} name={person.display_name} size="sm" /></Link>
             <span><strong><HashtagText text={person.display_name} href={`/@${person.username}`} /></strong>
