@@ -7,6 +7,7 @@ import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
 import { FeedCard } from "../feed/FeedCard";
 import { interactionEvent, publicationStateEvent } from "./events";
 import type { InteractionChange } from "./events";
+import { PublicationListSkeleton } from "../publications/PublicationSkeleton";
 
 export function SavedPage() {
   usePageTitle("Saved");
@@ -33,11 +34,12 @@ function SavedList() {
   }, [setItems]);
   return <div className="feed-list">
     <header className="feed-heading"><h1>Bookmarks</h1><span className="eyebrow">Private</span></header>
-    {list.items.map((item) => <div key={item.id}>
+    <div aria-busy={list.loading}>{list.items.map((item) => <div key={item.id}>
       <p className="bookmark-date">Saved {new Date(item.saved_at).toLocaleDateString()}</p>
       <FeedCard item={item.publication} onChanged={list.refresh} />
-    </div>)}
-    {list.loading && <p className="list-status" role="status">Loading saved publications…</p>}
+    </div>)}</div>
+    {list.loading && !list.error && <PublicationListSkeleton count={list.items.length || list.cursor ? 2 : 3}
+      label="Loading saved publications…" />}
     {list.error && <p role="alert" className="notice-error">{list.error}{" "}
       <button className="underline" onClick={list.cursor ? () => void list.loadMore() : list.refresh}>Retry</button>
     </p>}

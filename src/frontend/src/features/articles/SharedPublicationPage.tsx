@@ -7,6 +7,7 @@ import { EmptyState } from "../../shared/ui/EmptyState";
 import { ArticlePresentation } from "./ArticlePresentation";
 import { useApp } from "../../app/AuthProvider";
 import { FeedCard } from "../feed/FeedCard";
+import { PublicationPageSkeleton } from "../publications/PublicationSkeleton";
 export function SharedPublicationPage() {
   const { user } = useApp();
   const { handle = "", shareSlug = "" } = useParams();
@@ -37,11 +38,11 @@ function SharedPublicationContent({ handle, shareSlug }: { handle: string; share
   usePageTitle(error ? "Publication unavailable" : publication?.kind === "article" ? publication.title
     : publication ? `Post by ${publication.authors[0]?.display_name ?? "Unknown author"}` : "Loading publication");
   if (publication && (publication.archived_at || (publication.kind === "article" && publication.status !== "published"))
-      && user?.id !== publication.owner_id) return <p role="status">Loading publication…</p>;
+      && user?.id !== publication.owner_id) return <PublicationPageSkeleton />;
   if (error)
     return <EmptyState title="Publication unavailable" body={error} />;
   if (!publication)
-    return <div className="surface p-8 text-center text-sm text-slate-500">Loading publication…</div>;
+    return <PublicationPageSkeleton />;
   if (publication.kind === "article")
     return <ArticlePresentation key={publication.id} article={publication} owner={user?.id === publication.owner_id} onChanged={setPublication} />;
   return <div className="post-detail">

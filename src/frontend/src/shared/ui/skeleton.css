@@ -19,5 +19,9 @@
 .skeleton-circle { width: 36px; height: 36px; border-radius: 50%; flex: none; }
 .skeleton-block { width: 100%; height: 120px; }
 .skeleton-shapes { min-width: 0; }
+.person-skeleton { display: flex; gap: 12px; padding-block: 16px; width: 100%; }
+.person-skeleton-copy { display: grid; align-content: start; gap: 9px; flex: 1; min-width: 0; padding-top: 3px; }
+.people-skeleton { width: 100%; }
+.skeleton-count { display: inline-block; width: 2ch; height: 10px; vertical-align: middle; }
 [hidden] .skeleton::after, [inert] .skeleton::after { animation-play-state: paused; }
 @keyframes skeleton-shimmer { to { transform: translateX(100%); } }

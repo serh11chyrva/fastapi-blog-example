@@ -4,6 +4,7 @@ import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
 import { publicationEvent, publicationStateEvent } from "../interactions/events";
 import { FeedCard } from "./FeedCard";
 import { useFeed } from "./useFeed";
+import { PublicationListSkeleton } from "../publications/PublicationSkeleton";
 
 export function FeedPage({ following = false }: { following?: boolean }) {
   usePageTitle(following ? "Following" : "Explore");
@@ -32,12 +33,13 @@ export function FeedPage({ following = false }: { following?: boolean }) {
     {error && <p className="notice-error" role="alert">{error}{" "}
       <button className="text-link" onClick={() => void retry()}>Retry</button>
     </p>}
-    {busy && <p className="list-status" role="status">Loading publications…</p>}
     {!busy && !error && !feed.items.length && <p className="list-status">
       {following ? "Follow a writer to see their publications here." : "There are no publications yet."}
     </p>}
-    {feed.items.map((item) => <FeedCard key={`${item.kind}:${item.id}`} item={item} onChanged={() => setRefreshKey((value) => value + 1)} />)}
-    {!busy && loadingMore && <p className="list-status" role="status">Loading publications…</p>}
+    <div aria-busy={loadingMore}>
+      {feed.items.map((item) => <FeedCard key={`${item.kind}:${item.id}`} item={item} onChanged={() => setRefreshKey((value) => value + 1)} />)}
+    </div>
+    {loadingMore && !error && <PublicationListSkeleton count={busy ? 3 : 2} />}
     <InfiniteScroll hasMore={!!feed.next_cursor} loading={loadingMore} error={error} loadMore={loadMore} />
   </section>;
 }

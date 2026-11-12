@@ -13,6 +13,7 @@ import { PublicationMenu } from "../publications/PublicationMenu";
 import { ReplyPublication } from "./ReplyPublication";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
+import { ReplySkeleton } from "./ReplySkeleton";
 
 function CommentForm({ path, parentId, label, onCreated, onCancel, autoFocus = false }: {
   path: string; parentId?: string; label: string; autoFocus?: boolean;
@@ -99,10 +100,10 @@ export function ReplyList({ kind, id, parentId, newComments, onRecentUpdate, com
       <p className="text-sm text-neutral-500" role="status">Just sent{list.cursor && " · Load more to continue the earlier conversation."}</p>
       {visibleRecent.map(renderComment)}
     </div>}
-    <div className="space-y-4">
+    <div className="space-y-4" aria-busy={list.loading}>
       {list.items.map(renderComment)}
     </div>
-    {list.loading && <p role="status" className="py-3 text-sm text-neutral-500">Loading replies…</p>}
+    {list.loading && !list.error && <ReplySkeleton />}
     {list.error && <p role="alert" className="notice-error mt-3">{list.error}{" "}
       <button className="underline" onClick={list.cursor ? () => void list.loadMore() : list.refresh}>Retry</button>
     </p>}

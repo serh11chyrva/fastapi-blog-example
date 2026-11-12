@@ -3,6 +3,7 @@ import { useCursorList } from "../../shared/hooks/useCursorList";
 import { FeedCard } from "../feed/FeedCard";
 import { useApp } from "../../app/AuthProvider";
 import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
+import { PublicationListSkeleton } from "../publications/PublicationSkeleton";
 
 function activityKey(item: ProfileActivity) { return `${item.kind}:${item.id}`; }
 
@@ -15,9 +16,12 @@ export function ProfileTimeline({ username, pins, onChanged }: {
   const items = list.items.filter((item) => item.kind === "repost" || !pinned.has(item.id));
   function changed() { list.refresh(); onChanged(); }
   return <div className="feed-list">
-    {pins.map((item) => <FeedCard key={`pin:${item.id}`} item={item} onChanged={changed} />)}
-    {items.map((item) => <FeedCard key={activityKey(item)} item={item} onChanged={changed} />)}
-    {list.loading && <p className="list-status" role="status">Loading activity…</p>}
+    <div aria-busy={list.loading}>
+      {pins.map((item) => <FeedCard key={`pin:${item.id}`} item={item} onChanged={changed} />)}
+      {items.map((item) => <FeedCard key={activityKey(item)} item={item} onChanged={changed} />)}
+    </div>
+    {list.loading && !list.error && <PublicationListSkeleton count={list.items.length || list.cursor || pins.length ? 2 : 3}
+      label="Loading activity…" />}
     {list.error && <p className="notice-error" role="alert">{list.error}{" "}
       <button className="text-link" onClick={list.cursor ? () => void list.loadMore() : list.refresh}>Retry</button>
     </p>}

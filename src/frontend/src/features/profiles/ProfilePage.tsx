@@ -14,6 +14,9 @@ import { ProfilePublications } from "./ProfilePublications";
 import { ProfileArchive } from "./ProfileArchive";
 import { ProfileTimeline } from "./ProfileTimeline";
 import { HashtagText } from "../../shared/text/HashtagText";
+import { PeopleSkeleton } from "../../shared/ui/PeopleSkeleton";
+import { PublicationListSkeleton } from "../publications/PublicationSkeleton";
+import { ProfileSkeleton } from "./ProfileSkeleton";
 
 function PublicLink({ link }: { link: ProfileLink }) {
   return <a className="profile-external-link" href={link.redirect_url} target="_blank" rel="noreferrer">
@@ -113,7 +116,7 @@ function ProfileContent({ username }: { username: string }) {
   usePageTitle(error && !profile ? "Profile unavailable" : profile?.display_name ?? "Loading profile");
   if (!profile) return error
     ? <EmptyState title="Profile unavailable" body={error} />
-    : <p className="list-status" role="status">Loading profile…</p>;
+    : <ProfileSkeleton />;
 
   const own = user?.id === profile.id;
   const activeTab = tab === "archive" && !own ? "posts" : tab;
@@ -197,7 +200,9 @@ function ProfileContent({ username }: { username: string }) {
       {activeTab === "archive" && own && user ? <ProfileArchive key={`${user.id}:${refreshKey}`} /> : <>
         {pinError && <p className="notice-error" role="alert">{pinError}{" "}
           <button type="button" className="text-link" onClick={refreshActivity}>Retry pins</button></p>}
-        {pinsLoading ? <p className="list-status" role="status">Loading publications…</p> : activeTab === "posts"
+        {pinsLoading ? <div className={activeTab === "articles" ? "profile-articles-loading" : ""} aria-busy="true">
+          <PublicationListSkeleton variant={activeTab === "articles" ? "article" : "post"} />
+        </div> : activeTab === "posts"
           ? <ProfileTimeline key={`${profile.username}-${refreshKey}`} username={profile.username}
               pins={pins.filter((item) => item.kind === "micro_post")} onChanged={refreshActivity} />
           : <ProfilePublications key={`${profile.username}-${refreshKey}`} username={profile.username}
@@ -215,13 +220,15 @@ function ProfileContent({ username }: { username: string }) {
         <button type="button" className="icon-button" aria-label="Close profiles" onClick={() => networkDialog.current?.close()}><Icon name="close" /></button>
       </div>
       <div className="dialog-body profile-links">
-        {network.items.map((person) => <div className="discovery-person" key={person.id}
-          onClick={(event) => { if (event.target instanceof Element && event.target.closest("a")) networkDialog.current?.close(); }}>
-          <Link to={`/@${person.username}`}><Avatar src={person.avatars.original} name={person.display_name} size="sm" /></Link>
-          <span><strong><HashtagText text={person.display_name} href={`/@${person.username}`} /></strong>
-            <small><Link to={`/@${person.username}`}>@{person.username}</Link></small></span>
-        </div>)}
-        {network.loading && <p role="status">Loading profiles…</p>}
+        <div className="profile-network-results" aria-busy={network.loading}>
+          {network.items.map((person) => <div className="discovery-person" key={person.id}
+            onClick={(event) => { if (event.target instanceof Element && event.target.closest("a")) networkDialog.current?.close(); }}>
+            <Link to={`/@${person.username}`}><Avatar src={person.avatars.original} name={person.display_name} size="sm" /></Link>
+            <span><strong><HashtagText text={person.display_name} href={`/@${person.username}`} /></strong>
+              <small><Link to={`/@${person.username}`}>@{person.username}</Link></small></span>
+          </div>)}
+        </div>
+        {network.loading && !network.error && <PeopleSkeleton count={network.items.length ? 2 : 3} />}
         {network.error && <p className="notice-error" role="alert">{network.error}</p>}
         {!network.loading && !network.error && !network.items.length && <p>No profiles to show.</p>}
         {network.hasMore && <button type="button" className="button-secondary" disabled={network.loading}

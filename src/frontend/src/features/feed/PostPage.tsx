@@ -6,6 +6,7 @@ import { api, errorMessage } from "../../shared/api/client";
 import type { MicroPost } from "../../shared/api/types";
 import { EmptyState } from "../../shared/ui/EmptyState";
 import { FeedCard } from "./FeedCard";
+import { PublicationPageSkeleton } from "../publications/PublicationSkeleton";
 
 export function PostPage() {
   const { user } = useApp();
@@ -28,9 +29,9 @@ function PostContent({ postId }: { postId: string }) {
     return () => controller.abort();
   }, [postId, version, user?.id]);
   usePageTitle(error ? "Post unavailable" : post ? `Post by ${post.authors[0]?.display_name ?? "Unknown author"}` : "Loading post");
-  if (post?.archived_at && user?.id !== post.owner_id) return <p role="status">Loading post…</p>;
+  if (post?.archived_at && user?.id !== post.owner_id) return <PublicationPageSkeleton kind="micro_post" />;
   if (error) return <EmptyState title="Note unavailable" body={error} />;
-  if (!post) return <p role="status">Loading note…</p>;
+  if (!post) return <PublicationPageSkeleton kind="micro_post" />;
   return <div className="post-detail"><FeedCard key={post.id}
     item={{ ...post, published_at: post.created_at }} showDiscussion onChanged={() => setVersion((value) => value + 1)} />
   </div>;

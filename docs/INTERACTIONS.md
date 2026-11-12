@@ -255,6 +255,19 @@ account handle stays on its own line below the name.
   Deduplication preserves order; offset lists advance by received rows, not visible rows.
   Discussions, follower lists, and article management retain manual pagination.
   Browsers without IntersectionObserver receive a manual fallback button.
+- Core reading views use decorative loading skeletons instead of loading paragraphs.
+  Feeds, saved publications, and profile publication tabs show three placeholders on
+  initial load and two after existing rows during pagination. Search people and
+  publications load independently; people start with three rows and append two.
+  Profile headers, article previews, post/article reading pages, replies, and follower
+  dialogs have matching skeleton layouts. Replies show two placeholders. Shared URLs
+  use a neutral reading skeleton until the publication type is known; optional covers
+  and attachments are not guessed. Following and Saved also show a neutral skeleton
+  during session restoration, without exposing private data.
+  Loading messages remain available to assistive technology, and updating result
+  regions expose `aria-busy`. Errors remove loading placeholders and retain Retry
+  controls and any previously loaded rows. Empty states appear only after a successful
+  read. Reaction skeletons occupy only unknown count slots; the controls stay in place.
 - Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
   Both article and post discussions are titled Replies. The root composer stays before
   root replies. The comment icon opens a focused form immediately below

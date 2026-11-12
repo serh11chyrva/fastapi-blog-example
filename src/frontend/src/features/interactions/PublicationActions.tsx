@@ -6,6 +6,7 @@ import { api, errorMessage } from "../../shared/api/client";
 import type { InteractionAction, InteractionSummary, PublicationKind } from "../../shared/api/types";
 import { interactionEvent, notifyInteractionChange, publicationPath } from "./events";
 import type { InteractionChange } from "./events";
+import { Skeleton } from "../../shared/ui/Skeleton";
 
 export function PublicationActions({ kind, id, onComments, commentsOpen, onShare, copied, onChanged }: {
   kind: PublicationKind;
@@ -89,21 +90,22 @@ export function PublicationActions({ kind, id, onComments, commentsOpen, onShare
   }
 
   const disabled = !!user && (!summary || loading || !!loadError || pending !== null);
+  const missingCount = loading ? <Skeleton className="skeleton-count" /> : "—";
   return <div className="publication-actions">
     <div className="post-actions" aria-busy={loading || pending !== null}>
       <button type="button" className="engage engage-like" disabled={disabled} aria-pressed={summary?.liked ?? false}
         aria-label={summary?.liked ? "Unlike" : "Like"} title={summary?.liked ? "Unlike" : "Like"}
         onClick={() => void change("like", !summary?.liked)}>
-        <Icon name="heart" />{summary?.likes_count ?? "…"}
+        <Icon name="heart" />{summary?.likes_count ?? missingCount}
       </button>
       {kind === "micro_post" && <button type="button" className="engage engage-repost" disabled={disabled}
         aria-label={summary?.reposted ? "Undo repost" : "Repost"} title={summary?.reposted ? "Undo repost" : "Repost"}
         aria-pressed={summary?.reposted ?? false} onClick={() => void change("repost", !summary?.reposted)}>
-        <Icon name="repost" />{summary?.reposts_count ?? "…"}
+        <Icon name="repost" />{summary?.reposts_count ?? missingCount}
       </button>}
       <button type="button" className="engage" aria-expanded={commentsOpen} onClick={onComments}
         aria-label={kind === "micro_post" ? "Replies" : "Comments"} title={kind === "micro_post" ? "Replies" : "Comments"}>
-        <Icon name="comment" />{summary?.comments_count ?? "…"}
+        <Icon name="comment" />{summary?.comments_count ?? missingCount}
       </button>
       <span className="actions-spacer" />
       {onShare && <button type="button" className="engage" onClick={onShare}
@@ -114,6 +116,7 @@ export function PublicationActions({ kind, id, onComments, commentsOpen, onShare
         aria-label={summary?.saved ? "Remove bookmark" : "Bookmark"} title={summary?.saved ? "Remove bookmark" : "Bookmark"}
         onClick={() => void change("save", !summary?.saved)}><Icon name="bookmark" /></button>
     </div>
+    {loading && !summary && <span className="sr-only" role="status">Loading reactions…</span>}
     {copied && <span className="sr-only" role="status">Link copied.</span>}
     {pending && <span className="sr-only" role="status">Saving…</span>}
     {loadError && <p className="notice-error" role="alert">{loadError}{" "}
