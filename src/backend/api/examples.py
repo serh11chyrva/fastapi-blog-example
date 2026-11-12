@@ -400,3 +400,9 @@ ARCHIVE_PAGE = {
     "next_cursor": None,
 }
 PROFILE_PINS = [FEED_POST | {"pinned_at": POST_PINNED["pinned_at"]}]
+
+SEARCH_USERS_PAGE = {"items": [PROFILE_USER | {"bio": "Building small tools with #python."}], "next_cursor": None}
+SEARCH_PUBLICATIONS_PAGE = {
+    "items": [{"publication": FEED_ARTICLE, "excerpt": "A passage from the current article body about FastAPI."}],
+    "next_cursor": None,
+}

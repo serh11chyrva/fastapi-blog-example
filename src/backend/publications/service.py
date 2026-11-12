@@ -21,6 +21,7 @@ from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
 from backend.publications.access import PublicationKind, object_id, public_publication
 from backend.publications.schemas import ArchivePage
+from backend.search.sync import sync_publication
 
 
 class PublicationStateService:
@@ -44,7 +45,8 @@ class PublicationStateService:
 
         Updating a dedicated account revision serializes pin counts across both
         collections. Archive state does not change content timestamps or article
-        publication state, and archiving clears the publication's pin.
+        publication state, and archiving clears the publication's pin. Search
+        projections are updated in the same transaction when archive visibility changes.
 
         :param kind: Publication collection to mutate.
         :param resource_id: Owned publication identifier.
@@ -83,6 +85,8 @@ class PublicationStateService:
             if action == "archive" and enabled:
                 changes["pinned_at"] = None
             await item.update({"$set": changes}, session=session)
+            if action == "archive":
+                await sync_publication(item, session)
             await record_audit(
                 self.audit,
                 f"PUBLICATION_{'ARCHIVED' if enabled else 'UNARCHIVED'}" if action == "archive"

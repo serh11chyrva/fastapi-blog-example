@@ -13,6 +13,7 @@ from backend.demo.common import DEMO_AUDIT, demo_id, insert_fixture
 from backend.demo.media import ensure_image
 from backend.links.models import ProfileLink
 from backend.profiles.models import AvatarImage, BadgeAssignment, BadgeDefinition, BadgePayload, User
+from backend.publications.hashtags import extract_hashtags
 
 DEMO_USERS = [
     ("alice", "Alice Morgan", "A writer interested in thoughtful technology."),
@@ -133,6 +134,7 @@ async def seed_profiles(resources: AppResources, now: datetime) -> dict[str, Use
                     changed = True
 
             if changed:
+                current.search_hashtags = extract_hashtags(current.display_name + "\n" + current.bio)
                 current.revision += 1
                 current.updated_at = now
                 await current.save(session=session)

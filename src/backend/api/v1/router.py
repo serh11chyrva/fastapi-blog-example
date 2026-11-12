@@ -11,6 +11,7 @@ from backend.api.v1.endpoints import (
     links,
     posts,
     profiles,
+    search,
     publication_state,
     publications,
     uploads,
@@ -19,6 +20,7 @@ from backend.api.v1.endpoints import (
 router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
 router.include_router(profiles.router)
+router.include_router(search.router)
 router.include_router(links.router)
 router.include_router(posts.router)
 router.include_router(articles.router)

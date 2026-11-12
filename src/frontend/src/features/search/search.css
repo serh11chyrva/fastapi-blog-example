@@ -1,0 +1,24 @@
+.search-heading { padding: 24px; border-bottom: 1px solid var(--line); }
+.search-heading h1 { margin: 0 0 18px; font-size: 23px; }
+.search-form { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border: 1px solid var(--line); border-radius: 7px; }
+.search-form:focus-within { outline: 1px solid var(--quiet); }
+.search-form > svg { flex: none; color: var(--muted); }
+.search-form input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; font-size: 14px; }
+.search-sort { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 12px; }
+.search-users { padding: 22px 24px; border-bottom: 1px solid var(--line); }
+.search-users h2, .search-section-heading { margin: 0; font-size: 16px; }
+.search-users > p:not(.notice-error) { color: var(--muted); font-size: 13px; }
+.search-users ul { list-style: none; padding: 0; margin: 0; }
+.search-person { display: flex; gap: 12px; padding: 16px 0; }
+.search-person > div { min-width: 0; overflow-wrap: anywhere; }
+.search-person strong { font-size: 14px; }
+.search-person-handle { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+.search-person p { margin: 7px 0 0; white-space: pre-wrap; font-size: 13px; line-height: 1.6; }
+.search-show-less { margin-left: 16px; }
+.search-section-heading { padding: 20px 24px 0; }
+@media (max-width: 480px) {
+  .search-heading, .search-users { padding-inline: 16px; }
+  .search-section-heading { padding-inline: 16px; }
+  .search-form { flex-wrap: wrap; }
+  .search-form input { flex: 1; }
+}

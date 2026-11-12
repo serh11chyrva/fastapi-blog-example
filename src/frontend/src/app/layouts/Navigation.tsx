@@ -9,6 +9,7 @@ import { Icon } from "../../shared/ui/Icon";
 import type { IconName } from "../../shared/ui/Icon";
 import { PostComposer } from "../../features/feed/PostComposer";
 import { publicationEvent } from "../../features/interactions/events";
+import { HashtagText } from "../../shared/text/HashtagText";
 
 export function Brand({ reading = false }: { reading?: boolean }) {
   return <Link to="/" className="site-brand" aria-label={`${siteName} home`}>
@@ -21,6 +22,7 @@ type NavigationLink = { to: string; label: string; icon: IconName; end?: boolean
 
 const publicLinks: NavigationLink[] = [
   { to: "/", label: "Explore", icon: "home" },
+  { to: "/search", label: "Search", icon: "search" },
   { to: "/following", label: "Following", icon: "following" },
 ];
 
@@ -81,7 +83,7 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
     window.dispatchEvent(new Event(publicationEvent));
   }
 
-  const navLinks = user ? [...publicLinks, ...privateLinks] : publicLinks.slice(0, 1);
+  const navLinks = user ? [...publicLinks, ...privateLinks] : publicLinks.filter((link) => link.to !== "/following");
   return <aside className={`primary-sidebar ${reading ? "reading-sidebar" : ""}`}>
     <div className="sidebar-brand-row">
       <Brand reading={reading} />
@@ -102,10 +104,11 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
     </div>
     {!collapsed && <div className="sidebar-account">
       {user ? <div className="account-card">
-        <Link className="account-link" to={profile}>
-          <Avatar src={user.avatars?.original} name={user.display_name} size="sm" />
-          <span><strong>{user.display_name}</strong><small>@{user.username}</small></span>
-        </Link>
+        <div className="account-link">
+          <Link to={profile}><Avatar src={user.avatars?.original} name={user.display_name} size="sm" /></Link>
+          <span><strong><HashtagText text={user.display_name} href={profile} /></strong>
+            <small><Link to={profile}>@{user.username}</Link></small></span>
+        </div>
         <details className="account-menu" ref={accountMenu} onBlur={(event) => {
           if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
         }} onKeyDown={(event) => {
@@ -126,6 +129,7 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
     </div>}
     {!reading && <nav className="mobile-bar" aria-label="Mobile navigation">
       <NavLink to="/" end aria-label="Explore"><Icon name="home" width={22} height={22} /></NavLink>
+      <NavLink to="/search" aria-label="Search"><Icon name="search" width={22} height={22} /></NavLink>
       {user && <NavLink to="/following" aria-label="Following"><Icon name="following" width={22} height={22} /></NavLink>}
       <button type="button" aria-label="New post" onClick={compose}><Icon name="plus" width={25} height={25} /></button>
       <NavLink to={profile} state={!user ? signIn : undefined} aria-label={user ? "Profile" : "Sign in"}>
@@ -183,30 +187,32 @@ export function RightRail() {
   return <aside className="discovery-sidebar" aria-label="Discover">
     <form className="discovery-search" onSubmit={(event) => {
       event.preventDefault();
-      const value = handle.trim().replace(/^@/, "");
-      if (value) navigate(`/@${encodeURIComponent(value)}`);
+      const value = handle.trim();
+      if (value) navigate(`/search?${new URLSearchParams({ q: value, sort: "relevance" })}`);
     }}>
       <Icon name="search" />
-      <input aria-label="Find a profile by username" placeholder="Find a profile" value={handle}
-        onChange={(event) => setHandle(event.target.value)} maxLength={25} required />
+      <input type="search" aria-label="Search people and publications" placeholder="Search" value={handle}
+        onChange={(event) => setHandle(event.target.value)} maxLength={200} required />
     </form>
     {articles.length > 0 && <details className="discovery-section" open>
       <summary>Latest articles <Icon name="chevron" width={13} height={13} /></summary>
       <ul>{articles.map((article) => <li key={article.id}>
-        <Link to={article.share_url ?? `/articles/${article.id}`}>
-          <small>{article.authors[0]?.display_name} · Article</small>
-          <strong>{article.title}</strong>
+        <div className="discovery-article">
+          <small>{article.authors[0] && <HashtagText text={article.authors[0].display_name}
+            href={`/@${article.authors[0].username}`} />} · Article</small>
+          <strong><HashtagText text={article.title} href={article.share_url ?? `/articles/${article.id}`} /></strong>
           <small>{new Date(article.published_at).toLocaleDateString("en", { month: "long", day: "numeric" })}</small>
-        </Link>
+        </div>
       </li>)}</ul>
     </details>}
     {writers.length > 0 && <details className="discovery-section" open>
       <summary>Writers <Icon name="chevron" width={13} height={13} /></summary>
-      <ul>{writers.map((writer) => <li key={writer.id}><Link to={`/@${writer.username}`} className="discovery-person">
-        <Avatar src={writer.avatars.original} name={writer.display_name} size="sm" />
-        <span><strong>{writer.display_name}</strong><small>@{writer.username}</small></span>
-        <Icon name="right" width={13} height={13} />
-      </Link></li>)}</ul>
+      <ul>{writers.map((writer) => <li key={writer.id}><div className="discovery-person">
+        <Link to={`/@${writer.username}`}><Avatar src={writer.avatars.original} name={writer.display_name} size="sm" /></Link>
+        <span><strong><HashtagText text={writer.display_name} href={`/@${writer.username}`} /></strong>
+          <small><Link to={`/@${writer.username}`}>@{writer.username}</Link></small></span>
+        <Link to={`/@${writer.username}`} aria-label={`Open @${writer.username}`}><Icon name="right" width={13} height={13} /></Link>
+      </div></li>)}</ul>
     </details>}
   </aside>;
 }

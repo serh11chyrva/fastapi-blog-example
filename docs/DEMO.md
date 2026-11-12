@@ -30,6 +30,18 @@ There are no external image downloads or new Python dependencies. Fixture writes
 their demo audit records commit together; normal browser mutations still use application
 services and their own audit events.
 
+## Search tour
+
+After seeding, complete the [search backfill and Atlas index setup](SEARCH.md#initial-setup-and-maintenance).
+Open Search as a guest or signed-in user. Search `alice` to find a profile, or
+`workbench` to find article text, posts, and discussion entries. Compare Relevance
+and Latest; search a passage beyond an article's first 280 characters to exercise
+full-body matching. Click the structured `#SmallSteps` tag in a showcase article
+to open exact-tag search. New Unicode hashtags in names, bios, posts, or article
+text become clickable without rewriting saved article JSON. Queries with more
+than three matching people expose Show more above the mixed publication list.
+Indexing can lag briefly behind newly seeded or edited data.
+
 ## Sign in
 
 New demo password identities use the value of `DEMO_PASSWORD` in `.env`.

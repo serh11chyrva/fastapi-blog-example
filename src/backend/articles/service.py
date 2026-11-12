@@ -16,12 +16,13 @@ from backend.core.config import get_settings
 from backend.core.errors import InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
-from backend.links.cache import enqueue_attachments
 from backend.feeds.cache import invalidate_public_feed
+from backend.links.cache import enqueue_attachments
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.publications.queries import load_authors
+from backend.search.sync import sync_publication
 from backend.storage.cleanup import queue_deletion
 from backend.storage.urls import publication_image_url
 
@@ -112,7 +113,7 @@ class ArticleService:
         return article
 
     async def edit_article(self, article_id: str, payload: ArticleUpdate, owner: User) -> Article:
-        """Update supplied article fields and validate references in one audited transaction.
+        """Update article fields, references, and its search projection in one audited transaction.
 
         :param article_id: MongoDB identifier of the article.
         :param payload: Validated request data for the operation.
@@ -146,6 +147,7 @@ class ArticleService:
 
             article.updated_at = datetime.now(UTC)
             await article.save(session=session)
+            await sync_publication(article, session)
             await record_audit(
                 self.audit,
                 "ARTICLE_EDITED",
@@ -171,7 +173,8 @@ class ArticleService:
         """Change visibility and its timestamps together with the corresponding audit event.
 
         Publishing an already published article preserves its original timestamp.
-        Draft and scheduled transitions clear published_at and pinned_at. Archived
+        Search projections change in the same transaction. Draft and scheduled
+        transitions clear published_at and pinned_at. Archived
         articles must be restored before a status change. Conflicts require an
         explicit reload; the transaction body is not automatically repeated.
 
@@ -203,6 +206,7 @@ class ArticleService:
             article.scheduled_at = publish_at if state == "scheduled" else None
             article.updated_at = now
             await article.save(session=session)
+            await sync_publication(article, session)
             action = {
                 "draft": "ARTICLE_UNPUBLISHED",
                 "scheduled": "ARTICLE_SCHEDULED",
@@ -293,7 +297,7 @@ class ArticleService:
         await invalidate_public_feed(self.resources.redis)
 
     async def delete(self, resource_id: str, owner: User) -> None:
-        """Soft-delete an owned publication and queue its images for cleanup.
+        """Soft-delete an owned publication, remove its search projection, and queue image cleanup.
 
         :param resource_id: String identifier of the publication to load or mutate.
         :param owner: Authenticated account owning or initiating the operation.
@@ -304,6 +308,7 @@ class ArticleService:
             item.deleted_at = item.updated_at = datetime.now(UTC)
             item.pinned_at = item.archived_at = None
             await item.save(session=session)
+            await sync_publication(item, session)
 
             keys = ([item.thumbnail_key] if item.thumbnail_key else []) + item.inline_image_keys
 

@@ -12,24 +12,27 @@ import { PublicationComposer } from "../publications/PublicationComposer";
 import { PublicationMenu } from "../publications/PublicationMenu";
 import { PublicationByline } from "../publications/PublicationByline";
 import { PostContent } from "./PostContent";
+import { HashtagText } from "../../shared/text/HashtagText";
 
-export function FeedCard({ item, onChanged, showDiscussion = false }: {
+export function FeedCard({ item, onChanged, showDiscussion = false, excerpt }: {
   item: FeedItem;
   onChanged: () => void;
   showDiscussion?: boolean;
+  excerpt?: string | null;
 }) {
   const repost = item.kind === "repost" ? item : undefined;
   const original = item.kind === "repost" ? item.post : item;
   return <article className="feed-post">
-    <OriginalCard key={original.id} item={original} repost={repost} onChanged={onChanged} showDiscussion={showDiscussion} />
+    <OriginalCard key={original.id} item={original} repost={repost} onChanged={onChanged} showDiscussion={showDiscussion} excerpt={excerpt} />
   </article>;
 }
 
-function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion }: {
+function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, excerpt }: {
   item: OriginalFeedItem;
   repost?: RepostFeedItem;
   onChanged: () => void;
   showDiscussion: boolean;
+  excerpt?: string | null;
 }) {
   const { user } = useApp();
   const [item, setItem] = useState(initialItem);
@@ -95,12 +98,12 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion }: 
         </PublicationMenu>
       </PublicationByline>
       {featured.length > 0 && <div className="post-credits">With {featured.map((person, index) => <span key={person.id}>
-        {index > 0 && ", "}<Link to={`/@${person.username}`}>{person.display_name}</Link>
+        {index > 0 && ", "}<HashtagText text={person.display_name} href={`/@${person.username}`} />
       </span>)}</div>}
       {item.kind === "micro_post" ? <>
         {editPost ? <PublicationComposer post={editPost} label="Save changes"
           onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
-      </> : <PreviewCard item={item} />}
+      </> : <PreviewCard item={item} excerpt={excerpt} />}
       {!readOnly && <PublicationActions key={`actions:${item.kind}:${item.id}`} kind={item.kind} id={item.id}
         onComments={() => { setDiscussionVisited(true); setFocusReply(!comments); setComments(!comments); }}
         commentsOpen={comments} onShare={() => void share()} copied={copied}

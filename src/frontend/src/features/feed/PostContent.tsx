@@ -7,7 +7,7 @@ export function PostContent({ text, attachments, reply, context = true }: {
 }) {
   return <>
     {text && <PostText text={text} />}
-    <Attachments items={attachments.filter((item) => item.type !== "hashtag" && item.type !== "mention")} />
+    <Attachments items={attachments.filter((item) => item.type !== "mention")} />
     {context && reply && <div className="reply-context">
       <Attachments items={[reply.kind === "article"
         ? { type: "article", article_id: reply.publication_id }

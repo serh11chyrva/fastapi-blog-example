@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from backend.links.platforms import validate_link_url
+from backend.publications.hashtags import validate_tag
 
 type ContentUrl = Annotated[str, Field(max_length=2048), AfterValidator(validate_link_url)]
 type ContentId = Annotated[str, Field(pattern=r"^[0-9a-fA-F]{24}$")]
@@ -49,7 +50,10 @@ class HashtagAttachment(AttachmentBase):
     """Store a Unicode hashtag without a leading hash or whitespace."""
 
     type: Literal["hashtag"] = "hashtag"
-    tag: str = Field(min_length=1, max_length=64, pattern=r"^\w+$")
+    tag: Annotated[str, AfterValidator(validate_tag)] = Field(
+        min_length=1, max_length=64,
+        description="Unicode letters, numbers, combining marks, or underscores, without #; exact search ignores case.",
+    )
 
 
 class OpenGraphAttachment(AttachmentBase):

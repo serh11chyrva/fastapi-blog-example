@@ -35,7 +35,8 @@ class MicroPostCreate(BaseModel):
     text: str = Field(
         default="",
         max_length=280,
-        description="Post text, up to 280 characters. Blank text requires an attachment in the final saved state.",
+        description="Post text, up to 280 characters, with linked searchable Unicode hashtags. "
+        "Blank text requires an attachment in the final saved state.",
         examples=[examples.POST_TEXT],
     )
 

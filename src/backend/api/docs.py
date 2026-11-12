@@ -15,6 +15,17 @@ API_REFERENCE_URL = "/api/docs"
 
 API_DESCRIPTION = """Publish short notes and long-form articles, discover writers, and manage your profile.
 
+### Public search and hashtags
+GET `/api/v1/search/users` searches username, public name, and biography. GET
+`/api/v1/search/publications` searches complete articles, posts, replies, and comments.
+Both are public and accept `q`, `cursor`, and a limit up to 50; publication search
+also accepts `sort=relevance` (default) or `latest`. Every text word must match,
+each #hashtag is an exact filter, and the last word supports prefixes. Matching
+ignores case, allows one typo for words of at least four characters, and does not
+perform stemming. Queries contain at most 200 characters. Visibility and card/excerpt
+content use current records; Atlas matching is eventually consistent. Archives are
+excluded for everyone. Unprepared indexes affect search only (503).
+
 ### Authentication and browser requests
 Register or log in to receive an HttpOnly session cookie. Browsers send it automatically
 on subsequent same-origin requests; API clients must retain it in a cookie jar.
@@ -112,6 +123,13 @@ using their IDs in live requests, and choose a future time when scheduling an ar
 """
 
 OPENAPI_TAGS = [
+    {
+        "name": "Search",
+        "description": (
+            "Search public people and complete publication text with exact Unicode hashtag filters "
+            "and independent cursors."
+        ),
+    },
     {
         "name": "Publication state",
         "description": "Manage owner-only archives and up to five profile pins shared across posts, replies, and articles.",

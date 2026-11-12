@@ -27,7 +27,7 @@ class ArticleCreate(BaseModel):
     title: str = Field(
         min_length=1,
         max_length=160,
-        description="Article title, trimmed and nonblank, up to 160 characters.",
+        description="Article title, trimmed and nonblank, up to 160 characters; Unicode hashtags are searchable.",
         examples=[examples.ARTICLE_CREATE["title"]],
     )
     body: ArticleBody = Field(
@@ -37,7 +37,8 @@ class ArticleCreate(BaseModel):
             "code blocks, breaks, rules, uploaded images, inline mention/hashtag nodes, and block attachment nodes "
             "(typed descriptors in attrs, up to 30 per body); marks: bold, italic, strike, code, and HTTP(S) links. "
             "Image sources must reference images uploaded to this article. Mention and article references are checked "
-            "on writes; video is reserved and rejected."
+            "on writes; video is reserved and rejected. Plain-text Unicode hashtags are recognized across formatting "
+            "marks without changing the document; code and existing links do not produce hashtags."
         ),
         examples=[examples.ARTICLE_BODY, examples.ARTICLE_RICH_CREATE["body"]],
     )
@@ -87,7 +88,8 @@ class ArticleUpdate(BaseModel):
         default=None,
         min_length=1,
         max_length=160,
-        description="Replacement title, trimmed and nonblank. Omit or use null to keep the current title.",
+        description="Replacement title, trimmed and nonblank, with searchable Unicode hashtags. "
+        "Omit or use null to keep the current title.",
         examples=[examples.ARTICLE_UPDATE["title"]],
     )
     body: ArticleBody | None = Field(

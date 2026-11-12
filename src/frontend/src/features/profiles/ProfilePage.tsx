@@ -13,6 +13,7 @@ import { BadgeIcon } from "./BadgeIcon";
 import { ProfilePublications } from "./ProfilePublications";
 import { ProfileArchive } from "./ProfileArchive";
 import { ProfileTimeline } from "./ProfileTimeline";
+import { HashtagText } from "../../shared/text/HashtagText";
 
 function PublicLink({ link }: { link: ProfileLink }) {
   return <a className="profile-external-link" href={link.redirect_url} target="_blank" rel="noreferrer">
@@ -140,7 +141,7 @@ function ProfileContent({ username }: { username: string }) {
           </div>
         </div>
         <div className="profile-name-row">
-          <h1>{profile.display_name}</h1>
+          <h1><HashtagText text={profile.display_name} /></h1>
           {profile.badges.length > 0 && <div className="profile-badges" aria-label="Profile badges">
             {profile.badges.map((badge) => <span className="badge" key={badge.code}
               title={badge.payload.description ?? undefined} style={{ backgroundColor: badge.payload.background_color, color: badge.payload.text_color }}>
@@ -151,7 +152,7 @@ function ProfileContent({ username }: { username: string }) {
         <p className="profile-handle">@{profile.username}</p>
         <div className="profile-bio-grid">
           <div>
-            {profile.bio && <p className="profile-bio-copy">{profile.bio}</p>}
+            {profile.bio && <p className="profile-bio-copy"><HashtagText text={profile.bio} /></p>}
             <div className="profile-bio-meta">
               {profile.location && <span><Icon name="pin" width={14} height={14} />{profile.location}</span>}
               {profile.joined_at && <span><Icon name="calendar" width={14} height={14} />
@@ -214,11 +215,12 @@ function ProfileContent({ username }: { username: string }) {
         <button type="button" className="icon-button" aria-label="Close profiles" onClick={() => networkDialog.current?.close()}><Icon name="close" /></button>
       </div>
       <div className="dialog-body profile-links">
-        {network.items.map((person) => <Link className="discovery-person" to={`/@${person.username}`} key={person.id}
-          onClick={() => networkDialog.current?.close()}>
-          <Avatar src={person.avatars.original} name={person.display_name} size="sm" />
-          <span><strong>{person.display_name}</strong><small>@{person.username}</small></span>
-        </Link>)}
+        {network.items.map((person) => <div className="discovery-person" key={person.id}
+          onClick={(event) => { if (event.target instanceof Element && event.target.closest("a")) networkDialog.current?.close(); }}>
+          <Link to={`/@${person.username}`}><Avatar src={person.avatars.original} name={person.display_name} size="sm" /></Link>
+          <span><strong><HashtagText text={person.display_name} href={`/@${person.username}`} /></strong>
+            <small><Link to={`/@${person.username}`}>@{person.username}</Link></small></span>
+        </div>)}
         {network.loading && <p role="status">Loading profiles…</p>}
         {network.error && <p className="notice-error" role="alert">{network.error}</p>}
         {!network.loading && !network.error && !network.items.length && <p>No profiles to show.</p>}

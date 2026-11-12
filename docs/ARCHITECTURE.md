@@ -19,6 +19,14 @@ does not own feature policy.
 
 ## Backend responsibilities
 
+Public search uses Atlas Search indexes over the rebuildable `search_publications`
+collection and selected fields of `users`. Publication mutations maintain their
+projection in the canonical transaction; user writes maintain derived profile tags.
+The search repository hydrates current sources and applies discussion and archive
+visibility before limiting pages. Cards and passages use current content. Index
+preparation and backfill are explicit maintenance commands, never API startup work.
+See [SEARCH.md](SEARCH.md) for contracts, index definitions, and rollout.
+
 Backend classes, functions, and methods use English docstrings. Callable parameters
 and return values use reStructuredText fields (`:param name:` and `:return:`).
 Ruff uses a target line width of 120 characters, configured in `pyproject.toml`.
@@ -43,9 +51,10 @@ formatting with `uv run --locked ruff format src/backend`.
 | `articles/` | Article documents, request/response schemas, validation, repository, service, presenters, share-ID backfill, and scheduled publishing |
 | `posts/` | Micro-post documents, request/response schemas, repository, service, presenters, and share-ID backfill |
 | `feeds/` | Mixed publication reads, response schemas, presenters, deterministic cursors, and public feed cache invalidation |
+| `search/` | Unified full-text publication projections, public profile search, query-bound Atlas cursors, explicit backfill and index management |
 | `publications/` | Public share-link resolution, shared readable URLs, typed attachment contracts, image descriptor presentation, and transactional reference validation |
 | `interactions/` | Unique likes, private saves, public repost edges, live summary queries, and batched relationship-list hydration |
-| `comments/` | Separate post reply trees and flat article comments, bounded reads, batched presenters, and audited mutations |
+| `comments/` | Publication-backed discussion trees, visibility-aware bounded reads, compatibility adapters, and audited reply mutations |
 | `storage/` | Upload preparation, confirmation leases, immutable copies, attachment adapters, object storage access, and cleanup |
 | `audit/` | Transport-independent request metadata and transactional audit event writes |
 | `core/` | Configuration, typed clients, transaction conflict policy, and application errors |

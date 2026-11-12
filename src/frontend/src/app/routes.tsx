@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { SiteLayout } from "./layouts/SiteLayout";
 import { ReadingLayout } from "./layouts/ReadingLayout";
 import { FeedPage } from "../features/feed/FeedPage";
+import { SearchPage } from "../features/search/SearchPage";
 import { AuthPage } from "../features/auth/AuthPage";
 import { ProfilePage } from "../features/profiles/ProfilePage";
 import { ProfileSettingsPage } from "../features/profiles/ProfileSettingsPage";
@@ -31,6 +32,7 @@ export function AppRoutes() {
 
 
       <Route index element={<FeedPage />} />
+      <Route path="search" element={<SearchPage />} />
 
 
       <Route path=":handle" element={<ProfilePage />} />

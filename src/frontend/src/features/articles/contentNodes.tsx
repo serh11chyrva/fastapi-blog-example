@@ -4,11 +4,12 @@ import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import type { Attachment } from "../../shared/api/types";
 import { Attachments } from "../publications/Attachments";
+import { hashtagHref } from "../../shared/text/hashtags";
 
-function AttachmentView({ node }: NodeViewProps) {
+function AttachmentView({ node, editor }: NodeViewProps) {
   const descriptor = node.attrs.descriptor as Attachment | null;
   return <NodeViewWrapper contentEditable={false}>
-    {descriptor ? <Attachments items={[descriptor]} /> : <span>Attachment unavailable</span>}
+    {descriptor ? <Attachments items={[descriptor]} editable={editor.isEditable} /> : <span>Attachment unavailable</span>}
   </NodeViewWrapper>;
 }
 
@@ -29,11 +30,16 @@ export const ArticleMention = Node.create({
   },
 });
 
-export const ArticleHashtag = Node.create({
+export const ArticleHashtag = Node.create<{ editable: boolean }>({
   name: "hashtag", group: "inline", inline: true, atom: true,
+  addOptions() { return { editable: true }; },
   addAttributes() { return { tag: { default: null } }; },
   parseHTML() { return []; },
-  renderHTML({ node }) { return ["span", { class: "pill" }, `#${String(node.attrs.tag ?? "")}`]; },
+  renderHTML({ node }) {
+    const tag = String(node.attrs.tag ?? "");
+    return this.options.editable ? ["span", { class: "pill hashtag" }, `#${tag}`]
+      : ["a", { class: "pill hashtag", href: hashtagHref(tag), "data-search-hashtag": tag }, `#${tag}`];
+  },
 });
 
 export function toEditorBody(node: JSONContent): JSONContent {

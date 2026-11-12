@@ -21,6 +21,7 @@ from backend.links.models import ProfileLink
 from backend.profiles.models import BadgeDefinition, Follow, User
 from backend.profiles.queries import ProfileQueries
 from backend.profiles.schemas import BadgePreferenceUpdate, LinkInput, ProfileUpdate
+from backend.publications.hashtags import extract_hashtags
 from backend.storage.cleanup import queue_deletion
 
 
@@ -81,7 +82,7 @@ class ProfileService:
         payload: ProfileUpdate | BadgePreferenceUpdate,
         badge_code: str | None = None,
     ) -> User:
-        """Apply profile or badge changes using an audited revision check.
+        """Apply profile changes and derived search tags, or badge changes, with an audited revision check.
 
         :param user_id: MongoDB identifier of the user account.
         :param payload: Validated request data for the operation.
@@ -125,6 +126,10 @@ class ProfileService:
                     action = "PROFILE_UPDATED"
 
                 fields = sorted(changes)
+                if "display_name" in changes or "bio" in changes:
+                    changes["search_hashtags"] = extract_hashtags(
+                        changes.get("display_name", user.display_name) + "\n" + changes.get("bio", user.bio)
+                    )
                 changes["updated_at"] = datetime.now(UTC)
                 result = await User.find_one({"_id": user_id, "revision": payload.revision}).update(
                     {"$set": changes, "$inc": {"revision": 1}},

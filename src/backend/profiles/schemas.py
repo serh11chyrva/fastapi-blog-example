@@ -56,13 +56,15 @@ class ProfileUpdate(BaseModel):
         default=None,
         min_length=1,
         max_length=64,
-        description="Replacement public name, trimmed and nonblank. Omit or use null to keep the current value.",
+        description="Replacement public name, trimmed and nonblank. Unicode hashtags are searchable and linked. "
+        "Omit or use null to keep the current value.",
         examples=[examples.ACCOUNT["display_name"]],
     )
     bio: str | None = Field(
         default=None,
         max_length=280,
-        description="Replacement biography. Use an empty string to clear it; omit or use null to leave it unchanged.",
+        description="Replacement biography with searchable Unicode hashtags. Use an empty string to clear it; "
+        "omit or use null to leave it unchanged.",
         examples=[examples.PROFILE_UPDATE["bio"]],
     )
     location: str | None = Field(
@@ -237,7 +239,7 @@ class ProfileUserResponse(BaseModel):
         examples=[examples.PROFILE_USER["username"]],
     )
     display_name: str = Field(
-        description="Public name displayed on the profile card.",
+        description="Public name displayed on the profile card; Unicode hashtags link to exact-tag search.",
         examples=[examples.PROFILE_USER["display_name"]],
     )
     avatars: AvatarResponse = Field(

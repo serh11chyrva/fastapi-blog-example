@@ -13,17 +13,18 @@ from backend.core.config import get_settings
 from backend.core.errors import Conflict, InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
-from backend.links.cache import enqueue_attachments
 from backend.feeds.cache import invalidate_public_feed
-from backend.posts.models import MicroPost
+from backend.links.cache import enqueue_attachments
 from backend.posts.content import retained_image_keys, validate_post_content
+from backend.posts.models import MicroPost
 from backend.posts.repository import PostRepository
 from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
-from backend.publications.attachments import ImageAttachment
-from backend.publications.attachment_validation import validate_attachment_references
-from backend.publications.queries import load_authors
 from backend.publications.access import readable_publication
+from backend.publications.attachment_validation import validate_attachment_references
+from backend.publications.attachments import ImageAttachment
+from backend.publications.queries import load_authors
+from backend.search.sync import sync_publication
 from backend.storage.cleanup import queue_deletion
 from backend.storage.urls import publication_image_url
 
@@ -78,7 +79,7 @@ class PostService:
         return item
 
     async def create_post(self, payload: MicroPostCreate, owner: User) -> MicroPost:
-        """Insert a micro-post and its audit event, then invalidate the feed.
+        """Insert a micro-post, search projection, and audit event, then invalidate the feed.
 
         :param payload: Validated request data for the operation.
         :param owner: Authenticated account owning or initiating the operation.
@@ -95,6 +96,7 @@ class PostService:
         async with transaction(self.resources.mongo) as session:
             await validate_attachment_references(payload.attachments, [], session)
             await post.insert(session=session)
+            await sync_publication(post, session)
             await record_audit(
                 self.audit,
                 "MICRO_POST_CREATED",
@@ -136,7 +138,7 @@ class PostService:
         return post
 
     async def edit_post(self, post_id: str, payload: MicroPostCreate, owner: User) -> MicroPost:
-        """Replace owned post text and supplied attachments in one audited transaction.
+        """Replace owned content and its search projection in one audited transaction.
 
         :param post_id: MongoDB identifier of the micro-post.
         :param payload: Validated request data for the operation.
@@ -185,6 +187,7 @@ class PostService:
                 post.created_at = datetime.now(UTC)
             post.updated_at = datetime.now(UTC)
             await post.save(session=session)
+            await sync_publication(post, session)
             for key in set(old_keys) - set(post.image_keys):
                 await queue_deletion(get_settings().publication_bucket, key, session=session)
             await record_audit(
@@ -217,7 +220,7 @@ class PostService:
         return post, await load_authors(post.author_ids)
 
     async def delete(self, resource_id: str, owner: User) -> None:
-        """Soft-delete an owned publication and queue its images for cleanup.
+        """Soft-delete an owned publication, remove its search projection, and queue image cleanup.
 
         :param resource_id: String identifier of the publication to load or mutate.
         :param owner: Authenticated account owning or initiating the operation.
@@ -230,6 +233,7 @@ class PostService:
             if item.reply is not None:
                 item.text = ""
             await item.save(session=session)
+            await sync_publication(item, session)
 
             keys = item.image_keys
 

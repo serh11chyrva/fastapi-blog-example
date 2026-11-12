@@ -8,6 +8,8 @@ export type ProfileCard = {
 export type User = ProfileCard & {
   email: string;
 };
+export type SearchUser = ProfileCard & { bio: string };
+export type SearchPublicationHit = { publication: OriginalFeedItem; excerpt: string | null };
 export type ProfileLinkInput = {
   version?: 1;
   id?: string;

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { hashtagHref } from "../../shared/text/hashtags";
 import { api, errorMessage } from "../../shared/api/client";
 import type { Attachment, PublicationPreview } from "../../shared/api/types";
 import { Icon } from "../../shared/ui/Icon";
@@ -13,7 +15,7 @@ function reference(item: Attachment): string | null {
   return null;
 }
 
-export function Attachments({ items }: { items: Attachment[] }) {
+export function Attachments({ items, editable = false }: { items: Attachment[]; editable?: boolean }) {
   const query = new URLSearchParams();
   for (const ref of new Set(items.map(reference))) {
     if (ref) query.append("ref", ref);
@@ -60,7 +62,8 @@ export function Attachments({ items }: { items: Attachment[] }) {
           return card ? <PreviewCard key={key} item={card} /> : <p key={key} className="attachment-placeholder">
             {current ? "Publication unavailable" : "Loading publication…"}
           </p>;
-        case "hashtag": return <span className="attachment-tag" key={key}>#{item.tag}</span>;
+        case "hashtag": return editable ? <span className="attachment-tag hashtag" key={key}>#{item.tag}</span>
+          : <Link className="attachment-tag hashtag" key={key} to={hashtagHref(item.tag)}>#{item.tag}</Link>;
         case "mention": return <span className="attachment-tag" title={item.user_id} key={key}>Account mention · {item.user_id.slice(-6)}</span>;
         case "embed":
         case "og_card":

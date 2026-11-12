@@ -73,12 +73,13 @@ class AvatarVariants(BaseModel):
 
 
 class User(Document):
-    """Account profile with independent profile-edit and publication-state revisions."""
+    """Public account profile with derived search tags and independent profile/publication-state revisions."""
 
     email: str
     username: str
     display_name: str
     bio: str = ""
+    search_hashtags: list[str] = Field(default_factory=list)
     location: str = ""
     banner: AvatarImage | None = None
     links: list[ProfileLink] = Field(default_factory=list, max_length=8)

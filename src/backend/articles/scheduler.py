@@ -10,10 +10,11 @@ from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.core.transactions import transaction
 from backend.feeds.cache import invalidate_public_feed
+from backend.search.sync import sync_publication
 
 
 async def publish_due_articles(mongo_client: AsyncMongoClient) -> int:
-    """Publish a bounded batch, rechecking schedule and deletion in each transaction.
+    """Publish and index a bounded batch, rechecking schedule and deletion in each transaction.
 
     :param mongo_client: Async MongoDB client used for audited publication transactions.
     :return: The number of articles published by this batch.
@@ -51,6 +52,7 @@ async def publish_due_articles(mongo_client: AsyncMongoClient) -> int:
             current.scheduled_at = None
             current.updated_at = now
             await current.save(session=db_session)
+            await sync_publication(current, db_session)
             await record_audit(
                 AuditContext(),
                 "ARTICLE_PUBLISHED",

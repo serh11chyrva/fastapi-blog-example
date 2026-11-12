@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
 import type { DiscussionComment, PublicationKind } from "../../shared/api/types";
+import { HashtagText } from "../../shared/text/HashtagText";
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { itemId, mergeListItems } from "../../shared/hooks/listItems";
 import { Avatar } from "../../shared/ui/Avatar";
@@ -201,16 +202,16 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
         }}>Delete</button>
       </PublicationMenu>} /> : <>
     <div className="comment-byline">
-      {comment.author ? <Link className="inline-flex items-center gap-2 font-semibold" to={`/@${comment.author.username}`}>
-        <Avatar src={comment.author.avatars.original} name={comment.author.display_name} size="sm" />
-        {comment.author.display_name}
-      </Link> : <span className="text-neutral-500">{comment.deleted ? "Deleted comment" : "Unavailable account"}</span>}
+      {comment.author ? <span className="inline-flex items-center gap-2 font-semibold">
+        <Link to={`/@${comment.author.username}`}><Avatar src={comment.author.avatars.original} name={comment.author.display_name} size="sm" /></Link>
+        <HashtagText text={comment.author.display_name} href={`/@${comment.author.username}`} />
+      </span> : <span className="text-neutral-500">{comment.deleted ? "Deleted comment" : "Unavailable account"}</span>}
       <RelativeTime publishedAt={comment.created_at} updatedAt={comment.updated_at} />
     </div>
     {editing && !comment.deleted && comment.publication ? <PublicationComposer post={comment.publication}
       label="Save changes" onCancel={() => setEditing(false)}
       onSaved={() => { setEditing(false); void reload(); notifyInteractionChange({ kind, id: publicationId }); }} /> : <p className="comment-copy">
-      {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : comment.text}
+      {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : <HashtagText text={comment.text} />}
     </p>}
     </>}
     {(thread.replies_count > 0 || (!comment.publication && user && !readOnly && !comment.deleted)) && <div className="comment-actions">

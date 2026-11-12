@@ -4,6 +4,7 @@ import type { ProfileCard, ReplyMetadata, RepostFeedItem } from "../../shared/ap
 import { Icon } from "../../shared/ui/Icon";
 import { PublicationStatus } from "./PublicationStatus";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
+import { HashtagText } from "../../shared/text/HashtagText";
 
 export function PublicationByline({ author, reply, repost, href, publishedAt, updatedAt, pinnedAt, archivedAt, children }: {
   author?: ProfileCard; reply?: ReplyMetadata | null; repost?: RepostFeedItem;
@@ -16,7 +17,7 @@ export function PublicationByline({ author, reply, repost, href, publishedAt, up
     : reply?.kind === "article" ? "Commented on an article" : "Replied to a post";
   return <div className="post-byline">
     {author && <>
-      <Link className="post-name" to={`/@${author.username}`}>{author.display_name}</Link>
+      <span className="post-name"><HashtagText text={author.display_name} href={`/@${author.username}`} /></span>
       <span className="post-meta">@{author.username}</span>
     </>}
     {reply && <span className="post-activity">
@@ -27,7 +28,7 @@ export function PublicationByline({ author, reply, repost, href, publishedAt, up
     {repost && <span className="post-activity">
       {(author || reply) && <span aria-hidden="true">·</span>}
       <Icon name="repost" width={15} height={15} />
-      <Link to={`/@${repost.reposted_by.username}`}>{repost.reposted_by.display_name}</Link>
+      <span><HashtagText text={repost.reposted_by.display_name} href={`/@${repost.reposted_by.username}`} /></span>
       <span>reposted</span>
     </span>}
     <PublicationStatus pinnedAt={pinnedAt} archivedAt={archivedAt} />

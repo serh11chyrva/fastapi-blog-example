@@ -4,6 +4,7 @@ import LinkExtension from "@tiptap/extension-link";
 import { EditorialCode, EditorialQuote } from "./EditorialBlocks";
 import { ArticleAttachment, ArticleHashtag, ArticleMention } from "./contentNodes";
 import { ArticleImage } from "./ArticleImage";
+import { ArticleTextHashtags } from "./hashtagExtension";
 const ArticleFormatting = Extension.create({
   name: "articleFormatting",
   addGlobalAttributes() {
@@ -33,7 +34,7 @@ const ArticleFormatting = Extension.create({
   },
 });
 
-export function createEditorExtensions(editable = true) {
+export function createEditorExtensions(editable = true, navigate?: (href: string) => void) {
   return [
     StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, trailingNode: false, blockquote: false, codeBlock: false }),
     ArticleFormatting,
@@ -42,7 +43,8 @@ export function createEditorExtensions(editable = true) {
     ArticleImage,
     ArticleAttachment,
     ArticleMention,
-    ArticleHashtag,
+    ArticleHashtag.configure({ editable }),
+    ArticleTextHashtags.configure({ navigate }),
     LinkExtension.configure({ openOnClick: !editable, HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" } }),
   ];
 }

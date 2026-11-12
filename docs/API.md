@@ -24,6 +24,28 @@ Request and response JSON examples are reordered to match their schemas as well,
 including objects inside arrays and publication variants. Example values and array
 item order are preserved; keys absent from the schema remain after declared fields.
 
+## Public search
+
+`GET /api/v1/search/users?q=alice&limit=3` searches public usernames, names, and
+biographies. `GET /api/v1/search/publications?q=fastapi&sort=relevance&limit=20`
+searches full article titles/bodies, posts, replies, and comments. Both are public,
+accept query-bound cursors, and return `items` and nullable `next_cursor`. User cards
+include `bio`; publication hits wrap an existing feed card in `publication` and add
+an optional plain-text `excerpt` derived from current article text.
+
+Queries are limited to 200 characters. All text words must match; the last supports
+prefixes, and words of at least four characters allow one typo. Matching ignores
+case and performs no stemming. Each `#tag` adds a mandatory exact filter; encode
+the hash as `%23` in URLs. Tags from public names and biographies also find users.
+User results rank by username, name, then biography; publications accept `relevance`
+(default) or `latest`. Limits are 1–50, with defaults of 3 users and 20 publications.
+
+Invalid input or a mismatched cursor returns 422. Missing/non-queryable indexes
+or unavailable search return 503. Indexing is eventually consistent, while visibility
+and card/excerpt text are read from current canonical records before pagination.
+Archives are excluded for owners as well as guests. See [SEARCH.md](SEARCH.md) for
+complete matching rules, response shapes, and explicit index preparation.
+
 ## Standalone design preview
 
 From the repository root, install dependencies with `uv sync`, then run:

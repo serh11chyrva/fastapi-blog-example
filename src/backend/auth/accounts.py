@@ -16,6 +16,7 @@ from backend.core.errors import ApplicationError, Conflict
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.profiles.models import User
+from backend.publications.hashtags import extract_hashtags
 
 
 class InvalidCredentials(ApplicationError):
@@ -38,7 +39,7 @@ class AccountService:
         self.audit = audit
 
     async def register(self, payload: RegisterRequest) -> tuple[User, str]:
-        """Create an account and start its first authenticated session.
+        """Create an account with public search tags and start its first authenticated session.
 
         :param payload: Validated request data for the operation.
         :return: The new user and the plaintext session token.
@@ -50,6 +51,7 @@ class AccountService:
             email=str(payload.email).lower(),
             username=payload.username,
             display_name=payload.display_name,
+            search_hashtags=extract_hashtags(payload.display_name),
             created_at=now,
             updated_at=now,
         )

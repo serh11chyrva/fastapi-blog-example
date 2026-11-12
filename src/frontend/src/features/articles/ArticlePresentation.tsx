@@ -14,6 +14,7 @@ import { PublicationMenu } from "../publications/PublicationMenu";
 import { PublicationStatus } from "../publications/PublicationStatus";
 import { Attachments } from "../publications/Attachments";
 import { TipTapDocument } from "./TipTapDocument";
+import { HashtagText } from "../../shared/text/HashtagText";
 
 function readingSections(body: JSONContent) {
   const sections: { id: string; label: string }[] = [];
@@ -74,11 +75,11 @@ function ArticleAuthors({ authors }: { authors: ProfileCard[] }) {
     <Link to={`/@${author.username}`}><Avatar src={author.avatars.original} name={author.display_name} size="md" /></Link>
     <div>
       <p className="eyebrow">Written by</p>
-      <h2><Link to={`/@${author.username}`}>{author.display_name}</Link></h2>
-      {profile?.bio && <p className="author-bio">{profile.bio}</p>}
+      <h2><HashtagText text={author.display_name} href={`/@${author.username}`} /></h2>
+      {profile?.bio && <p className="author-bio"><HashtagText text={profile.bio} /></p>}
       <p className="author-details">{profile?.location && `${profile.location} · `}@{author.username}</p>
       {featured.length > 0 && <p className="author-details">With {featured.map((person, index) => <span key={person.id}>
-        {index > 0 && ", "}<Link to={`/@${person.username}`}>{person.display_name}</Link>
+        {index > 0 && ", "}<HashtagText text={person.display_name} href={`/@${person.username}`} />
       </span>)}</p>}
       {profile && user && profile.id !== user.id && <button className="button-secondary reader-follow" disabled={busy}
         aria-pressed={profile.is_following} onClick={() => void toggleFollow()}>{profile.is_following ? "Following" : "Follow"}</button>}
@@ -157,8 +158,8 @@ export function ArticlePresentation({ article, owner, onChanged }: {
           if (updated.kind === "article") onChanged?.(updated);
         }}><Link to={`/articles/${article.id}/edit`}>Edit article</Link></PublicationMenu>}
       </div>
-      <h1>{article.title}</h1>
-      {article.summary && <p className="reader-deck">{article.summary}</p>}
+      <h1><HashtagText text={article.title} /></h1>
+      {article.summary && <p className="reader-deck"><HashtagText text={article.summary} /></p>}
     </header>
     <SectionNavigation sections={sections} />
     <div className="reading-prose" id="article">

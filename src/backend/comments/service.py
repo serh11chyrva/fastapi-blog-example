@@ -2,29 +2,29 @@
 
 from datetime import UTC, datetime
 
-
 from beanie import PydanticObjectId
 
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
-from backend.posts.models import MicroPost, ReplyMetadata
-from backend.posts.service import PostService
-from backend.posts.content import retained_image_keys, validate_post_content
-from backend.publications.attachment_validation import validate_attachment_references
-from backend.storage.urls import publication_image_url
-from backend.storage.cleanup import queue_deletion
-from backend.core.config import get_settings
-from backend.links.cache import enqueue_attachments
-from backend.feeds.cache import invalidate_public_feed
 from backend.comments.presenters import comment_responses
 from backend.comments.repository import CommentRepository, Discussion, DiscussionSort
 from backend.comments.schemas import ArticleCommentPage, CommentText, PostReplyPage
+from backend.core.config import get_settings
 from backend.core.errors import InvalidOperation, NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
+from backend.feeds.cache import invalidate_public_feed
+from backend.links.cache import enqueue_attachments
+from backend.posts.content import retained_image_keys, validate_post_content
+from backend.posts.models import MicroPost, ReplyMetadata
+from backend.posts.service import PostService
+from backend.posts.visibility import visible_post_stages
 from backend.profiles.models import User
 from backend.publications.access import PublicationKind, object_id, public_publication, readable_publication
-from backend.posts.visibility import visible_post_stages
+from backend.publications.attachment_validation import validate_attachment_references
+from backend.search.sync import sync_publication
+from backend.storage.cleanup import queue_deletion
+from backend.storage.urls import publication_image_url
 
 
 class CommentService:
@@ -49,7 +49,7 @@ class CommentService:
         owner: User,
         parent_id: str | None = None,
     ) -> Discussion:
-        """Create a comment or reply and audit it in the same guarded transaction.
+        """Create and index a comment or reply with its audit event in one guarded transaction.
 
         :param kind: Containing publication type.
         :param publication_id: Public post or article identifier.
@@ -108,6 +108,7 @@ class CommentService:
                     await queue_deletion(get_settings().publication_bucket, key, session=session)
             else:
                 await comment.insert(session=session)
+            await sync_publication(comment, session)
             await record_audit(
                 self.audit,
                 "COMMENT_CREATED",

@@ -94,12 +94,15 @@
 .discovery-section:not([open]) summary svg { rotate: -90deg; }
 .discovery-section ul { display: grid; gap: 19px; margin-top: 21px; }
 .discovery-section a:hover strong { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.discovery-section strong a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .discovery-section strong, .discovery-section small, .discovery-person small { display: block; line-height: 1.6; }
 .discovery-section strong { color: #545449; font-weight: 600; }
 .discovery-section small, .discovery-person small { color: var(--quiet); font-size: 10px; }
 .discovery-person { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .discovery-person > img, .discovery-person > div { width: 30px; height: 30px; flex: none; }
 .discovery-person span { flex: 1; }
+.discovery-person > a:first-child { flex: none; }
+.discovery-person > span { min-width: 0; overflow-wrap: anywhere; }
 .page-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding: 20px 24px; color: var(--quiet); font-size: 10px; }
 .page-footer a:hover { text-decoration: underline; }
 .mobile-bar { display: none; }
@@ -127,7 +130,7 @@
     min-height: calc(60px + env(safe-area-inset-bottom)); padding: 0 12px env(safe-area-inset-bottom);
     border-top: 1px solid var(--line); background: #fffffff2; backdrop-filter: blur(12px);
   }
-  .mobile-bar > a, .mobile-bar > button, .mobile-bar summary { display: grid; place-items: center; width: 46px; height: 44px; color: var(--muted); }
+  .mobile-bar > a, .mobile-bar > button, .mobile-bar summary { display: grid; place-items: center; width: 40px; height: 44px; color: var(--muted); }
   .mobile-bar [aria-current="page"] { color: #1d1d18; }
   .mobile-more { position: relative; }
   .mobile-more > div { position: absolute; right: 0; bottom: 49px; width: 152px; padding: 5px; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: 0 4px 20px #25252012; }

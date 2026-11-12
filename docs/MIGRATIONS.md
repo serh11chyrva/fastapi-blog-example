@@ -1,5 +1,18 @@
 # Content migration operations
 
+## Search projection backfill
+
+`python -m backend.migrate search` rebuilds full-text publication projections and
+profile hashtags. It is repeatable, removes orphan search rows, and preserves source
+text, timestamps, IDs, and profile revisions. Pause all API/scheduler/seed writers
+and run only one backfill at a time. Run it after legacy content conversions as well.
+Provision the Atlas indexes with `python -m backend.search.manage setup` and wait
+for readiness before resuming writers. Full Docker Compose commands, privileges,
+status inspection, and rollback guidance are in
+[the search maintenance sequence](SEARCH.md#initial-setup-and-maintenance).
+
+## Existing content conversions
+
 The `backend.migrate` command uses the configured database and Redis. Run it through
 the backend development image. Back up the database before conversion and pause API
 writes (stop `api` and `frontend-dev`) before moving discussions. Run the command with

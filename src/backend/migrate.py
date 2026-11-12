@@ -11,8 +11,9 @@ from backend.articles.migrations import backfill_summaries
 from backend.comments.conversion import migrate_discussions
 from backend.core.config import get_settings
 from backend.core.database import DOCUMENT_MODELS
-from backend.posts.migrations import normalize_attachments
 from backend.feeds.cache import invalidate_public_feed
+from backend.posts.migrations import normalize_attachments
+from backend.search.migrations import backfill_search
 
 
 async def migrate(operation: str) -> None:
@@ -32,6 +33,8 @@ async def migrate(operation: str) -> None:
             print(await migrate_discussions(redis, report=operation == "discussion-report"))
         elif operation == "attachments":
             print(f"Normalized {await normalize_attachments()} post attachments.")
+        elif operation == "search":
+            print(await backfill_search(mongo))
         if operation != "discussion-report":
             await invalidate_public_feed(redis)
     finally:
@@ -41,5 +44,5 @@ async def migrate(operation: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=["summaries", "discussions", "discussion-report", "attachments"])
+    parser.add_argument("operation", choices=["summaries", "discussions", "discussion-report", "attachments", "search"])
     asyncio.run(migrate(parser.parse_args().operation))

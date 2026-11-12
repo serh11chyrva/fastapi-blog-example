@@ -9,6 +9,7 @@ A demo microblog built with FastAPI, MongoDB, Redis, React, and Garage.
 - Likes, saves, reposts, and discussions.
 - Unlimited owner-only archives and up to five profile pins shared across posts, replies, and published articles.
 - Profile editing and active session management.
+- Public full-text search across people, posts, articles, replies, and comments, with linked Unicode hashtags.
 
 ## Start the application
 
@@ -80,6 +81,11 @@ Scalar loads its assets from a CDN. To try the application endpoints, start the 
 - [API guide](docs/API.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Interactions and discussions](docs/INTERACTIONS.md)
+- [Search behavior and Atlas index setup](docs/SEARCH.md)
+
+Search requires an explicit one-time backfill and Atlas Search index setup; follow
+the [search maintenance sequence](docs/SEARCH.md#initial-setup-and-maintenance) before
+using `/search`. Missing indexes affect search only and do not block application startup.
 
 ### Link metadata worker
 
