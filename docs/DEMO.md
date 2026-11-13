@@ -91,8 +91,11 @@ rich note, five-image gallery, publishing workbench, and a direct link to a rank
 ## Profiles and account controls
 
 Public profiles demonstrate avatars, banners, locations, join dates, post and follower counts,
-links with stable redirects, badge styles, and featured-author credits. The Posts tab mixes authored
-posts, reposts, and comments with an attached article card. The Articles tab lists authored articles.
+links with stable redirects, badge styles, and featured-author credits. Supported link platforms
+show their logos in black and white, with a black accent, both in the profile header and the
+**All links** dialog. Ordinary websites and unknown platform identifiers use the generic link icon.
+The Posts tab mixes authored posts, reposts, and comments with an attached article card.
+The Articles tab lists authored articles.
 Visit Casey's profile for the publishing workbench comment and follow its link into the article.
 
 Open **Settings → Profile** to crop an avatar or banner before uploading it. Drag a

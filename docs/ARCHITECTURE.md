@@ -215,6 +215,13 @@ keys. See [the demo tour](DEMO.md) for coverage and repeat-run behavior.
   persistence and upload behavior in `useArticleEditor`. TipTap block controls insert and
   move content in the document, and the code and quote views reuse the same saved nodes
   in reading and editing. Publication cards and galleries use existing API attachments.
+- Profile link icons use the server-derived `platform` identifier through
+  `features/profiles/ProfileLinkIcon.tsx`, shared by the profile header and the full links
+  dialog. All 29 recognized platforms have local monochrome SVG paths under
+  `assets/platforms/`, with black foregrounds and transparent backgrounds. `website`
+  and unknown identifiers retain the generic link icon. Icon rendering needs no
+  external requests or additional package dependencies; asset provenance and the
+  upstream license are stored alongside the paths.
 - `shared/api/` owns transport and explicit frontend contracts. `ApiError` preserves
   HTTP status and error details; TypeScript response types describe the contract
   rather than acting as runtime JSON validation.

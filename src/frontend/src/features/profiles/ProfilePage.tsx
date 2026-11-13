@@ -17,10 +17,11 @@ import { HashtagText } from "../../shared/text/HashtagText";
 import { PeopleSkeleton } from "../../shared/ui/PeopleSkeleton";
 import { PublicationListSkeleton } from "../publications/PublicationSkeleton";
 import { ProfileSkeleton } from "./ProfileSkeleton";
+import { ProfileLinkIcon } from "./ProfileLinkIcon";
 
 function PublicLink({ link }: { link: ProfileLink }) {
   return <a className="profile-external-link" href={link.redirect_url} target="_blank" rel="noreferrer">
-    <Icon name="link" width={15} height={15} /><span>{link.label}</span>
+    <ProfileLinkIcon platform={link.platform} /><span>{link.label}</span>
     <Icon name="external" width={12} height={12} className="external-indicator" />
   </a>;
 }
