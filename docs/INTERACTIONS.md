@@ -153,6 +153,28 @@ remain original authored publications; `/profiles/{username}/reposts` is separat
 
 ## Threaded post replies
 
+### Automatic author threads
+
+An author thread starts with a standalone post and follows only replies owned by
+that post's owner. Multiple author branches are combined chronologically; parent
+links retain their exact targets. Replies through another account, article
+comments, and self-replies inside somebody else's discussion remain ordinary replies.
+`reply.root_id` identifies a root reply, not the original author-thread post.
+
+`GET /posts/{post_id}/thread` returns the original separately and up to 20
+continuations by default, with a root-bound ascending cursor and a maximum limit
+of 50. Parts use creation time then ID, ascending. Deleted connectors remain only
+when needed by a live author continuation; their erased content is never returned.
+Owner-visible archives make affected parts read only. The endpoint is private,
+no-store, and applies original and branch visibility on every read.
+
+Original cards in public/following feeds, profile timelines, and pins can carry
+`thread_preview` with at most two continuations and `has_more`. Continuations and
+authors are read in batches. Nested parts contain no further preview or viewer
+reaction state. Cached public pages rebuild previews with current branch visibility.
+Adding a continuation never changes the original post's creation or feed time.
+Membership is derived from existing edges; no migration or thread collection is needed.
+
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/posts/{post_id}/replies` | Roots, or direct children of query `parent_id` |

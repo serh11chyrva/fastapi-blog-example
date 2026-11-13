@@ -57,12 +57,16 @@ class FeedRepository:
     """Coordinate feature repositories for deterministic mixed publication pages."""
 
     @staticmethod
-    async def load_feed_type(kind: PublicationKind, conditions: dict[str, Any], limit: int) -> list[FeedEntry]:
+    async def load_feed_type(
+        kind: PublicationKind, conditions: dict[str, Any], limit: int,
+        group_for_profile: PydanticObjectId | None = None,
+    ) -> list[FeedEntry]:
         """Load one publication type with an extra item for cursor pagination.
 
         :param kind: Event type to load: micro_post, article, or repost.
         :param conditions: MongoDB filters applied before ordering and pagination.
         :param limit: Maximum number of entries to return in this page.
+        :param group_for_profile: Optional profile whose eligible self-replies are suppressed before pagination.
         :return: Feed entries ordered newest first, up to limit plus one.
         """
         if kind == "repost":
@@ -87,7 +91,7 @@ class FeedRepository:
             ]
 
         if kind == "micro_post":
-            posts = await PostRepository.load_feed(conditions, limit)
+            posts = await PostRepository.load_feed(conditions, limit, group_for_profile)
 
             return [FeedEntry(post, post.created_at) for post in posts]
 

@@ -19,7 +19,9 @@ router = APIRouter(prefix="/feeds")
     summary="Read the public feed",
     description=(
         "Chronological mixed feed of public posts, published articles, and post repost events. "
-        "kind=micro_post includes reposts; kind=article excludes them. Reposts retain their original post and author."
+        "kind=micro_post includes reposts; kind=article excludes them. Reposts retain their original post and author. "
+        "Standalone post cards include up to two connected same-owner continuations in thread_preview; "
+        "their chronological position remains the original publication time."
     ),
     tags=["Feeds"],
     responses=documented_responses(503),
@@ -58,6 +60,7 @@ async def public_feed(
     description=(
         "Chronological public publications by followed authors and reposts by followed accounts. "
         "A repost can introduce a post by an unfollowed author. kind=micro_post includes reposts. "
+        "Original posts include automatic author-thread previews without changing their publication time. "
         "Requires a session cookie."
     ),
     tags=["Feeds"],

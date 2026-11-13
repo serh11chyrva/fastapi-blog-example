@@ -368,6 +368,12 @@ for reply_example in (POST_REPLY, POST_REPLY_CHILD, ARTICLE_COMMENT):
         },
     }
 POST_REPLY_DELETED["publication"] = None
+THREAD_PART = FEED_POST | {
+    "id": POST_REPLY["id"], "text": POST_REPLY["text"], "reply": POST_REPLY["publication"]["reply"],
+    "share_url": None, "published_at": POST_REPLY["created_at"], "updated_at": POST_REPLY["updated_at"],
+}
+THREAD_PREVIEW = {"parts": [THREAD_PART], "has_more": False}
+AUTHOR_THREAD_PAGE = {"root": FEED_POST, "items": [THREAD_PART], "next_cursor": None}
 POST_REPLY_PAGE = {"items": [POST_REPLY], "next_cursor": None}
 ARTICLE_COMMENT_PAGE = {"items": [ARTICLE_COMMENT], "next_cursor": None}
 ARTICLE_PREVIEW = {

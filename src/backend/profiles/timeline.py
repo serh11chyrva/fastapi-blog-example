@@ -10,6 +10,7 @@ from backend.feeds.presenters import feed_item, repost_item
 from backend.feeds.repository import FeedRepository
 from backend.feeds.schemas import PostFeedItem, ProfileTimelinePage
 from backend.posts.models import MicroPost
+from backend.posts.threads import attach_thread_previews
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
 
@@ -62,4 +63,8 @@ async def profile_timeline(user: User, cursor_text: str | None, limit: int) -> P
         created_at, kind, event_id, _ = page[-1]
         next_cursor = FeedCursor(created_at, kind, PydanticObjectId(event_id)).encode()
 
+    await attach_thread_previews(
+        [item for item in items if item.kind == "micro_post" and item.reply is None],
+        [post for post in originals if post.reply is None],
+    )
     return ProfileTimelinePage(items=items, next_cursor=next_cursor)

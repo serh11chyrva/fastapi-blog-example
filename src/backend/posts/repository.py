@@ -24,16 +24,19 @@ class PostRepository:
         return await MicroPost.get(post_id, session=session)
 
     @staticmethod
-    async def load_feed(conditions: dict[str, Any], limit: int) -> list[MicroPost]:
+    async def load_feed(
+        conditions: dict[str, Any], limit: int, group_for_profile: PydanticObjectId | None = None,
+    ) -> list[MicroPost]:
         """Load a bounded publication page with one continuation candidate.
 
         :param conditions: Visibility, author, and cursor filters supplied by the feed coordinator.
         :param limit: Page size before the extra continuation candidate.
+        :param group_for_profile: Optional profile whose author-thread continuations are grouped before limiting.
         :return: Documents ordered by publication time and identifier descending.
         """
         rows = await MicroPost.aggregate([
             {"$match": conditions}, {"$sort": {"created_at": -1, "_id": -1}},
-            *visible_post_stages(), {"$limit": limit + 1},
+            *visible_post_stages(group_for_profile=group_for_profile), {"$limit": limit + 1},
         ]).to_list()
         return [MicroPost.model_validate(row) for row in rows]
 

@@ -2,6 +2,28 @@
 
 ## Conversation paths
 
+### Automatic author threads
+
+`GET /api/v1/posts/{post_id}/thread?limit=20` accepts a standalone original ID and
+returns `{root, items, next_cursor}`. The root is separate from the continuation
+page. `limit` counts continuations, defaults to 20, and is bounded to 1–50.
+Pass `next_cursor` unchanged as `cursor` for that same original. Parts are ordered
+by creation time then ID ascending. A cursor from another thread returns 422.
+Reply IDs and unavailable originals return 404. Responses are private, no-store.
+
+A thread contains only same-owner paths from a standalone post. Both author
+branches belong; a different owner's intervening reply breaks membership.
+Deleted connectors use the context tombstone shape when they lead to live author
+parts. Deleted leaves are omitted. Archives require the relevant owner's access.
+
+Grouped original feed/pin cards can include `thread_preview: {parts, has_more}`.
+Its up to two continuations make three displayed parts including the original.
+Parts are nonrecursive post cards or tombstones, with no personalized reaction
+flags. Public cache hits rebuild previews from currently visible documents.
+The feed cache namespace is versioned separately for this additive representation.
+
+### Selected post context
+
 `GET /api/v1/posts/{post_id}/context` returns `{post, original, ancestors, read_only}`.
 `original` is a compact post/article or null for a standalone post. `ancestors` holds
 only the reply path, oldest first. Live entries use the ordinary post response;

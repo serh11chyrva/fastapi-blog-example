@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 
 from backend.api import examples
 from backend.api.metadata import Origin, PostId, documented_responses
@@ -12,12 +12,43 @@ from backend.core.resources import Resources
 from backend.links.presentation import hydrate_publications
 from backend.posts.presenters import post_response
 from backend.posts.context import PostContext, post_context
+from backend.feeds.schemas import AuthorThreadPage
+from backend.posts.threads import author_thread_page
 from backend.posts.schemas import MicroPostCreate, MicroPostResponse, PostDraftRequest
 from backend.posts.service import PostService
 from backend.publications.access import publication_is_public
 from backend.publications.queries import load_authors
 
 router = APIRouter()
+
+
+@router.get(
+    "/posts/{post_id}/thread", response_model=AuthorThreadPage, tags=["Micro-posts"],
+    summary="Read an automatic author thread",
+    description="A standalone original and connected same-owner continuations in ascending creation-time and ID order. "
+    "Branches through another account are excluded. Deleted connectors retain navigation-only tombstones. "
+    "The original is returned separately; limit counts continuations.",
+    responses=documented_responses(404, 422, 503), openapi_extra={"security": [{}, {"SessionCookie": []}]},
+)
+async def get_author_thread(
+    post_id: PostId, resources: Resources, current_user: OptionalUser, response: Response,
+    cursor: Annotated[str | None, Query(max_length=512, description="Root-bound cursor from the preceding page.")] = None,
+    limit: Annotated[int, Query(ge=1, le=50, description="Continuations per page; defaults to 20.")] = 20,
+) -> AuthorThreadPage:
+    """Read a bounded author-thread page with current visibility checks.
+
+    :param post_id: Standalone original post identifier.
+    :param resources: Cache infrastructure for current attachment presentations.
+    :param current_user: Optional owner allowed to read archived content.
+    :param response: HTTP response receiving a private cache policy.
+    :param cursor: Root-bound position from the previous page, or None.
+    :param limit: Maximum number of continuations to return.
+    :return: Original post and one ascending page of author continuations.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    return await hydrate_publications(
+        resources.redis, await author_thread_page(post_id, cursor, limit, current_user.id if current_user else None),
+    )
 
 
 @router.get(

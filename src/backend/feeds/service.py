@@ -14,6 +14,7 @@ from backend.feeds.presenters import feed_item, repost_item
 from backend.feeds.repository import FeedEntry, FeedKind, FeedRepository, PublicationKind
 from backend.feeds.schemas import FeedResponse
 from backend.posts.models import MicroPost
+from backend.posts.threads import attach_thread_previews
 from backend.posts.visibility import visible_post_stages
 from backend.profiles.models import Follow, User
 from backend.profiles.repository import ProfileRepository
@@ -45,6 +46,10 @@ async def current_cached_feed(page: FeedResponse) -> FeedResponse | None:
         original.pinned_at = publication.pinned_at
         original.archived_at = None
         original.read_only = False
+    await attach_thread_previews(
+        [item for item in page.items if item.kind == "micro_post" and item.reply is None],
+        [item for item in current.values() if isinstance(item, MicroPost) and item.reply is None],
+    )
     return page
 
 
@@ -137,6 +142,11 @@ async def make_feed(
         last = page[-1]
         next_cursor = FeedCursor(last.published_at, last.kind, last.object_id).encode()
 
+    await attach_thread_previews(
+        [item for item in items if item.kind == "micro_post" and item.reply is None],
+        [entry.publication for entry in page if entry.repost is None
+         and isinstance(entry.publication, MicroPost) and entry.publication.reply is None],
+    )
     result = FeedResponse(items=items, next_cursor=next_cursor)
 
     if cache_key:
@@ -167,7 +177,7 @@ async def load_public_feed(
     except RedisError:
         version = "0"
 
-    key = f"feed:public:{version}:{kind}:{limit}:{cursor or 'first'}"
+    key = f"feed:public:threads-v1:{version}:{kind}:{limit}:{cursor or 'first'}"
 
     return await make_feed(resources, None, kind, cursor, limit, key)
 

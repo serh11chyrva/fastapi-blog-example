@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from backend.api import examples
 from backend.links.schemas import LinkPresentation
 from backend.posts.models import ReplyMetadata
+from backend.posts.schemas import ReplyTombstone
 from backend.profiles.schemas import ProfileUserResponse
 from backend.publications.attachments import PublicationAttachment
 from backend.publications.state import PublicationState
@@ -54,8 +55,8 @@ class FeedBase(LinkPresentation, PublicationState):
     )
 
 
-class PostFeedItem(FeedBase):
-    """Public or owner-only archived micro-post with images represented only in attachments."""
+class PostCard(FeedBase):
+    """Nonrecursive post card with no embedded thread or personalized interaction state."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_POST]})
 
@@ -65,6 +66,40 @@ class PostFeedItem(FeedBase):
     title: None = None
     summary: None = None
     thumbnail_url: None = None
+
+
+ThreadPart = Annotated[PostCard | ReplyTombstone, Field(discriminator="kind")]
+
+
+class ThreadPreview(BaseModel):
+    """Up to two continuations, making at most three displayed parts with their root."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.THREAD_PREVIEW]})
+
+    parts: list[ThreadPart] = Field(max_length=2, description="Author continuations in ascending creation order.")
+    has_more: bool = Field(description="Whether the full thread contains additional continuations.")
+
+
+class PostFeedItem(PostCard):
+    """Post card optionally enriched with its automatic author-thread preview."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [
+        examples.FEED_POST, examples.FEED_POST | {"thread_preview": examples.THREAD_PREVIEW},
+    ]})
+
+    thread_preview: ThreadPreview | None = Field(
+        default=None, description="Only standalone originals in grouped lists carry an author-thread preview.",
+    )
+
+
+class AuthorThreadPage(BaseModel):
+    """Original post and one ascending page of connected author continuations."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [examples.AUTHOR_THREAD_PAGE]})
+
+    root: PostCard
+    items: list[ThreadPart]
+    next_cursor: str | None = Field(description="Root-bound continuation cursor, or null at the end.")
 
 
 class ArticleFeedItem(FeedBase):

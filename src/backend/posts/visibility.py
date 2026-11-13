@@ -19,11 +19,13 @@ def archive_filter(viewer_id: PydanticObjectId | None, prefix: str = "") -> dict
 
 def visible_post_stages(
     prefix: str = "", viewer_id: PydanticObjectId | None = None,
+    group_for_profile: PydanticObjectId | None = None,
 ) -> list[dict[str, Any]]:
     """Exclude posts hidden by their archive, original, or any archived ancestor.
 
     :param prefix: Dotted path to the post, or empty for the aggregation root.
     :param viewer_id: Optional owner for private discussion reads; public lists omit it.
+    :param group_for_profile: Profile whose eligible author continuations must be omitted before pagination.
     :return: Visibility stages applied before pagination, ranking, or counting.
     """
     path = f"{prefix}." if prefix else ""
@@ -53,5 +55,33 @@ def visible_post_stages(
             {f"{path}reply.kind": "article", "_reply_article.0": {"$exists": True}},
             {f"{path}reply.kind": "micro_post", "_reply_post.0": {"$exists": True}},
         ]}},
+        *([grouped_continuation_stage(group_for_profile, prefix)] if group_for_profile is not None else []),
         {"$unset": ["_reply_article", "_reply_post", "_reply_ancestors"]},
     ]
+
+
+def grouped_continuation_stage(profile_id: PydanticObjectId, prefix: str = "") -> dict[str, Any]:
+    """Suppress connected self-replies only when their original belongs to this profile.
+
+    :param profile_id: Profile account whose chronological activity is being selected.
+    :param prefix: Optional dotted path to the post inside the aggregation row.
+    :return: A filter using the visibility pipeline's already loaded original and ancestor documents.
+    """
+    path = f"${prefix}." if prefix else "$"
+    root_owner = {"$ifNull": [{"$arrayElemAt": ["$_reply_post.owner_id", 0]}, None]}
+    root_featured = {"$ifNull": [{"$arrayElemAt": ["$_reply_post.featured_author_ids", 0]}, []]}
+    grouped = {"$and": [
+        {"$eq": [f"{path}reply.kind", "micro_post"]},
+        {"$eq": [f"{path}owner_id", root_owner]},
+        {"$or": [{"$eq": [root_owner, profile_id]}, {"$in": [profile_id, root_featured]}]},
+        {"$eq": [{"$size": "$_reply_ancestors"}, {"$ifNull": [f"{path}reply.depth", -1]}]},
+        {"$allElementsTrue": [{"$map": {
+            "input": "$_reply_ancestors", "as": "ancestor", "in": {"$and": [
+                {"$eq": ["$$ancestor.owner_id", f"{path}owner_id"]},
+                {"$eq": ["$$ancestor.reply.kind", "micro_post"]},
+                {"$eq": ["$$ancestor.reply.publication_id", f"{path}reply.publication_id"]},
+                {"$ne": ["$$ancestor.pending", True]},
+            ]},
+        }}]},
+    ]}
+    return {"$match": {"$expr": {"$not": [grouped]}}}

@@ -97,3 +97,58 @@ def publication_store(monkeypatch):
     monkeypatch.setattr(Article, "get", get_article)
     monkeypatch.setattr(ProfileRepository, "users_by_ids", users_by_ids)
     return SimpleNamespace(posts=posts, articles=articles, users=users, user=user, post=post, article=article, now=now)
+
+
+@pytest.fixture
+def thread_store(publication_store, monkeypatch):
+    """Replace only Beanie's aggregate I/O while retaining thread selection and presentation.
+
+    :param publication_store: Isolated canonical documents.
+    :param monkeypatch: Pytest restoration of persistence boundaries.
+    :return: Publication store whose aggregation records all requested batches.
+    """
+    calls = []
+
+    class Rows:
+        """Minimal asynchronous Beanie result boundary for candidate documents."""
+
+        def __init__(self, rows):
+            """Retain candidate rows.
+
+            :param rows: Documents returned by the simulated database.
+            :return: None.
+            """
+            self.rows = rows
+
+        async def to_list(self):
+            """Serialize canonical documents as database rows.
+
+            :return: Stored rows, leaving graph eligibility to the production selector.
+            """
+            return [post.model_dump(by_alias=True) for post in self.rows]
+
+    def aggregate(pipeline, **kwargs):
+        """Select candidate rows from the aggregate's initial indexed filter.
+
+        :param pipeline: Actual production aggregation pipeline.
+        :param kwargs: Unused Beanie query options.
+        :return: Asynchronous candidate result.
+        """
+        calls.append(pipeline)
+        match = pipeline[0]["$match"]
+        roots = match["reply.publication_id"]["$in"]
+        owners = match["owner_id"]["$in"]
+        return Rows([post for post in publication_store.posts.values() if post.reply is not None
+                     and post.reply.publication_id in roots and post.owner_id in owners])
+
+    monkeypatch.setattr(MicroPost, "aggregate", aggregate)
+    def collection():
+        """Permit document validation without an initialized database connection.
+
+        :return: None.
+        """
+        return None
+
+    monkeypatch.setattr(MicroPost, "get_pymongo_collection", staticmethod(collection))
+    publication_store.aggregate_calls = calls
+    return publication_store

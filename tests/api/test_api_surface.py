@@ -37,4 +37,6 @@ async def test_openapi_exposes_the_versioned_auth_and_publication_routes() -> No
     assert "/api/v1/auth/register" in paths
     assert "/api/v1/auth/sessions/logout-others" in paths
     assert "/api/v1/feeds/public" in paths
+    assert "/api/v1/posts/{post_id}/context" in paths
+    assert "/api/v1/posts/{post_id}/thread" in paths
     assert "/api/v1/articles/{article_id}/publish" in paths

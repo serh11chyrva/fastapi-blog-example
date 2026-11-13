@@ -16,6 +16,7 @@ from backend.feeds.cursors import FeedCursor
 from backend.feeds.presenters import feed_item
 from backend.feeds.schemas import ArticleFeedItem, PostFeedItem
 from backend.posts.models import MicroPost
+from backend.posts.threads import attach_thread_previews
 from backend.posts.visibility import visible_post_stages
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
@@ -143,7 +144,12 @@ class PublicationStateService:
             key=lambda item: (item.pinned_at, "micro_post" if isinstance(item, MicroPost) else "article", str(item.id)),
             reverse=True,
         )[:5]
-        return await self._cards(items)
+        cards = await self._cards(items)
+        await attach_thread_previews(
+            [card for card in cards if card.kind == "micro_post" and card.reply is None],
+            [item for item in items if isinstance(item, MicroPost) and item.reply is None],
+        )
+        return cards
 
     async def _cards(self, publications: list[MicroPost | Article]) -> list[PostFeedItem | ArticleFeedItem]:
         """Present a bounded publication page using one batched author query.

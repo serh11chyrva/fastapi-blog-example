@@ -102,6 +102,10 @@ Read roots first, then request each parent's direct children with bounded pagina
 GET `/posts/{id}/context` returns the selected post, its original publication, and all ancestors
 in reading order. Deleted replies expose only their ID, dates, and discussion metadata.
 This private, no-store response preserves navigation through deleted parents without exposing erased content.
+GET `/posts/{id}/thread` reads a standalone original and a cursor-paginated page of
+same-owner continuations, ordered by creation time and ID ascending. Other owners break
+membership; deleted connectors are content-free. Original feed/pin cards can carry
+up to two continuation cards in `thread_preview`, with no nested preview or viewer flags.
 Article `/articles/{id}/comments` also support parent_id. Both accept trimmed plain text up
 to 280 characters, with an attachment required for blank text. Only the comment author may edit or delete. Deleted entries retain a tombstone
 with null text/author, preserving children. New replies require a live parent in the same post.
