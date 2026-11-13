@@ -137,6 +137,9 @@ New likes and reposts notify the target owner; new comments notify the original 
 replies also notify the immediate parent owner. Recipients are deduplicated and social self-actions
 are excluded. Undoing likes/reposts and deleting comments retract their source events transactionally.
 Private saves and content edits create no notification.
+Every successful password login creates a separate login notification with readable creation-time
+device and approximate location labels, linked to session settings. Raw IP and User-Agent are not
+returned. Registration, session restoration, and rejected logins do not create notifications.
 
 ### Pagination and conventions
 Feeds return newest-first pages. Pass `next_cursor` unchanged as the next request's

@@ -123,3 +123,39 @@ whose target becomes unavailable remain as placeholders. Source mutation, search
 updates where applicable, notifications, and the existing audit are committed in
 the same transaction. Archiving, unpublishing, or closing a discussion retains
 events and changes only their current target availability.
+
+## Successful login notifications
+
+`SessionService.create` adds one `login` notification in the transaction that
+persists the new session, any password hash upgrade, and `LOGIN_SUCCEEDED` audit.
+Every successful password login produces an event, rather than attempting to
+infer whether a device is new. Registration, rejected credentials, and ordinary
+session restoration do not emit events.
+
+Readable device and approximate location labels use the existing session
+presentation helpers and local optional GeoIP database. They are captured off the
+event loop before the transaction. Missing data uses `Unknown browser`,
+`Unknown device`, or `Unknown location` as appropriate. The notification does not
+contain raw IP addresses, raw User-Agents, password data, or session tokens.
+Later activity, expiry, and revocation do not alter or remove the captured event.
+
+Example login row:
+
+```json
+{
+  "id": "68ebd423f2b7a8c901234565",
+  "version": 1,
+  "is_read": false,
+  "last_event_at": "2026-11-13T10:20:00Z",
+  "kind": "login",
+  "login": {
+    "client_type": "web",
+    "device": "Chrome on Windows",
+    "location": "Kyiv, Ukraine"
+  },
+  "url": "/settings/sessions"
+}
+```
+
+System categories extend the typed inbox union and internal emission service;
+clients cannot supply arbitrary notification payloads through a public endpoint.

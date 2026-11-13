@@ -1,19 +1,38 @@
 """Session persistence and audited revocation, independent of HTTP cookies."""
 
+from asyncio import to_thread
 from datetime import UTC, datetime, timedelta
 
 from beanie import PydanticObjectId
+from geoip2.database import Reader
 
 from backend.audit.context import AuditContext
 from backend.audit.service import record_audit
 from backend.auth.client import ClientType
 from backend.auth.models import AuthIdentity, AuthSession
+from backend.auth.presentation import format_device, format_location
 from backend.auth.security import hash_session_token, new_session_token
 from backend.core.config import get_settings
 from backend.core.errors import NotFound
 from backend.core.resources import AppResources
 from backend.core.transactions import transaction
+from backend.notifications.models import LoginDetails
+from backend.notifications.service import NotificationService
 from backend.profiles.models import User
+
+
+def _login_details(session: AuthSession, reader: Reader | None) -> LoginDetails:
+    """Capture readable creation-time metadata without retaining raw IP or User-Agent in the inbox.
+
+    :param session: Prepared login session whose initial client metadata is being captured.
+    :param reader: Optional local GeoIP database; missing or unknown data uses the existing fallback label.
+    :return: An immutable-in-use snapshot of readable client, device, and approximate location labels.
+    """
+    return LoginDetails(
+        client_type=session.client_type,
+        device=format_device(session),
+        location=format_location(session.ip_address, reader),
+    )
 
 
 def prepare_session(
@@ -69,7 +88,12 @@ class SessionService:
         client_type: ClientType = ClientType.WEB,
         device_name: str | None = None,
     ) -> str:
-        """Persist the session, optional password upgrade, and audit atomically.
+        """Persist the session, optional password upgrade, login notification, and audit atomically.
+
+        Readable device and location labels are captured off the event loop before
+        opening the transaction. Registration uses prepare_session directly and
+        does not create a login event. Later session activity or revocation does
+        not change the notification's creation-time labels.
 
         :param user: User account used by the operation.
         :param identity_to_upgrade: Password identity carrying a replacement hash, if
@@ -85,6 +109,7 @@ class SessionService:
             client_type=client_type,
             device_name=device_name,
         )
+        details = await to_thread(_login_details, session, self.resources.geoip)
 
         async with transaction(self.resources.mongo) as db_session:
             await session.insert(session=db_session)
@@ -102,6 +127,10 @@ class SessionService:
                 target_type="session",
                 target_id=str(session.id),
                 session=db_session,
+            )
+            await NotificationService(self.resources).emit(
+                recipient_id=user.id, actor_id=None, kind="login", source_kind="session",
+                source_id=session.id, occurred_at=session.created_at, login=details, session=db_session,
             )
 
         return token

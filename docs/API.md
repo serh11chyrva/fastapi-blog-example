@@ -215,6 +215,11 @@ Session list response:
 
 The session ID can be passed to `DELETE /auth/sessions/{session_id}`. Other users' session IDs are concealed as `404`. `/auth/sessions/logout-others` and `/auth/logout` return `204`.
 
+Each successful password login also creates a private [login notification](NOTIFICATIONS.md#successful-login-notifications)
+in the session transaction. Its readable device/location snapshot remains unchanged
+after subsequent activity or revocation. Registration, failed login attempts, and
+session restoration do not create notifications.
+
 ## Profiles and follows
 
 | Method | Path | Access | Purpose |

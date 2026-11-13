@@ -132,7 +132,8 @@ async def register(
         "Accepts an email address or username, optionally prefixed with @. Successful login "
         "sets the HttpOnly session cookie and returns the account. Limited to eight attempts "
         "per ten minutes per IP address and identifier. Accepts client_type (web by default, "
-        "mobile, or desktop) and an optional device_name for apps."
+        "mobile, or desktop) and an optional device_name for apps. Creates a private login notification "
+        "with readable creation-time device and location labels in the session transaction."
     ),
     tags=["Authentication"],
     responses=documented_responses(401, 403, 409, 429, 503),
