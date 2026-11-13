@@ -23,15 +23,16 @@ def object_id(value: str) -> PydanticObjectId:
     return PydanticObjectId(value)
 
 
-async def readable_publication(
+async def readable_publication_path(
     kind: PublicationKind,
     publication_id: str,
     viewer_id: PydanticObjectId | None = None,
     session: AsyncClientSession | None = None,
     *,
     touch: bool = False,
-) -> MicroPost | Article:
-    """Require access to a publication, its original, and every archived ancestor.
+    allow_deleted_reply: bool = False,
+) -> list[MicroPost | Article]:
+    """Read authorized dependencies in selected, original, then nearest-parent order.
 
     Deleted reply ancestors retain navigation to surviving children. Each archive
     grants read access only to its owner. Visibility dependencies are touched for
@@ -42,18 +43,22 @@ async def readable_publication(
     :param viewer_id: Optional account allowed to read its own archived content.
     :param session: Optional caller transaction session.
     :param touch: Increment internal revisions to serialize visibility-sensitive writes.
-    :return: The accessible publication; inaccessible resources raise not-found.
+    :param allow_deleted_reply: Permit a selected deleted reply only for content-free navigation.
+    :return: Authorized dependency documents; inaccessible resources raise not-found.
     """
     model = MicroPost if kind == "micro_post" else Article
     publication = await model.get(object_id(publication_id), session=session)
-    if publication is None or publication.deleted_at is not None:
+    if publication is None or (publication.deleted_at is not None and not (
+        allow_deleted_reply and isinstance(publication, MicroPost) and publication.reply is not None
+    )):
         raise NotFound("Publication not found")
     dependencies: list[MicroPost | Article] = [publication]
     if isinstance(publication, MicroPost) and publication.reply is not None:
         context = publication.reply
         original_model = MicroPost if context.kind == "micro_post" else Article
         original = await original_model.get(context.publication_id, session=session)
-        if original is None or original.deleted_at is not None:
+        if (original is None or original.deleted_at is not None
+                or isinstance(original, MicroPost) and original.reply is not None):
             raise NotFound("Publication not found")
         dependencies.append(original)
         parent_id = context.parent_id
@@ -81,7 +86,28 @@ async def readable_publication(
             if session is None:
                 raise ValueError("Publication mutation guards require a transaction")
             await item.update({"$inc": {"interaction_revision": 1}}, session=session)
-    return publication
+    return dependencies
+
+
+async def readable_publication(
+    kind: PublicationKind,
+    publication_id: str,
+    viewer_id: PydanticObjectId | None = None,
+    session: AsyncClientSession | None = None,
+    *,
+    touch: bool = False,
+) -> MicroPost | Article:
+    """Require a live publication and authorized access to its entire discussion path.
+
+    :param kind: Publication collection to read.
+    :param publication_id: String publication identifier.
+    :param viewer_id: Optional owner allowed to read its archived content.
+    :param session: Optional caller transaction session.
+    :param touch: Guard mutations against concurrent changes to visibility dependencies.
+    :return: The accessible live publication; inaccessible resources raise not-found.
+    """
+    path = await readable_publication_path(kind, publication_id, viewer_id, session, touch=touch)
+    return path[0]
 
 
 async def public_publication(

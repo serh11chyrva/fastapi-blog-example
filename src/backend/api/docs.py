@@ -99,6 +99,9 @@ GET `/profiles/{username}/reposts` returns public repost history. The profile ti
 Comment events carry their own `created_at` and `updated_at`.
 Post discussions use `/posts/{id}/replies`, with optional parent_id and immutable root_id/depth.
 Read roots first, then request each parent's direct children with bounded pagination at any depth.
+GET `/posts/{id}/context` returns the selected post, its original publication, and all ancestors
+in reading order. Deleted replies expose only their ID, dates, and discussion metadata.
+This private, no-store response preserves navigation through deleted parents without exposing erased content.
 Article `/articles/{id}/comments` also support parent_id. Both accept trimmed plain text up
 to 280 characters, with an attachment required for blank text. Only the comment author may edit or delete. Deleted entries retain a tombstone
 with null text/author, preserving children. New replies require a live parent in the same post.

@@ -211,6 +211,20 @@ deletion by the same author returns 204. Deleted text cannot be edited or restor
 
 ## Article replies and compatibility routes
 
+### Conversation context
+
+`GET /posts/{post_id}/context` returns `{post, original, ancestors}`. For a standalone
+post, `original` is null and `ancestors` is empty. Reply context includes a compact
+original post/article and only the path to the selected reply, with ancestors ordered
+from the oldest reply to its immediate parent. All live authors are loaded in a batch.
+
+Live selected/ancestor posts use the ordinary post response. A deleted reply uses
+`{kind: "deleted_reply", id, reply, created_at, updated_at}`; text, author, attachments,
+and share slugs are never exposed. Deleted standalone originals remain unavailable.
+Archives require the owner of every archived dependency; inherited archive state
+makes descendant controls read only. Responses use `Cache-Control: private, no-store`.
+Cycles, broken membership, pending posts, and unavailable originals return 404.
+
 `/articles/{article_id}/comments` lists root replies and accepts optional `parent_id`
 on reads and creation. Each result includes `parent_id`, `root_id`, `depth`, and
 `replies_count`, plus a `publication` containing the ordinary post response for live

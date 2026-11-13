@@ -12,6 +12,16 @@ from backend.publications.attachments import PublicationAttachment, PublicationA
 from backend.publications.state import PublicationState
 
 
+class ReplyTombstone(BaseModel):
+    """Content-free deleted reply retaining only its navigable discussion position."""
+
+    kind: Literal["deleted_reply"] = "deleted_reply"
+    id: str = Field(description="Deleted reply ID, usable on the context page.")
+    reply: ReplyMetadata = Field(description="Preserved original and parent references; no erased content is exposed.")
+    created_at: datetime
+    updated_at: datetime
+
+
 class PostDraftRequest(BaseModel):
     """Client-generated retry key for an owner-only upload staging post."""
 

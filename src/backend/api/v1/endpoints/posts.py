@@ -11,12 +11,38 @@ from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.resources import Resources
 from backend.links.presentation import hydrate_publications
 from backend.posts.presenters import post_response
+from backend.posts.context import PostContext, post_context
 from backend.posts.schemas import MicroPostCreate, MicroPostResponse, PostDraftRequest
 from backend.posts.service import PostService
 from backend.publications.access import publication_is_public
 from backend.publications.queries import load_authors
 
 router = APIRouter()
+
+
+@router.get(
+    "/posts/{post_id}/context", response_model=PostContext, tags=["Micro-posts"],
+    summary="Read a post conversation path",
+    description="Selected post, original publication, and all reply ancestors in reading order. "
+    "Deleted replies are content-free navigation tombstones. Archived dependencies require their owner's session.",
+    responses=documented_responses(404, 503),
+    openapi_extra={"security": [{}, {"SessionCookie": []}]},
+)
+async def get_post_context(
+    post_id: PostId, resources: Resources, current_user: OptionalUser, response: Response,
+) -> PostContext:
+    """Read the authorized path to a live post or deleted reply.
+
+    :param post_id: Selected post or deleted reply identifier.
+    :param resources: Application-owned cache used for attachment presentations.
+    :param current_user: Optional session granting owner-only archived reads.
+    :param response: HTTP response receiving a private cache policy.
+    :return: The selected publication and its ordered discussion context.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    return await hydrate_publications(
+        resources.redis, await post_context(post_id, current_user.id if current_user else None),
+    )
 
 
 def get_posts_service(resources: Resources, audit: Audit) -> PostService:

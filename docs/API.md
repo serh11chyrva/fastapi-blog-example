@@ -1,5 +1,19 @@
 # FastAPI Blog Example API reference
 
+## Conversation paths
+
+`GET /api/v1/posts/{post_id}/context` returns `{post, original, ancestors, read_only}`.
+`original` is a compact post/article or null for a standalone post. `ancestors` holds
+only the reply path, oldest first. Live entries use the ordinary post response;
+deleted replies expose `{kind: "deleted_reply", id, reply, created_at, updated_at}`.
+No erased text, author, attachment, or share slug is returned. The selected reply
+may itself be a tombstone so readers can navigate to surviving children.
+
+Access checks cover the original and every ancestor, including owner-only archives.
+Pending posts, unavailable originals, broken paths, and cycles return 404. Context
+responses use `Cache-Control: private, no-store`. Existing post and discussion reads
+retain their response shapes and deletion rules.
+
 This guide documents the implemented API in addition to the interactive Scalar reference at `http://localhost:8080/api/docs` and its machine-readable schema at `/api/openapi.json`. Endpoint metadata is declared beside each route; required cookie security is generated from authentication dependencies, and optional-session reads explicitly allow anonymous access.
 
 HTTP handlers live in `src/backend/api/`. The `/api` router includes its `/v1`
