@@ -12,6 +12,10 @@ A demo microblog built with FastAPI, MongoDB, Redis, React, and Garage.
 - Profile editing and active session management.
 - Public full-text search across people, posts, articles, replies, and comments, with linked Unicode hashtags.
 
+The shared footer links to the [GitHub repository](https://github.com/serh11chyrva/fastapi-blog-example),
+the API reference at `/api/docs`, and the public `/legal` page. The short Legal disclaimer covers the
+[MIT license](LICENSE), demo warranties, session cookies, MongoDB Atlas, external content, and independent forks.
+
 ## Start the application
 
 Run the commands from the repository root in PowerShell with Docker Desktop running. If you need an `.env` file, copy the example.

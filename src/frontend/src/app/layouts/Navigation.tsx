@@ -162,7 +162,12 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
 
 export function Footer({ reading = false }: { reading?: boolean }) {
   return <footer className="page-footer"><span>© {new Date().getFullYear()} {siteName}</span>
-    {reading && <a href="#top">Back to top ↑</a>}
+    <nav className="footer-links" aria-label="Footer navigation">
+      <a href="https://github.com/serh11chyrva/fastapi-blog-example" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="/api/docs" target="_blank" rel="noopener noreferrer">API Docs</a>
+      <Link to="/legal">Legal</Link>
+      {reading && <a href="#top">Back to top ↑</a>}
+    </nav>
   </footer>;
 }
 

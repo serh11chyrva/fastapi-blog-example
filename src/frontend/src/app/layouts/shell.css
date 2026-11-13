@@ -104,6 +104,7 @@
 .discovery-person > a:first-child { flex: none; }
 .discovery-person > span { min-width: 0; overflow-wrap: anywhere; }
 .page-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding: 20px 24px; color: var(--quiet); font-size: 10px; }
+.footer-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .page-footer a:hover { text-decoration: underline; }
 .mobile-bar { display: none; }
 .post-detail { width: min(100%, 680px); margin: 32px auto 0; border-inline: 1px solid var(--line); }

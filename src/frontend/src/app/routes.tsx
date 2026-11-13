@@ -17,6 +17,7 @@ import { SessionsPage } from "../features/profiles/sessions/SessionsPage";
 import { SavedPage } from "../features/interactions/SavedPage";
 import { PostPage } from "../features/feed/PostPage";
 import { ThreadPage } from "../features/feed/ThreadPage";
+import { LegalPage } from "../features/legal/LegalPage";
 import { EmptyState } from "../shared/ui/EmptyState";
 function NotFoundPage() {
   usePageTitle("Page not found");
@@ -34,6 +35,7 @@ export function AppRoutes() {
 
       <Route index element={<FeedPage />} />
       <Route path="search" element={<SearchPage />} />
+      <Route path="legal" element={<LegalPage />} />
 
 
       <Route path=":handle" element={<ProfilePage />} />
