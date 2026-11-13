@@ -175,6 +175,24 @@ reaction state. Cached public pages rebuild previews with current branch visibil
 Adding a continuation never changes the original post's creation or feed time.
 Membership is derived from existing edges; no migration or thread collection is needed.
 
+Explore, Following, and profile Posts render the first three parts, including the
+original, as one connected block. View thread opens `/posts/{id}/thread`; longer
+previews use View full thread. The full page loads continuations in pages of 20,
+with Retry retaining loaded parts after a failed subsequent read. Each part's
+comment icon opens that part's conversation at `#replies`.
+
+Profile grouping happens before pagination when the original belongs to that
+profile. A thread occupies one chronological position at its original time.
+Featured credit alone does not transfer thread ownership. Explicit repost events
+and pinned replies remain independent cards; a pinned original includes its preview.
+Search, bookmarks, and archives continue to list individual publications.
+
+Isolated behavior checks use `uv run --no-sync python -m pytest tests/api/test_post_context.py
+tests/api/test_author_threads.py`. Real query checks in
+`tests/integration/test_author_thread_queries.py` require `RUN_MONGODB_TESTS=1` and
+`MONGODB_URL` (for example through `uv run --env-file .env`). They create uniquely
+named `codex_thread_...` databases and remove only those databases during cleanup.
+
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/posts/{post_id}/replies` | Roots, or direct children of query `parent_id` |

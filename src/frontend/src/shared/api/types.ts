@@ -88,12 +88,16 @@ export type LinkResolution = {
   attachment: Extract<Attachment, { type: "embed" | "og_card" }>;
   player_url: string | null;
 };
-export type PostFeedItem = PublicationBase & {
+export type PostCard = PublicationBase & {
   kind: "micro_post";
   text: string;
   published_at: string;
   updated_at?: string | null;
 };
+export type ThreadPart = PostCard | ReplyTombstone;
+export type ThreadPreview = { parts: ThreadPart[]; has_more: boolean };
+export type PostFeedItem = PostCard & { thread_preview?: ThreadPreview | null };
+export type AuthorThreadPage = CursorPage<ThreadPart> & { root: PostCard };
 export type ArticleFeedItem = PublicationBase & {
   kind: "article";
   title: string;

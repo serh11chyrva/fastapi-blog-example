@@ -10,8 +10,8 @@ from backend.articles.models import Article
 from backend.articles.repository import ArticleRepository
 from backend.interactions.models import PublicationInteraction
 from backend.posts.models import MicroPost
-from backend.posts.visibility import visible_post_stages
 from backend.posts.repository import PostRepository
+from backend.posts.visibility import visible_post_stages
 
 type PublicationKind = Literal["micro_post", "article", "repost"]
 type FeedKind = Literal["all", "micro_post", "article"]

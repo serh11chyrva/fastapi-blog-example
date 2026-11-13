@@ -49,11 +49,11 @@ export function PostDetail({ postId }: { postId: string }) {
     <button className="button-secondary" onClick={refresh}>Retry</button></>;
   if (!context) return <PublicationPageSkeleton kind="micro_post" />;
   return <div className="post-detail conversation">
-    {(context.original || context.ancestors.length > 0) && <div className="conversation-ancestors" aria-label="Earlier conversation">
+    {(context.original || context.ancestors.length > 0) && <div className="conversation-ancestors" role="region" aria-label="Earlier conversation">
       {context.original && <FeedCard item={context.original} onChanged={refresh} showContext={false} />}
       {context.ancestors.map((post) => <div key={post.id}>{card(post)}</div>)}
     </div>}
-    <div ref={selected} className="conversation-selected" aria-label="Selected post">{card(context.post, true)}</div>
+    <div ref={selected} className="conversation-selected" role="region" aria-label="Selected post">{card(context.post, true)}</div>
     {context.post.kind === "deleted_reply" && <section className="discussion deleted-discussion" id="replies" aria-label="Post replies">
       <h2>Replies</h2>
       <ReplyList kind={context.post.reply.kind} id={context.post.reply.publication_id}

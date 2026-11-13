@@ -102,7 +102,9 @@ async def list_profile_publications(
     "/users/{username}/timeline",
     response_model=ProfileTimelinePage,
     summary="List public profile activity",
-    description="Public authored posts, reposts, and live comments on published articles, newest first.",
+    description="Public authored posts, reposts, and live comments on published articles, newest first. "
+    "Connected self-replies are grouped under their standalone original before pagination. "
+    "Original publication time determines thread position; explicit reposts remain independent.",
     tags=["Profiles"],
     responses=documented_responses(404, 422, 503),
 )

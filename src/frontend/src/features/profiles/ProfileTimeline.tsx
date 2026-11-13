@@ -1,6 +1,6 @@
 import type { PostFeedItem, ProfileActivity } from "../../shared/api/types";
 import { useCursorList } from "../../shared/hooks/useCursorList";
-import { FeedCard } from "../feed/FeedCard";
+import { ThreadCard } from "../feed/ThreadCard";
 import { useApp } from "../../app/AuthProvider";
 import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
 import { PublicationListSkeleton } from "../publications/PublicationSkeleton";
@@ -17,8 +17,8 @@ export function ProfileTimeline({ username, pins, onChanged }: {
   function changed() { list.refresh(); onChanged(); }
   return <div className="feed-list">
     <div aria-busy={list.loading}>
-      {pins.map((item) => <FeedCard key={`pin:${item.id}`} item={item} onChanged={changed} />)}
-      {items.map((item) => <FeedCard key={activityKey(item)} item={item} onChanged={changed} />)}
+      {pins.map((item) => <ThreadCard key={`pin:${item.id}`} item={item} onChanged={changed} />)}
+      {items.map((item) => <ThreadCard key={activityKey(item)} item={item} onChanged={changed} />)}
     </div>
     {list.loading && !list.error && <PublicationListSkeleton count={list.items.length || list.cursor || pins.length ? 2 : 3}
       label="Loading activity…" />}

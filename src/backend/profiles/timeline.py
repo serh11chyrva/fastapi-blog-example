@@ -16,12 +16,12 @@ from backend.profiles.repository import ProfileRepository
 
 
 async def profile_timeline(user: User, cursor_text: str | None, limit: int) -> ProfileTimelinePage:
-    """Merge live post, repost, and comment events without persisting copies.
+    """Merge public activity, grouping author continuations before cursor pagination.
 
     :param user: Public profile whose authorship and activity are listed.
     :param cursor_text: Opaque position from an earlier timeline page, or None.
     :param limit: Maximum number of entries to return.
-    :return: Chronological public activity and its continuation position.
+    :return: Chronological original/thread cards, independent reposts, and ordinary replies with a continuation cursor.
     """
     cursor = FeedCursor.decode(cursor_text, profile=True)
 
@@ -36,7 +36,7 @@ async def profile_timeline(user: User, cursor_text: str | None, limit: int) -> P
 
     posts = await FeedRepository.load_feed_type("micro_post", conditions("micro_post", {
         "deleted_at": None, "$or": [{"owner_id": user.id}, {"featured_author_ids": user.id}],
-    }), limit)
+    }), limit, group_for_profile=user.id)
     reposts = await FeedRepository.load_feed_type("repost", conditions("repost", {"user_id": user.id}), limit)
     events: list[tuple[datetime, TimelineKind, str, Any]] = [
         (*entry.sort_key, entry) for entry in [*posts, *reposts]

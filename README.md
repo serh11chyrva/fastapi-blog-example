@@ -5,6 +5,7 @@ A demo microblog built with FastAPI, MongoDB, Redis, React, and Garage.
 ## Features
 
 - Public profiles and feeds, with a following feed for signed-in users.
+- Publication-page discussions with complete reply ancestry and automatic author-thread previews and reading pages.
 - Short posts with images and rich-text articles with drafts and scheduled publishing.
 - Likes, saves, reposts, and discussions.
 - Unlimited owner-only archives and up to five profile pins shared across posts, replies, and published articles.

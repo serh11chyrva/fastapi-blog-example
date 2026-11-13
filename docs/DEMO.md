@@ -69,7 +69,7 @@ rich note, five-image gallery, publishing workbench, and a direct link to a rank
   caller-supplied Open Graph card, and a published article reference.
 - **Field note 02**, owned by Ben, has five uploaded images with alternate text and a
   featured author. New demo posts also include an article card and a quoted micro-post with
-  highlighted replies.
+  replies available through its publication-page discussion.
 - **A reading room for small ideas**, owned by Alice, includes a cover, two inline images,
   three heading levels, bold/italic/strike/inline-code marks, an external link, a hard break,
   bullet and ordered lists, a blockquote, code block, horizontal rule, inline mention and

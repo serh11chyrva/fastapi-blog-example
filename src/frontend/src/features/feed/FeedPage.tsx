@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { usePageTitle } from "../../app/usePageTitle";
 import { InfiniteScroll } from "../../shared/ui/InfiniteScroll";
 import { publicationEvent, publicationStateEvent } from "../interactions/events";
-import { FeedCard } from "./FeedCard";
+import { ThreadCard } from "./ThreadCard";
 import { useFeed } from "./useFeed";
 import { PublicationListSkeleton } from "../publications/PublicationSkeleton";
 
@@ -37,7 +37,7 @@ export function FeedPage({ following = false }: { following?: boolean }) {
       {following ? "Follow a writer to see their publications here." : "There are no publications yet."}
     </p>}
     <div aria-busy={loadingMore}>
-      {feed.items.map((item) => <FeedCard key={`${item.kind}:${item.id}`} item={item} onChanged={() => setRefreshKey((value) => value + 1)} />)}
+      {feed.items.map((item) => <ThreadCard key={`${item.kind}:${item.id}`} item={item} onChanged={() => setRefreshKey((value) => value + 1)} />)}
     </div>
     {loadingMore && !error && <PublicationListSkeleton count={busy ? 3 : 2} />}
     <InfiniteScroll hasMore={!!feed.next_cursor} loading={loadingMore} error={error} loadMore={loadMore} />

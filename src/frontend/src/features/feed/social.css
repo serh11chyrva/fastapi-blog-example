@@ -174,15 +174,23 @@
 
 .discussion { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
 .conversation-ancestors > * { position: relative; }
-.conversation-ancestors > *::after { content: ""; position: absolute; left: 35px; top: 61px; bottom: -6px; width: 2px; background: var(--line); pointer-events: none; }
+.conversation, .author-thread, .full-thread { --thread-axis: 41px; --thread-start: 61px; }
+.conversation-ancestors > *::after { content: ""; position: absolute; left: var(--thread-axis); top: var(--thread-start); bottom: -6px; width: 2px; background: var(--line); pointer-events: none; }
 .conversation-selected { position: relative; scroll-margin-top: 24px; border-block: 1px solid var(--line); background: var(--paper, #fff); }
 .conversation-selected > .feed-post { border-bottom: 0; }
-.deleted-reply { padding: 20px 24px; color: var(--muted); }
+.deleted-reply { padding: 20px 24px 20px 70px; color: var(--muted); }
 .deleted-discussion { margin: 0; padding: 20px 24px; }
 .discussion { scroll-margin-top: 24px; }
+.author-thread { border-bottom: 1px solid var(--line); }
+.thread-parts > * { position: relative; }
+.thread-parts > *:not(:last-child)::after { content: ""; position: absolute; left: var(--thread-axis); top: var(--thread-start); bottom: -6px; width: 2px; background: var(--line); pointer-events: none; }
+.thread-parts .feed-post { border-bottom: 0; }
+.thread-link { display: block; padding: 8px 24px 18px 66px; color: var(--muted); font-size: 12px; text-decoration: underline; }
+.thread-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--line); }
+.thread-heading h1 { font-size: 22px; font-weight: 650; letter-spacing: -.035em; }
+.thread-status, .thread-load-more { margin: 16px 24px; }
 .discussion-signin { margin-bottom: 12px; color: var(--muted); font-size: 12px; }
-.discussion .publication-composer, .inline-reply-composer .publication-composer { padding: 12px 0 18px; }
-.inline-reply-composer { margin-block: 10px 18px; }
+.discussion .publication-composer { padding: 12px 0 18px; }
 .discussion-signin .text-link { text-decoration: underline; }
 .discussion-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
 .discussion-header h2 { color: var(--ink); font-size: 19px; font-weight: 650; letter-spacing: -.035em; }
@@ -217,6 +225,9 @@
   .post-byline { gap: 0 6px; }
   .post-meta { font-size: 11px; }
   .post-actions { gap: clamp(10px, 4vw, 19px); }
+  .conversation, .author-thread, .full-thread { --thread-axis: 31px; --thread-start: 54px; }
+  .deleted-reply { padding-left: 57px; }
+  .thread-link { padding-left: 57px; }
   .longread-title-row { grid-template-columns: minmax(0, 1fr); gap: 5px; }
   .longread-title-row time { justify-self: start; }
   .articles-panel, .profile-articles-loading { padding: 14px 16px; }

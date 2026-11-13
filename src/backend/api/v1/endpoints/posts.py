@@ -9,13 +9,13 @@ from backend.api.metadata import Origin, PostId, documented_responses
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
 from backend.core.resources import Resources
-from backend.links.presentation import hydrate_publications
-from backend.posts.presenters import post_response
-from backend.posts.context import PostContext, post_context
 from backend.feeds.schemas import AuthorThreadPage
-from backend.posts.threads import author_thread_page
+from backend.links.presentation import hydrate_publications
+from backend.posts.context import PostContext, post_context
+from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostCreate, MicroPostResponse, PostDraftRequest
 from backend.posts.service import PostService
+from backend.posts.threads import author_thread_page
 from backend.publications.access import publication_is_public
 from backend.publications.queries import load_authors
 

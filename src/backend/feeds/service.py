@@ -21,10 +21,10 @@ from backend.profiles.repository import ProfileRepository
 
 
 async def current_cached_feed(page: FeedResponse) -> FeedResponse | None:
-    """Recheck cached originals in batches so failed invalidation cannot expose archives.
+    """Recheck cached originals and rebuild thread previews from current visible documents.
 
     :param page: Parsed public feed page read from Redis.
-    :return: The page with current pin state, or None when it must be rebuilt.
+    :return: The page with current pin and continuation state, or None when an original is inaccessible.
     """
     originals = [item.post if item.kind == "repost" else item for item in page.items]
     if any(not PydanticObjectId.is_valid(item.id) for item in originals):

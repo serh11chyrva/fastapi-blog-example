@@ -21,6 +21,10 @@ Its up to two continuations make three displayed parts including the original.
 Parts are nonrecursive post cards or tombstones, with no personalized reaction
 flags. Public cache hits rebuild previews from currently visible documents.
 The feed cache namespace is versioned separately for this additive representation.
+`/users/{username}/timeline` suppresses grouped continuations before applying its
+cursor and limit when the original is credited to the profile. A thread occupies
+its original post's time and ID position. Ordinary replies and repost events remain
+independent; profile pins remain explicit and may include individual continuations.
 
 ### Selected post context
 

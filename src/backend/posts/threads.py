@@ -120,7 +120,8 @@ async def attach_thread_previews(cards: list[PostFeedItem], roots: list[MicroPos
     :param roots: Corresponding public standalone original documents.
     :return: None.
     """
-    roots = [root for root in roots if root.reply is None]
+    eligible = {card.id for card in cards if card.reply is None}
+    roots = list({root.id: root for root in roots if root.reply is None and str(root.id) in eligible}.values())
     groups = await load_author_threads(roots)
     requested = [part for members in groups.values() for part in members[:2]]
     parts = {part.id: part for part in await thread_part_cards(requested)}

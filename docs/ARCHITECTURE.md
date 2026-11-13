@@ -11,7 +11,8 @@ Backend source lives in `src/backend/`; frontend source lives in `src/frontend/`
 Short publications optionally carry immutable `reply` metadata: original `kind` and
 `publication_id`, `parent_id`, `root_id`, and `depth`. Replies use the same post identity,
 ownership, attachment inventory, and interactions as ordinary posts. Public/following
-feeds select top-level posts and explicit reposts; profiles include authored replies.
+feeds select top-level posts and explicit reposts; profiles include ordinary authored
+replies while grouping connected same-owner continuations under their standalone original.
 Both new posts and replies have a 280-character text limit. Legacy synthetic replies
 are truncated to that limit during the explicit discussion migration.
 Feature packages own their behavior and persisted models. Shared infrastructure
@@ -396,13 +397,21 @@ paragraph; block movement selects the moved node through ProseMirror's valid
 selection resolution. Gallery resize preserves the current carousel slide, and
 removing the final image releases the viewer's page-scroll lock.
 
-Highlighted and full discussion entries share `ReplyThread`, including local reply
-forms and child loading. Highlighted reply actions retain the selected parent's ID
-instead of opening the original publication's composer. Reaction and discussion
-siblings have distinct React keys; visited discussion panels are hidden on close
-rather than remounted. This keeps one reaction row per rendered publication and
-preserves pagination and drafts across toggles. Reply owner actions use the byline
-menu; child disclosure appears only when the reply has children.
+Discussion entries share `ReplyThread` and publication controls. Comment actions
+are links to the selected entry's permalink at `#replies`; the destination owns
+its composer and direct-child pagination. Owner editing stays in the byline menu.
+Original and shared post URLs reuse `PostDetail`, including complete ancestry and
+content-free deleted connectors. Popular-reply previews and nested disclosure
+panels have been removed.
+
+Author-thread membership is derived from existing owner and parent references,
+including parallel same-owner branches. `ThreadCard` displays the original and
+at most two continuations; `/posts/{id}/thread` reads all parts incrementally.
+Profile queries suppress eligible continuations using already loaded original
+and ancestor documents before applying a page limit. Thread roots retain their
+original chronological position. Explicit reposts and pins remain independent.
+Thread preview cards omit nested previews and viewer reaction flags. Public-cache
+reads rebuild their previews to recheck current content and branch visibility.
 
 Link resolution bounds each preview-image range probe to three seconds and all image
 selection to eight seconds, retaining text when no declared image is reachable. Probes

@@ -16,6 +16,7 @@ import { ArticleEditorPage } from "../features/articles/ArticleEditorPage";
 import { SessionsPage } from "../features/profiles/sessions/SessionsPage";
 import { SavedPage } from "../features/interactions/SavedPage";
 import { PostPage } from "../features/feed/PostPage";
+import { ThreadPage } from "../features/feed/ThreadPage";
 import { EmptyState } from "../shared/ui/EmptyState";
 function NotFoundPage() {
   usePageTitle("Page not found");
@@ -62,6 +63,7 @@ export function AppRoutes() {
 
 
       <Route path="posts/:postId" element={<PostPage />} />
+      <Route path="posts/:postId/thread" element={<ThreadPage />} />
 
       <Route path="articles/:articleId" element={<ArticlePage />} />
 
