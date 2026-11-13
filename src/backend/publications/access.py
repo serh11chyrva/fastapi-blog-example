@@ -6,7 +6,7 @@ from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from backend.articles.models import Article
-from backend.core.errors import NotFound
+from backend.core.errors import Forbidden, NotFound
 from backend.posts.models import MicroPost
 
 type PublicationKind = Literal["micro_post", "article"]
@@ -31,12 +31,14 @@ async def readable_publication_path(
     *,
     touch: bool = False,
     allow_deleted_reply: bool = False,
+    discussion_write: bool = False,
 ) -> list[MicroPost | Article]:
     """Read authorized dependencies in selected, original, then nearest-parent order.
 
     Deleted reply ancestors retain navigation to surviving children. Each archive
     grants read access only to its owner. Visibility dependencies are touched for
-    mutations so archiving conflicts with concurrent interactions.
+    mutations so archiving or disabling comments conflicts with concurrent interactions.
+    Disabled article discussions are hidden even from archive owners.
 
     :param kind: Publication collection to read.
     :param publication_id: String publication identifier.
@@ -44,6 +46,7 @@ async def readable_publication_path(
     :param session: Optional caller transaction session.
     :param touch: Increment internal revisions to serialize visibility-sensitive writes.
     :param allow_deleted_reply: Permit a selected deleted reply only for content-free navigation.
+    :param discussion_write: Also check direct article discussions and return 403 when comments are disabled.
     :return: Authorized dependency documents; inaccessible resources raise not-found.
     """
     model = MicroPost if kind == "micro_post" else Article
@@ -82,11 +85,74 @@ async def readable_publication_path(
             raise NotFound("Publication not found")
         if isinstance(item, Article) and item.status != "published":
             raise NotFound("Publication not found")
+        if isinstance(item, Article) and not item.comments_enabled and (discussion_write or item is not publication):
+            if discussion_write:
+                raise Forbidden("Comments are disabled for this article")
+            raise NotFound("Publication not found")
         if touch:
             if session is None:
                 raise ValueError("Publication mutation guards require a transaction")
             await item.update({"$inc": {"interaction_revision": 1}}, session=session)
     return dependencies
+
+
+async def writable_discussion(
+    kind: PublicationKind, publication_id: str, session: AsyncClientSession,
+) -> MicroPost | Article:
+    """Guard a new comment against disabled discussions and all original visibility dependencies.
+
+    :param kind: Collection containing the article, original post, or selected reply.
+    :param publication_id: Public target identifier for the new comment.
+    :param session: Caller transaction whose guard writes serialize discussion changes.
+    :return: The public target; disabled article discussions raise 403 at any reply depth.
+    """
+    path = await readable_publication_path(
+        kind, publication_id, session=session, touch=True, discussion_write=True,
+    )
+    return path[0]
+
+
+async def readable_discussion(
+    kind: PublicationKind, publication_id: str, viewer_id: PydanticObjectId | None = None,
+) -> MicroPost | Article:
+    """Require a visible discussion without hiding the containing article itself.
+
+    :param kind: Collection containing the article, original post, or selected reply.
+    :param publication_id: Identifier whose discussion is requested.
+    :param viewer_id: Optional owner allowed to read an otherwise eligible archived discussion.
+    :return: The readable target; disabled article discussions raise not-found for every viewer.
+    """
+    publication = await readable_publication(kind, publication_id, viewer_id)
+    if isinstance(publication, Article) and not publication.comments_enabled:
+        raise NotFound("Discussion not found")
+    return publication
+
+
+async def check_reply_discussion(
+    publication: MicroPost, session: AsyncClientSession | None = None, *, touch: bool = False,
+) -> None:
+    """Apply discussion closure to owner-only paths that otherwise permit independent archive access.
+
+    Other archive visibility behavior is preserved. Live reads still require the full
+    publication path; this guard only denies replies whose existing original article
+    disables comments. No exception is granted to the article or comment owner.
+
+    :param publication: Post being read or changed through an owner-only path.
+    :param session: Optional caller transaction for the original lookup and guard write.
+    :param touch: Serialize a mutation against changes to the original article's settings.
+    :return: None; a disabled original discussion raises not-found.
+    """
+    if publication.reply is None or publication.reply.kind != "article":
+        return
+    article = await Article.get(publication.reply.publication_id, session=session)
+    if article is None:
+        return
+    if not article.comments_enabled:
+        raise NotFound("Publication not found")
+    if touch:
+        if session is None:
+            raise ValueError("Discussion mutation guards require a transaction")
+        await article.update({"$inc": {"interaction_revision": 1}}, session=session)
 
 
 async def readable_publication(

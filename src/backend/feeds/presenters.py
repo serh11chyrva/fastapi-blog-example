@@ -52,6 +52,7 @@ def feed_item(publication: MicroPost | Article, authors: list[User]) -> PostFeed
     return ArticleFeedItem(
         **common,
         share_url=share_path(authors[0].username, publication.title, publication.share_id),
+        comments_enabled=publication.comments_enabled,
         title=publication.title,
         summary=publication.summary,
         thumbnail_url=article_thumbnail_url(publication.thumbnail_key),

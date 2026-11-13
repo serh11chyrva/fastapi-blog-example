@@ -87,3 +87,19 @@ can be retried without creating another draft. Covers are never required.
 
 The `hero_layout` field defaults to `cover_title` for existing articles. No body
 rewrite or database migration is needed.
+
+## Discussion visibility
+
+**Enable comments** controls the complete article discussion and defaults to on.
+Saving it off hides comments and all descendant replies for every viewer, including
+the article owner and comment owners. This applies to discussion pages, post and
+share links, profiles, pins, reposts, saved lists, archives, search, reference cards,
+and attached comment media. The article and its like/save actions remain available;
+its comment action disappears and the visible comment count is zero.
+
+Existing records and relationships remain stored. Re-enabling comments restores
+their ordinary visibility without rewriting the tree. The backend checks new root
+comments and replies at every depth inside the transaction; concurrent changes
+conflict rather than publishing into a disabled discussion. Closed-discussion reads
+return 404 and new comment requests return 403. Existing interaction removal remains
+available for cleaning up one's own inaccessible likes, saves, or reposts.

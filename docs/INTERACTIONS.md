@@ -18,6 +18,22 @@ An account can change only its own likes, saves, reposts, and comment text. Publ
 ownership does not grant moderation or editing rights over other accounts' comments.
 Liking, saving, reposting, and commenting on one's own public publication are allowed.
 
+Articles expose `comments_enabled` in full responses and feed cards. It defaults to
+true, including when absent from older documents. Creating an article can set it;
+`PATCH /articles/{article_id}` with `{"comments_enabled":false}` hides the complete
+discussion without deleting its posts or relationships. Omission or null preserves
+the value, while false is an explicit update.
+
+Disabled discussions are hidden for every viewer, including archive owners, across
+discussion endpoints, direct post/context/share links, reference cards, profile
+activity, pins, reposts, saved lists, archives, search, counts, and attached media.
+Reads return 404. New comments and replies through either article or descendant
+post routes return 403; the root article is guarded in the creation transaction.
+Visibility filtering happens before pagination/counting and is rechecked for cached
+feed cards. The original article, its likes, and its private saves remain available;
+its summary reports `comments_count: 0`. Re-enabling restores ordinary tree access.
+Removing one's existing interaction edge remains allowed without exposing content.
+
 Each mutation commits its data changes and audit event in one MongoDB transaction.
 An internal `interaction_revision` write serializes creation and comment mutations
 against publication deletion/unpublishing. It does not change the publication's public

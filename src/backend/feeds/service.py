@@ -12,7 +12,7 @@ from backend.core.resources import AppResources
 from backend.feeds.cursors import FeedCursor
 from backend.feeds.presenters import feed_item, repost_item
 from backend.feeds.repository import FeedEntry, FeedKind, FeedRepository, PublicationKind
-from backend.feeds.schemas import FeedResponse
+from backend.feeds.schemas import ArticleFeedItem, FeedResponse
 from backend.posts.models import MicroPost
 from backend.posts.threads import attach_thread_previews
 from backend.posts.visibility import visible_post_stages
@@ -46,6 +46,8 @@ async def current_cached_feed(page: FeedResponse) -> FeedResponse | None:
         original.pinned_at = publication.pinned_at
         original.archived_at = None
         original.read_only = False
+        if isinstance(original, ArticleFeedItem) and isinstance(publication, Article):
+            original.comments_enabled = publication.comments_enabled
     await attach_thread_previews(
         [item for item in page.items if item.kind == "micro_post" and item.reply is None],
         [item for item in current.values() if isinstance(item, MicroPost) and item.reply is None],

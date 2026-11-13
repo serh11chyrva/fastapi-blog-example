@@ -111,7 +111,12 @@ to 280 characters, with an attachment required for blank text. Only the comment 
 with null text/author, preserving children. New replies require a live parent in the same post.
 Live entries support idempotent likes, optional viewer flags, and ranked pages.
 Interactions and discussion creation require public, unarchived originals. Discussion reads also
-allow authorized archive owners; drafts and scheduled articles return 404 even to their owner. Interaction removal remains available for inaccessible originals.
+allow authorized archive owners; drafts and scheduled articles return 404 even to their owner.
+Article comments_enabled defaults to true. Setting it to false hides the complete discussion,
+including descendant posts, archive cards, shared links, search results, and media, for every viewer.
+Discussion reads return 404 and new comments at any depth return 403 until re-enabled. Existing
+data is retained; the article itself, its likes, and its saves remain available with zero visible comments.
+Interaction removal remains available for inaccessible originals.
 All mutations require a session and Origin and commit audit events in the same transaction.
 
 ### Pagination and conventions

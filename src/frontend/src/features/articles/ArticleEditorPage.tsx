@@ -15,6 +15,7 @@ export function ArticleEditorPage() {
 
 function ArticleEditorForm() {
   const { loading, loadError, title, setTitle, heroLayout, setHeroLayout, article, error, saving, chooseCover, coverPreview,
+    commentsEnabled, setCommentsEnabled,
     publishAt, setPublishAt, imageInput, chooseInlineImage, editor, inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
   const [dropTop, setDropTop] = useState<number | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
@@ -101,6 +102,9 @@ function ArticleEditorForm() {
           onChange={(event) => setHeroLayout(event.target.value as typeof heroLayout)}>
           <option value="cover_title">Cover, then title</option><option value="title_cover">Title, then cover</option>
         </select></label>
+        <label className="publish-option"><input type="checkbox" checked={commentsEnabled} disabled={saving}
+          onChange={(event) => setCommentsEnabled(event.target.checked)} /><span>Enable comments
+            <small>Turning this off hides existing comments and replies until re-enabled.</small></span></label>
         <label className="form-label">Schedule for<input className="field" type="datetime-local" disabled={saving}
           value={publishAt} onChange={(event) => setPublishAt(event.target.value)} /></label>
         <div className="publish-actions">

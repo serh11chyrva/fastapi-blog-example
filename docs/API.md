@@ -694,6 +694,15 @@ For example, `PATCH /api/v1/articles/{article_id}` with
 upload and deletion continue to use the existing media endpoints. The full article
 response includes the saved order and a null `thumbnail_url` when no cover exists.
 
+Article create/update/full responses and article feed cards include
+`comments_enabled` (default true for new and legacy articles). For example,
+`PATCH /api/v1/articles/{article_id}` with `{"comments_enabled":false}` hides the
+entire discussion for all viewers until re-enabled. Omission or null preserves the
+setting. Existing comments, descendants, and relationships remain stored. Discussion
+reads and direct comment/media links return 404; new comments at every depth return
+403. The article itself remains public and its visible comment count becomes zero.
+See [discussion visibility and concurrency](INTERACTIONS.md) for all affected surfaces.
+
 `GET /api/v1/profiles/cards?user_id=68eb7491d37a2f06b8ce9540` resolves typed
 mentions to public account cards. Supply 1–50 repeated `user_id` values, each a
 24-character ObjectId. Duplicate IDs appear once in first-requested order; missing

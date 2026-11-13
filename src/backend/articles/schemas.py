@@ -24,6 +24,11 @@ class ArticleCreate(BaseModel):
         description="Up to 30 ordered typed attachments. Referenced articles must be published. "
         "Images must be uploaded to this article; video is reserved and rejected.",
     )
+    comments_enabled: bool = Field(
+        default=True,
+        description="Enable the discussion. False hides all existing comments and descendants everywhere until re-enabled.",
+        examples=[True, False],
+    )
     title: str = Field(
         min_length=1,
         max_length=160,
@@ -89,6 +94,11 @@ class ArticleUpdate(BaseModel):
         default=None,
         description="Replacement header block order. Omit or use null to keep the current order.",
         examples=["title_cover"],
+    )
+    comments_enabled: bool | None = Field(
+        default=None,
+        description="Enable or hide the entire discussion. False is applied; omission or null preserves the current value.",
+        examples=[False],
     )
 
     attachments: PublicationAttachments | None = Field(
@@ -182,6 +192,7 @@ class ArticleResponse(LinkPresentation, PublicationState):
         json_schema_extra={
             "examples": [
                 examples.ARTICLE_PUBLISHED,
+                examples.ARTICLE_COMMENTS_DISABLED,
                 examples.ARTICLE,
                 examples.ARTICLE_WITH_FEATURED_AUTHORS,
                 examples.ARTICLE_WITH_CONTENT,
@@ -217,6 +228,11 @@ class ArticleResponse(LinkPresentation, PublicationState):
         default="cover_title",
         description="Order of the title and optional cover in the article header. Legacy articles use cover_title.",
         examples=["cover_title", "title_cover"],
+    )
+    comments_enabled: bool = Field(
+        default=True,
+        description="Whether the discussion is visible and accepts comments. False hides all descendants, including media.",
+        examples=[True, False],
     )
     summary: str = Field(
         max_length=280,

@@ -8,11 +8,12 @@ import { interactionEvent, notifyInteractionChange, publicationPath } from "./ev
 import type { InteractionChange } from "./events";
 import { Skeleton } from "../../shared/ui/Skeleton";
 
-export function PublicationActions({ kind, id, onComments, commentsHref, onShare, copied, onChanged }: {
+export function PublicationActions({ kind, id, onComments, commentsHref, commentsEnabled = true, onShare, copied, onChanged }: {
   kind: PublicationKind;
   id: string;
   onComments?: () => void;
   commentsHref?: string;
+  commentsEnabled?: boolean;
   onShare?: () => void;
   copied?: boolean;
   onChanged?: (action: InteractionAction, enabled: boolean) => void;
@@ -103,13 +104,13 @@ export function PublicationActions({ kind, id, onComments, commentsHref, onShare
         aria-pressed={summary?.reposted ?? false} onClick={() => void change("repost", !summary?.reposted)}>
         <Icon name="repost" />{summary?.reposts_count ?? missingCount}
       </button>}
-      {commentsHref ? <Link className="engage" to={commentsHref}
+      {commentsEnabled && (commentsHref ? <Link className="engage" to={commentsHref}
         aria-label={kind === "micro_post" ? "Replies" : "Comments"} title={kind === "micro_post" ? "Replies" : "Comments"}>
         <Icon name="comment" />{summary?.comments_count ?? missingCount}
       </Link> : <button type="button" className="engage" onClick={onComments}
         aria-label={kind === "micro_post" ? "Replies" : "Comments"} title={kind === "micro_post" ? "Replies" : "Comments"}>
         <Icon name="comment" />{summary?.comments_count ?? missingCount}
-      </button>}
+      </button>)}
       <span className="actions-spacer" />
       {onShare && <button type="button" className="engage" onClick={onShare}
         aria-label={copied ? "Link copied" : "Share"} title={copied ? "Link copied" : "Share"}>

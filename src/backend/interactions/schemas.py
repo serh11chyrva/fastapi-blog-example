@@ -15,7 +15,9 @@ class InteractionSummary(BaseModel):
     model_config = ConfigDict(json_schema_extra={"examples": [examples.POST_INTERACTIONS, examples.ARTICLE_INTERACTIONS]})
 
     likes_count: int = Field(ge=0, description="Number of accounts currently liking this publication.")
-    comments_count: int = Field(ge=0, description="Undeleted comments or replies, including all post reply levels.")
+    comments_count: int = Field(
+        ge=0, description="Visible undeleted comments at every depth; zero when an article discussion is disabled."
+    )
     reposts_count: int | None = Field(default=None, ge=0, description="Post repost count; null for articles.")
     liked: bool = Field(description="Whether the current viewer likes this publication; false when anonymous.")
     saved: bool = Field(description="Private save state for this viewer; false when anonymous. No save count is public.")

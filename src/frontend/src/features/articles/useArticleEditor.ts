@@ -17,6 +17,7 @@ export function useArticleEditor() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [heroLayout, setHeroLayout] = useState<HeroLayout>("cover_title");
+  const [commentsEnabled, setCommentsEnabled] = useState(true);
   const [loadedBody, setLoadedBody] = useState<JSONContent | null>(null);
   const [body, setBody] = useState<JSONContent>({ type: "doc", content: [{ type: "paragraph" }] });
   const [article, setArticle] = useState<Article | null>(null);
@@ -58,6 +59,7 @@ export function useArticleEditor() {
         setArticle(value);
         setTitle(value.title);
         setHeroLayout(value.hero_layout ?? "cover_title");
+        setCommentsEnabled(value.comments_enabled ?? true);
         setBody(value.body);
         setLoadedBody(value.body);
         if (value.scheduled_at) {
@@ -134,11 +136,12 @@ export function useArticleEditor() {
   async function persist(): Promise<Article> {
     validateContent();
     const currentBody = editor ? fromEditorBody(editor.getJSON()) : body;
-    const payload = { title, body: currentBody, hero_layout: heroLayout };
+    const payload = { title, body: currentBody, hero_layout: heroLayout, comments_enabled: commentsEnabled };
     let saved = article;
     if (!saved) {
       saved = await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
     } else if (title.trim() !== saved.title || heroLayout !== (saved.hero_layout ?? "cover_title")
+      || commentsEnabled !== (saved.comments_enabled ?? true)
       || JSON.stringify(currentBody) !== JSON.stringify(saved.body)) {
       saved = await api<Article>(`/articles/${saved.id}`, { method: "PATCH", body: JSON.stringify(payload) });
     }
@@ -166,7 +169,7 @@ export function useArticleEditor() {
       if (!saved) {
         saved = await api<Article>("/articles", {
           method: "POST", body: JSON.stringify({ title: title.trim() || "Untitled",
-            body: editor ? fromEditorBody(editor.getJSON()) : body, hero_layout: heroLayout }),
+            body: editor ? fromEditorBody(editor.getJSON()) : body, hero_layout: heroLayout, comments_enabled: commentsEnabled }),
         });
         setArticle(saved);
       }
@@ -262,7 +265,7 @@ export function useArticleEditor() {
   }
   useEffect(() => { editor?.setEditable(!saving); }, [editor, saving]);
   const coverPreview = thumbnailPreview || (coverRemoved ? null : article?.thumbnail_url);
-  return { loading, loadError, title, setTitle, heroLayout, setHeroLayout, article, error, saving,
+  return { loading, loadError, title, setTitle, heroLayout, setHeroLayout, commentsEnabled, setCommentsEnabled, article, error, saving,
     chooseCover, coverPreview, publishAt, setPublishAt, imageInput, chooseInlineImage, editor,
     inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
 }

@@ -17,10 +17,10 @@ from backend.feeds.presenters import feed_item
 from backend.feeds.schemas import ArticleFeedItem, PostFeedItem
 from backend.posts.models import MicroPost
 from backend.posts.threads import attach_thread_previews
-from backend.posts.visibility import visible_post_stages
+from backend.posts.visibility import enabled_article_discussion_stages, visible_post_stages
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
-from backend.publications.access import PublicationKind, object_id, public_publication
+from backend.publications.access import PublicationKind, check_reply_discussion, object_id, public_publication
 from backend.publications.schemas import ArchivePage
 from backend.search.sync import sync_publication
 
@@ -67,6 +67,8 @@ class PublicationStateService:
                 raise NotFound("Publication not found")
             if isinstance(item, MicroPost) and item.pending:
                 raise InvalidOperation("Publish this upload draft first")
+            if isinstance(item, MicroPost):
+                await check_reply_discussion(item, session, touch=True)
             if enabled and isinstance(item, Article) and item.status != "published":
                 raise InvalidOperation("Only published articles can be archived or pinned")
             field = "archived_at" if action == "archive" else "pinned_at"
@@ -99,7 +101,7 @@ class PublicationStateService:
         return item
 
     async def archive(self, owner: User, cursor_text: str | None, limit: int) -> ArchivePage:
-        """Read a bounded mixed archive without exposing another account's content.
+        """Read a bounded owner archive, excluding disabled article discussions before pagination.
 
         :param owner: Authenticated owner of the requested archive.
         :param cursor_text: Previous archive cursor, or None for the initial page.
@@ -114,7 +116,14 @@ class PublicationStateService:
             conditions = {"owner_id": owner.id, "deleted_at": None, "archived_at": {"$ne": None}}
             if cursor is not None:
                 conditions = {"$and": [conditions, cursor.conditions(kind, "archived_at")]}
-            items = await model.find(conditions).sort(("archived_at", -1), ("_id", -1)).limit(limit + 1).to_list()
+            if model is MicroPost:
+                archive_rows = await MicroPost.aggregate([
+                    {"$match": conditions}, *enabled_article_discussion_stages(),
+                    {"$sort": {"archived_at": -1, "_id": -1}}, {"$limit": limit + 1},
+                ]).to_list()
+                items = [MicroPost.model_validate(row) for row in archive_rows]
+            else:
+                items = await model.find(conditions).sort(("archived_at", -1), ("_id", -1)).limit(limit + 1).to_list()
             rows.extend((item.archived_at, kind, item) for item in items)
         rows.sort(key=lambda row: (row[0], row[1], str(row[2].id)), reverse=True)
         page = rows[:limit]

@@ -11,7 +11,7 @@ from backend.feeds.presenters import publication_preview
 from backend.feeds.schemas import PublicationPreview
 from backend.posts.models import MicroPost
 from backend.posts.visibility import visible_post_stages
-from backend.publications.access import readable_publication
+from backend.publications.access import check_reply_discussion, readable_publication
 from backend.posts.repository import PostRepository
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
@@ -70,7 +70,7 @@ async def publication_previews(refs: list[str]) -> list[PublicationPreview]:
 
 
 async def shared(username: str, slug: str, viewer_id: PydanticObjectId | None = None) -> tuple[MicroPost | Article, list[User]]:
-    """Resolve a stable share ID with current public or owner-only archive visibility.
+    """Resolve a stable share ID with archive access and disabled discussion rules applied.
 
     :param username: Public profile handle, optionally prefixed with @.
     :param slug: Readable share slug ending with the stable publication share ID.
@@ -92,6 +92,8 @@ async def shared(username: str, slug: str, viewer_id: PydanticObjectId | None = 
     if post is not None:
         if post.archived_at is None or post.owner_id != viewer_id:
             await readable_publication("micro_post", str(post.id), viewer_id)
+        else:
+            await check_reply_discussion(post)
         return post, await load_authors(post.author_ids)
 
     article = await ArticleRepository.find_shared(owner.id, share_id)

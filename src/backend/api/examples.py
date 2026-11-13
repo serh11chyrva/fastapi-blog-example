@@ -168,6 +168,7 @@ ARTICLE_CREATE = {
     "title": "A reading habit that fits into a busy week",
     "body": ARTICLE_BODY,
     "hero_layout": "cover_title",
+    "comments_enabled": True,
 }
 ARTICLE_UPDATE = ARTICLE_CREATE | {"title": "Ten pages before the first meeting", "hero_layout": "title_cover"}
 ARTICLE = {
@@ -201,6 +202,7 @@ ARTICLE_PUBLISHED = ARTICLE | {
     "updated_at": "2026-10-13T09:26:41Z",
     "published_at": "2026-10-13T09:26:41Z",
 }
+ARTICLE_COMMENTS_DISABLED = ARTICLE_PUBLISHED | {"comments_enabled": False}
 POST_RICH_CREATE = {
     "text": "Reading notes worth continuing.",
     "attachments": [{
@@ -276,6 +278,7 @@ FEED_ARTICLE = {
         "title",
         "summary",
         "thumbnail_url",
+        "comments_enabled",
         "owner_id",
         "authors",
         "attachments",

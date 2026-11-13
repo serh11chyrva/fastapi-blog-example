@@ -21,7 +21,7 @@ def visible_post_stages(
     prefix: str = "", viewer_id: PydanticObjectId | None = None,
     group_for_profile: PydanticObjectId | None = None,
 ) -> list[dict[str, Any]]:
-    """Exclude posts hidden by their archive, original, or any archived ancestor.
+    """Exclude posts hidden by archives, originals, ancestors, or disabled article discussions.
 
     :param prefix: Dotted path to the post, or empty for the aggregation root.
     :param viewer_id: Optional owner for private discussion reads; public lists omit it.
@@ -37,7 +37,8 @@ def visible_post_stages(
         {"$lookup": {
             "from": "articles", "localField": f"{path}reply.publication_id", "foreignField": "_id",
             "as": "_reply_article", "pipeline": [{"$match": {
-                "deleted_at": None, "status": "published", **archive_filter(viewer_id),
+                "deleted_at": None, "status": "published", "comments_enabled": {"$ne": False},
+                **archive_filter(viewer_id),
             }}],
         }},
         {"$lookup": {
@@ -57,6 +58,23 @@ def visible_post_stages(
         ]}},
         *([grouped_continuation_stage(group_for_profile, prefix)] if group_for_profile is not None else []),
         {"$unset": ["_reply_article", "_reply_post", "_reply_ancestors"]},
+    ]
+
+
+def enabled_article_discussion_stages() -> list[dict[str, Any]]:
+    """Filter disabled article discussions while preserving independent owner archive access.
+
+    :return: Aggregation stages excluding closed article replies before archive pagination.
+    """
+    return [
+        {"$lookup": {
+            "from": "articles", "localField": "reply.publication_id", "foreignField": "_id",
+            "as": "_closed_article_discussion", "pipeline": [{"$match": {"comments_enabled": False}}],
+        }},
+        {"$match": {"$or": [
+            {"reply.kind": {"$ne": "article"}}, {"_closed_article_discussion.0": {"$exists": False}},
+        ]}},
+        {"$unset": "_closed_article_discussion"},
     ]
 
 

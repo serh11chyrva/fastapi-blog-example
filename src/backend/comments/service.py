@@ -20,7 +20,9 @@ from backend.posts.models import MicroPost, ReplyMetadata
 from backend.posts.service import PostService
 from backend.posts.visibility import visible_post_stages
 from backend.profiles.models import User
-from backend.publications.access import PublicationKind, object_id, public_publication, readable_publication
+from backend.publications.access import (
+    PublicationKind, object_id, public_publication, readable_discussion, writable_discussion,
+)
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.search.sync import sync_publication
 from backend.storage.cleanup import queue_deletion
@@ -49,7 +51,10 @@ class CommentService:
         owner: User,
         parent_id: str | None = None,
     ) -> Discussion:
-        """Create and index a comment or reply with its audit event in one guarded transaction.
+        """Create and index a reply with its audit event, guarding discussion availability in one transaction.
+
+        Disabled article discussions reject new comments with 403 even when replying
+        through a descendant post. Guard writes conflict with concurrent setting changes.
 
         :param kind: Containing publication type.
         :param publication_id: Public post or article identifier.
@@ -59,7 +64,7 @@ class CommentService:
         :return: The persisted reply post with its immutable tree position.
         """
         async with transaction(self.resources.mongo) as session:
-            publication = await public_publication(kind, publication_id, session, touch=True)
+            publication = await writable_discussion(kind, publication_id, session)
             now = datetime.now(UTC)
             draft = None
             if payload.image_draft_id:
@@ -179,7 +184,7 @@ class CommentService:
         viewer_id: PydanticObjectId | None = None,
         sort: DiscussionSort = "oldest",
     ) -> PostReplyPage | ArticleCommentPage:
-        """Read one level of a post or article discussion without loading descendants recursively.
+        """Read one discussion level, rejecting disabled article discussions for every viewer.
 
         :param kind: Containing publication type.
         :param publication_id: Public containing publication identifier.
@@ -190,7 +195,7 @@ class CommentService:
         :param sort: Discussion order; post ranking applies to live roots only.
         :return: Typed discussion page with a continuation cursor when another row exists.
         """
-        publication = await readable_publication(kind, publication_id, viewer_id)
+        publication = await readable_discussion(kind, publication_id, viewer_id)
         parent = object_id(parent_id) if parent_id is not None else None
 
         if parent is not None:
@@ -230,7 +235,7 @@ class CommentService:
         self, kind: PublicationKind, publication_id: str, comment_id: str,
         viewer_id: PydanticObjectId | None = None,
     ) -> Discussion:
-        """Read a single visible discussion entry, including a deleted thread tombstone.
+        """Read a visible entry or tombstone, excluding every disabled article discussion.
 
         :param kind: Containing publication type.
         :param publication_id: Public containing publication identifier.
@@ -238,7 +243,7 @@ class CommentService:
         :param viewer_id: Optional owner permitted to read its own archived content.
         :return: The entry after publication, branch visibility, and membership checks.
         """
-        publication = await readable_publication(kind, publication_id, viewer_id)
+        publication = await readable_discussion(kind, publication_id, viewer_id)
         comment = await self.repository.get(kind, publication.id, object_id(comment_id))
 
         visible = await MicroPost.aggregate([

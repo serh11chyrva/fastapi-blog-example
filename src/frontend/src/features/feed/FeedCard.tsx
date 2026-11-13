@@ -50,6 +50,7 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, sh
   const [author, ...featured] = item.authors;
   const own = user?.id === item.owner_id;
   const readOnly = !!item.read_only || !!item.archived_at;
+  const commentsEnabled = item.kind !== "article" || item.comments_enabled !== false;
   const page = item.share_url ?? (item.kind === "micro_post" ? `/posts/${item.id}` : `/articles/${item.id}`);
 
   async function share() {
@@ -103,11 +104,12 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, sh
           onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} context={showContext} />}
       </> : <PreviewCard item={item} excerpt={excerpt} />}
       {!readOnly && <PublicationActions key={`actions:${item.kind}:${item.id}`} kind={item.kind} id={item.id}
+        commentsEnabled={commentsEnabled}
         commentsHref={showDiscussion ? "#replies" : `${page}#replies`} onShare={() => void share()} copied={copied}
         onChanged={(action) => { if (action === "repost") onChanged(); }} />}
-      {readOnly && <Link className="text-link" to={showDiscussion ? "#replies" : `${page}#replies`}>View discussion</Link>}
+      {readOnly && commentsEnabled && <Link className="text-link" to={showDiscussion ? "#replies" : `${page}#replies`}>View discussion</Link>}
       {error && <p className="notice-error" role="alert">{error}</p>}
-      {showDiscussion &&
+      {showDiscussion && commentsEnabled &&
         <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} readOnly={readOnly}
           deepLink />}
     </div>

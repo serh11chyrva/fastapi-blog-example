@@ -14,7 +14,7 @@ from backend.audit.service import record_audit
 from backend.core.errors import InvalidOperation, NotFound
 from backend.posts.models import MicroPost
 from backend.posts.content import validate_post_content
-from backend.publications.access import readable_publication
+from backend.publications.access import check_reply_discussion, readable_publication
 from backend.posts.presenters import post_response
 from backend.posts.schemas import MicroPostResponse
 from backend.profiles.models import AvatarImage, User
@@ -47,7 +47,7 @@ class ImageAttachments:
         *,
         session: AsyncClientSession | None = None,
     ) -> User | MicroPost | Article:
-        """Load an upload target and enforce ownership and deletion rules.
+        """Load an upload target and enforce ownership, deletion, and article discussion availability.
 
         :param purpose: Immutable image purpose selecting target rules and size limits.
         :param target_id: Identifier of the resource targeted by the operation.
@@ -82,6 +82,8 @@ class ImageAttachments:
             await readable_publication(
                 "micro_post", str(publication.id), owner.id, session, touch=session is not None,
             )
+        elif isinstance(publication, MicroPost) and publication.reply is not None:
+            await check_reply_discussion(publication, session, touch=session is not None)
         return publication
 
     async def apply(

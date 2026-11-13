@@ -8,7 +8,7 @@ from backend.auth.dependencies import OptionalUser
 from backend.core.config import get_settings
 from backend.core.resources import get_resources
 from backend.posts.models import MicroPost
-from backend.publications.access import readable_publication
+from backend.publications.access import check_reply_discussion, readable_publication
 from backend.profiles.models import User
 from backend.storage.models import ImagePurpose
 from backend.storage.s3 import get_object
@@ -21,7 +21,8 @@ router = APIRouter()
     summary="Read an attached image",
     description=(
         "Avatars and profile banners are public. Publication images follow archive and discussion visibility; "
-        "private images require their owner's session. GIF is served only for posts, comments, and article bodies, "
+        "private images require their owner's session. Disabled article discussions hide comment media from every viewer. "
+        "GIF is served only for posts, comments, and article bodies, "
         "with animation preserved. Unattached or inaccessible objects return 404."
     ),
     tags=["Media"],
@@ -81,6 +82,8 @@ async def read_image(
             attached.archived_at is not None and current_user is not None and current_user.id == attached.owner_id
         ):
             await readable_publication("micro_post", str(attached.id), current_user.id if current_user else None)
+        elif attached is not None:
+            await check_reply_discussion(attached)
         cache_control = "private, no-store"
         bucket = settings.publication_bucket
     else:

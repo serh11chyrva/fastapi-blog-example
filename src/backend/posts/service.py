@@ -20,7 +20,7 @@ from backend.posts.models import MicroPost
 from backend.posts.repository import PostRepository
 from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
-from backend.publications.access import readable_publication
+from backend.publications.access import check_reply_discussion, readable_publication
 from backend.publications.attachment_validation import validate_attachment_references
 from backend.publications.attachments import GifAttachment, ImageAttachment
 from backend.publications.queries import load_authors
@@ -61,7 +61,7 @@ class PostService:
         owner: User,
         session: AsyncClientSession,
     ) -> MicroPost:
-        """Read ownership inside the write transaction so image updates are preserved.
+        """Read ownership and discussion availability inside the transaction so guarded updates are preserved.
 
         :param resource_id: String identifier of the publication to load or mutate.
         :param owner: Authenticated account owning or initiating the operation.
@@ -75,6 +75,8 @@ class PostService:
 
         if item.reply is not None and item.archived_at is None:
             await readable_publication("micro_post", str(item.id), owner.id, session, touch=True)
+        elif item.reply is not None:
+            await check_reply_discussion(item, session, touch=True)
 
         return item
 
@@ -123,6 +125,7 @@ class PostService:
         if existing is not None:
             if existing.deleted_at is not None:
                 raise NotFound("This draft expired; start a new post")
+            await check_reply_discussion(existing)
             return existing
         now = datetime.now(UTC)
         post = MicroPost(owner_id=owner.id, text="", pending=True, draft_key=draft_key,
@@ -133,6 +136,7 @@ class PostService:
             existing = await MicroPost.find_one({"draft_key": draft_key})
             if existing is None or existing.deleted_at is not None:
                 raise NotFound("This draft expired; start a new post") from None
+            await check_reply_discussion(existing)
             return existing
         await enqueue_attachments(self.resources.redis, post.attachments)
         return post
@@ -205,7 +209,7 @@ class PostService:
         return post
 
     async def get_post(self, resource_id: str, viewer: User | None = None) -> tuple[MicroPost, list[User]]:
-        """Load a public post or the owner's archive with its ordered authors.
+        """Load a public post or owner's archive, excluding disabled article discussions for all viewers.
 
         :param resource_id: String identifier of the publication to load or mutate.
         :param viewer: Optional account allowed to read its own archived post.
@@ -216,6 +220,8 @@ class PostService:
             raise NotFound("Publication not found")
         if post.archived_at is None or viewer is None or viewer.id != post.owner_id:
             post = await readable_publication("micro_post", resource_id, viewer.id if viewer else None)
+        else:
+            await check_reply_discussion(post)
 
         return post, await load_authors(post.author_ids)
 

@@ -134,11 +134,11 @@ export function ArticlePresentation({ article, owner, onChanged }: {
       <ArticleAuthors authors={article.authors} />
       {error && <p className="notice-error" role="alert">{error}</p>}
       {article.status === "published" && !article.archived_at && <>
-        <PublicationActions kind="article" id={article.id} commentsHref="#replies"
+        <PublicationActions kind="article" id={article.id} commentsHref="#replies" commentsEnabled={article.comments_enabled !== false}
           onShare={() => void share()} copied={copied} />
-        <Discussion key={article.id} kind="article" id={article.id} deepLink />
+        {article.comments_enabled !== false && <Discussion key={article.id} kind="article" id={article.id} deepLink />}
       </>}
-      {article.archived_at && <Discussion key={article.id} kind="article" id={article.id} deepLink readOnly />}
+      {article.archived_at && article.comments_enabled !== false && <Discussion key={article.id} kind="article" id={article.id} deepLink readOnly />}
       <Footer reading />
     </div>
   </article>;

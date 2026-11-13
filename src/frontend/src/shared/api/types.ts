@@ -101,6 +101,7 @@ export type PostFeedItem = PostCard & { thread_preview?: ThreadPreview | null };
 export type AuthorThreadPage = CursorPage<ThreadPart> & { root: PostCard };
 export type ArticleFeedItem = PublicationBase & {
   kind: "article";
+  comments_enabled: boolean;
   title: string;
   summary: string;
   thumbnail_url: string | null;
@@ -151,6 +152,7 @@ export type Article = PublicationBase & {
   summary: string;
   body: JSONContent;
   hero_layout: HeroLayout;
+  comments_enabled: boolean;
   thumbnail_url: string | null;
   inline_image_urls: string[];
   status: "draft" | "scheduled" | "published";

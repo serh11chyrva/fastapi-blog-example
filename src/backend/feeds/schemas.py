@@ -108,6 +108,7 @@ class ArticleFeedItem(FeedBase):
     model_config = ConfigDict(json_schema_extra={"examples": [examples.FEED_ARTICLE]})
 
     kind: Literal["article"] = "article"
+    comments_enabled: bool = Field(default=True, description="Whether the article discussion is visible and accepts replies.")
     title: str = Field(description="Article title; archived cards are owner-only.")
     summary: str = Field(description="Article preview; may be empty.")
     thumbnail_url: str | None = Field(default=None, description="Article cover URL, if present.")
