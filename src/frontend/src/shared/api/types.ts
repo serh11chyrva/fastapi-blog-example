@@ -132,6 +132,13 @@ export type MicroPost = PublicationBase & {
   created_at: string;
   updated_at: string;
 };
+export type ReplyTombstone = {
+  kind: "deleted_reply"; id: string; reply: ReplyMetadata; created_at: string; updated_at: string;
+};
+export type ContextPost = MicroPost | ReplyTombstone;
+export type PostContext = {
+  post: ContextPost; original: OriginalFeedItem | null; ancestors: ContextPost[]; read_only: boolean;
+};
 export type Article = PublicationBase & {
   kind: "article";
   title: string;

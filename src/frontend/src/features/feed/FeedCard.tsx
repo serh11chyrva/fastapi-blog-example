@@ -13,24 +13,26 @@ import { PublicationByline } from "../publications/PublicationByline";
 import { PostContent } from "./PostContent";
 import { HashtagText } from "../../shared/text/HashtagText";
 
-export function FeedCard({ item, onChanged, showDiscussion = false, excerpt }: {
+export function FeedCard({ item, onChanged, showDiscussion = false, showContext = true, excerpt }: {
   item: FeedItem;
   onChanged: () => void;
   showDiscussion?: boolean;
+  showContext?: boolean;
   excerpt?: string | null;
 }) {
   const repost = item.kind === "repost" ? item : undefined;
   const original = item.kind === "repost" ? item.post : item;
   return <article className="feed-post motion-enter">
-    <OriginalCard key={original.id} item={original} repost={repost} onChanged={onChanged} showDiscussion={showDiscussion} excerpt={excerpt} />
+    <OriginalCard key={original.id} item={original} repost={repost} onChanged={onChanged} showDiscussion={showDiscussion} showContext={showContext} excerpt={excerpt} />
   </article>;
 }
 
-function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, excerpt }: {
+function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, showContext, excerpt }: {
   item: OriginalFeedItem;
   repost?: RepostFeedItem;
   onChanged: () => void;
   showDiscussion: boolean;
+  showContext: boolean;
   excerpt?: string | null;
 }) {
   const { user } = useApp();
@@ -98,7 +100,7 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, ex
       </span>)}</div>}
       {item.kind === "micro_post" ? <>
         {editPost ? <PublicationComposer post={editPost} label="Save changes"
-          onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
+          onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} context={showContext} />}
       </> : <PreviewCard item={item} excerpt={excerpt} />}
       {!readOnly && <PublicationActions key={`actions:${item.kind}:${item.id}`} kind={item.kind} id={item.id}
         commentsHref={showDiscussion ? "#replies" : `${page}#replies`} onShare={() => void share()} copied={copied}

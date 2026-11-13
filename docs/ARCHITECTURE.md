@@ -17,6 +17,12 @@ are truncated to that limit during the explicit discussion migration.
 Feature packages own their behavior and persisted models. Shared infrastructure
 does not own feature policy.
 
+Post reading and shared-link pages reuse one conversation view backed by
+`GET /posts/{id}/context`. The original publication and ordered ancestors appear
+above the selected post; only that post's direct replies load below it. Deleted
+reply pages list their children through the original discussion's parent filter,
+retaining navigation without relaxing live-publication mutation guards.
+
 ## Backend responsibilities
 
 Public search uses Atlas Search indexes over the rebuildable `search_publications`

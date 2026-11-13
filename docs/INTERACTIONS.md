@@ -257,7 +257,11 @@ account handle stays on its own line below the name.
   after a repost change. The profile Posts tab merges posts, reposts, and authored article comments,
   with reply/article-comment context after the author's handle and before repost
   attribution and the timestamp. Nested reply labels link to the immediate parent.
-  The original-publication context card remains below the content without a repeated label.
+  Reply permalinks show the original publication and the complete ancestor path above
+  the selected reply. The original article uses a compact card. A visual connector
+  joins ancestors; the selected reply has its own emphasized section and direct replies.
+  Regular `/posts/{id}` and readable shared URLs use the same conversation view.
+  Original-reference cards are not repeated underneath reply content on that page.
 - Post timestamps use relative time. Hovering shows the exact publication time and the last update
   when it differs from publication.
 - Saved is a protected page at `/saved`, linked from desktop and mobile site navigation. It lists
@@ -299,6 +303,10 @@ account handle stays on its own line below the name.
   scrolls to its composer; anonymous readers can read replies and sign in to write.
   Article `#comment-<id>` links and comment sorting remain supported.
   Popular reply previews and their per-card requests have been removed.
+  Direct reply permalinks scroll to the selected reply; `#replies` scrolls to the
+  discussion and focuses its composer for signed-in readers. Deleted reply pages
+  preserve navigation to direct children, with no composer for the deleted parent.
+  Surviving children retain their own interaction and reply links.
 
 - Shared publication forms enforce the 280-character limit and one attachment choice,
   allow attachment-only replies, disable repeated submission, and keep drafts on failure. Owned live comments offer Edit and Delete; failed edits can reload the

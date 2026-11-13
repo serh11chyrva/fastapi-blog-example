@@ -6,7 +6,7 @@ import { api } from "../../shared/api/client";
 import { EmptyState } from "../../shared/ui/EmptyState";
 import { ArticlePresentation } from "./ArticlePresentation";
 import { useApp } from "../../app/AuthProvider";
-import { FeedCard } from "../feed/FeedCard";
+import { PostDetail } from "../feed/PostDetail";
 import { PublicationPageSkeleton } from "../publications/PublicationSkeleton";
 export function SharedPublicationPage() {
   const { user } = useApp();
@@ -19,7 +19,6 @@ function SharedPublicationContent({ handle, shareSlug }: { handle: string; share
   const [publication, setPublication] = useState<Article | MicroPost | null>(null);
   const [error, setError] = useState("");
   const { user } = useApp();
-  const [version, setVersion] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     setPublication(null);
@@ -34,7 +33,7 @@ function SharedPublicationContent({ handle, shareSlug }: { handle: string; share
           setError(reason instanceof Error ? reason.message : "Could not load this page.");
       });
     return () => controller.abort();
-  }, [username, shareSlug, version, user?.id]);
+  }, [username, shareSlug, user?.id]);
   usePageTitle(error ? "Publication unavailable" : publication?.kind === "article" ? publication.title
     : publication ? `Post by ${publication.authors[0]?.display_name ?? "Unknown author"}` : "Loading publication");
   if (publication && (publication.archived_at || (publication.kind === "article" && publication.status !== "published"))
@@ -45,8 +44,5 @@ function SharedPublicationContent({ handle, shareSlug }: { handle: string; share
     return <PublicationPageSkeleton />;
   if (publication.kind === "article")
     return <ArticlePresentation key={publication.id} article={publication} owner={user?.id === publication.owner_id} onChanged={setPublication} />;
-  return <div className="post-detail">
-    <FeedCard key={publication.id} item={{ ...publication, published_at: publication.created_at }}
-      showDiscussion onChanged={() => setVersion((value) => value + 1)} />
-  </div>;
+  return <PostDetail key={`${publication.id}:${user?.id ?? "anonymous"}`} postId={publication.id} />;
 }
