@@ -4,7 +4,6 @@ import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
 import type { FeedItem, OriginalFeedItem, RepostFeedItem, MicroPost, Article } from "../../shared/api/types";
 import { Avatar } from "../../shared/ui/Avatar";
-import { HighlightedReplies } from "../comments/HighlightedReplies";
 import { Discussion } from "../comments/Discussion";
 import { PublicationActions } from "../interactions/PublicationActions";
 import { PreviewCard } from "../publications/PreviewCard";
@@ -13,7 +12,6 @@ import { PublicationMenu } from "../publications/PublicationMenu";
 import { PublicationByline } from "../publications/PublicationByline";
 import { PostContent } from "./PostContent";
 import { HashtagText } from "../../shared/text/HashtagText";
-import { Collapsible } from "../../shared/ui/Collapsible";
 
 export function FeedCard({ item, onChanged, showDiscussion = false, excerpt }: {
   item: FeedItem;
@@ -46,8 +44,6 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, ex
   const [copied, setCopied] = useState(false);
   const [editPost, setEditPost] = useState<MicroPost | null>(null);
   const [busy, setBusy] = useState(false);
-  const [comments, setComments] = useState(showDiscussion);
-  const [focusReply, setFocusReply] = useState(false);
   const menu = useRef<HTMLDetailsElement>(null);
   const [author, ...featured] = item.authors;
   const own = user?.id === item.owner_id;
@@ -105,20 +101,13 @@ function OriginalCard({ item: initialItem, repost, onChanged, showDiscussion, ex
           onCancel={() => setEditPost(null)} onSaved={() => { setEditPost(null); onChanged(); }} /> : <PostContent text={item.text} attachments={item.attachments} reply={item.reply} />}
       </> : <PreviewCard item={item} excerpt={excerpt} />}
       {!readOnly && <PublicationActions key={`actions:${item.kind}:${item.id}`} kind={item.kind} id={item.id}
-        onComments={() => { setFocusReply(!comments); setComments(!comments); }}
-        commentsOpen={comments} onShare={() => void share()} copied={copied}
+        commentsHref={showDiscussion ? "#replies" : `${page}#replies`} onShare={() => void share()} copied={copied}
         onChanged={(action) => { if (action === "repost") onChanged(); }} />}
-      {readOnly && <button type="button" className="text-link" aria-expanded={comments}
-        onClick={() => setComments(!comments)}>
-        {comments ? "Hide discussion" : "View discussion"}</button>}
+      {readOnly && <Link className="text-link" to={showDiscussion ? "#replies" : `${page}#replies`}>View discussion</Link>}
       {error && <p className="notice-error" role="alert">{error}</p>}
-      {item.kind === "micro_post" && !readOnly && <Collapsible key="highlighted-replies" open={!comments}>
-        <HighlightedReplies key={item.id} postId={item.id} />
-      </Collapsible>}
-      <Collapsible key="discussion" open={comments} animateInitial={!showDiscussion}>
+      {showDiscussion &&
         <Discussion key={`${item.kind}:${item.id}`} kind={item.kind} id={item.id} readOnly={readOnly}
-          visible={comments} focusComposer={comments && focusReply} />
-      </Collapsible>
+          deepLink />}
     </div>
   </div>;
 }

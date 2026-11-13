@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
@@ -7,14 +7,12 @@ import { HashtagText } from "../../shared/text/HashtagText";
 import { useCursorList } from "../../shared/hooks/useCursorList";
 import { itemId, mergeListItems } from "../../shared/hooks/listItems";
 import { Avatar } from "../../shared/ui/Avatar";
-import { Icon } from "../../shared/ui/Icon";
 import { PublicationComposer } from "../publications/PublicationComposer";
 import { PublicationMenu } from "../publications/PublicationMenu";
 import { ReplyPublication } from "./ReplyPublication";
 import { RelativeTime } from "../../shared/ui/RelativeTime";
 import { notifyInteractionChange, publicationPath } from "../interactions/events";
 import { ReplySkeleton } from "./ReplySkeleton";
-import { Collapsible } from "../../shared/ui/Collapsible";
 
 function CommentForm({ path, parentId, label, onCreated, onCancel, autoFocus = false }: {
   path: string; parentId?: string; label: string; autoFocus?: boolean;
@@ -131,9 +129,6 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
 }) {
   const { user } = useApp();
   const [editing, setEditing] = useState(false);
-  const [replying, setReplying] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [recentReplies, setRecentReplies] = useState<DiscussionComment[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
@@ -143,20 +138,11 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
     active.current = true;
     return () => { active.current = false; };
   }, []);
-  const thread = comment;
   const readOnly = inheritedReadOnly || !!comment.publication?.archived_at || !!comment.publication?.read_only;
   const own = !!user && user.id === comment.author?.id && !comment.deleted;
-  const replyFormId = useId();
-
-  function toggleReply() {
-    if (!user || readOnly) { setExpanded((value) => !value); return; }
-    if (comment.deleted) return;
-    setReplying((value) => !value);
-  }
 
   function beginEdit() {
     menu.current?.removeAttribute("open");
-    setReplying(false);
     setEditing(true);
   }
   async function remove() {
@@ -192,7 +178,7 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
   return <article id={anchor ? `comment-${comment.id}` : undefined}
     className={`discussion-comment motion-enter ${anchor ? "is-linked" : ""}`}>
     {!editing && !comment.deleted && comment.publication ? <ReplyPublication post={comment.publication}
-      readOnly={readOnly} commentsOpen={user && !readOnly ? replying : expanded} onComments={toggleReply}
+      readOnly={readOnly}
       onChanged={(action) => { void reload(); if (action === "like") onReaction?.(); }}
       menu={own && <PublicationMenu item={comment.publication} menuRef={menu} disabled={busy} readOnly={readOnly}
         onReconciled={(updated) => {
@@ -218,31 +204,11 @@ export function ReplyThread({ comment, kind, publicationId, base, onUpdate, onRe
       {comment.deleted ? "This comment was deleted. Its place in the conversation is preserved." : <HashtagText text={comment.text ?? ""} />}
     </p>}
     </>}
-    {(thread.replies_count > 0 || (!comment.publication && user && !readOnly && !comment.deleted)) && <div className="comment-actions">
-      {thread.replies_count > 0 && <button type="button" className="text-link" aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}>
-        {expanded ? "Hide replies" : `Show replies (${thread.replies_count})`}
-      </button>}
-      {!comment.publication && user && !readOnly && !comment.deleted && <button type="button" className="text-link"
-        aria-expanded={replying} aria-controls={replyFormId} onClick={toggleReply}><Icon name="comment" />Reply</button>}
-    </div>}
+    {!comment.publication && comment.replies_count > 0 && <Link className="text-link" to={`/posts/${comment.id}#replies`}>
+      View replies ({comment.replies_count})
+    </Link>}
     {error && <p className="notice-error mt-2" role="alert">{error}{" "}
       <button className="underline" disabled={busy} onClick={() => void reload()}>Reload comment</button>
     </p>}
-    {!readOnly && !comment.deleted && user && <Collapsible id={replyFormId} className="inline-reply-composer" open={replying}>
-      <CommentForm path={base} parentId={comment.id} label="Reply to this reply" autoFocus={replying}
-      onCancel={() => setReplying(false)} onCreated={(created) => {
-        setReplying(false);
-        setExpanded(true);
-        setRecentReplies((items) => mergeListItems(items, [created], itemId));
-        if (thread && !recentReplies.some((item) => item.id === created.id))
-          onUpdate({ ...thread, replies_count: thread.replies_count + 1 });
-        notifyInteractionChange({ kind, id: publicationId });
-      }} />
-    </Collapsible>}
-    <Collapsible open={expanded} className={thread.depth < 4 ? "mt-4 border-l border-neutral-200 pl-3 sm:pl-5" : "mt-4 border-t border-neutral-200"}>
-      <ReplyList kind={kind} id={publicationId} parentId={comment.id} readOnly={readOnly} newComments={recentReplies}
-        onRecentUpdate={(updated) => setRecentReplies((items) => items.map((item) => item.id === updated.id ? updated : item))} />
-    </Collapsible>
   </article>;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "../../shared/ui/Icon";
 import { useApp } from "../../app/AuthProvider";
 import { api, errorMessage } from "../../shared/api/client";
@@ -8,11 +8,11 @@ import { interactionEvent, notifyInteractionChange, publicationPath } from "./ev
 import type { InteractionChange } from "./events";
 import { Skeleton } from "../../shared/ui/Skeleton";
 
-export function PublicationActions({ kind, id, onComments, commentsOpen, onShare, copied, onChanged }: {
+export function PublicationActions({ kind, id, onComments, commentsHref, onShare, copied, onChanged }: {
   kind: PublicationKind;
   id: string;
-  onComments: () => void;
-  commentsOpen?: boolean;
+  onComments?: () => void;
+  commentsHref?: string;
   onShare?: () => void;
   copied?: boolean;
   onChanged?: (action: InteractionAction, enabled: boolean) => void;
@@ -103,10 +103,13 @@ export function PublicationActions({ kind, id, onComments, commentsOpen, onShare
         aria-pressed={summary?.reposted ?? false} onClick={() => void change("repost", !summary?.reposted)}>
         <Icon name="repost" />{summary?.reposts_count ?? missingCount}
       </button>}
-      <button type="button" className="engage" aria-expanded={commentsOpen} onClick={onComments}
+      {commentsHref ? <Link className="engage" to={commentsHref}
         aria-label={kind === "micro_post" ? "Replies" : "Comments"} title={kind === "micro_post" ? "Replies" : "Comments"}>
         <Icon name="comment" />{summary?.comments_count ?? missingCount}
-      </button>
+      </Link> : <button type="button" className="engage" onClick={onComments}
+        aria-label={kind === "micro_post" ? "Replies" : "Comments"} title={kind === "micro_post" ? "Replies" : "Comments"}>
+        <Icon name="comment" />{summary?.comments_count ?? missingCount}
+      </button>}
       <span className="actions-spacer" />
       {onShare && <button type="button" className="engage" onClick={onShare}
         aria-label={copied ? "Link copied" : "Share"} title={copied ? "Link copied" : "Share"}>

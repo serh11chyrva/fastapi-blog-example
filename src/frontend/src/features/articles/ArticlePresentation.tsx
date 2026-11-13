@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useApp } from "../../app/AuthProvider";
 import { Footer } from "../../app/layouts/Navigation";
 import { api, errorMessage } from "../../shared/api/client";
@@ -15,7 +15,6 @@ import { PublicationStatus } from "../publications/PublicationStatus";
 import { Attachments } from "../publications/Attachments";
 import { TipTapDocument } from "./TipTapDocument";
 import { HashtagText } from "../../shared/text/HashtagText";
-import { Collapsible } from "../../shared/ui/Collapsible";
 
 function readingSections(body: JSONContent) {
   const sections: { id: string; label: string }[] = [];
@@ -129,14 +128,8 @@ export function ArticlePresentation({ article, owner, onChanged }: {
 }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
-  const [comments, setComments] = useState(true);
-  const [focusReply, setFocusReply] = useState(false);
-  const { hash } = useLocation();
   const { document, sections, images } = useMemo(() => readingSections(article.body), [article.body]);
 
-  useEffect(() => {
-    if (hash.startsWith("#comment-")) setComments(true);
-  }, [hash]);
 
   async function share() {
     try {
@@ -173,12 +166,9 @@ export function ArticlePresentation({ article, owner, onChanged }: {
       <ArticleAuthors authors={article.authors} />
       {error && <p className="notice-error" role="alert">{error}</p>}
       {article.status === "published" && !article.archived_at && <>
-        <PublicationActions kind="article" id={article.id} onComments={() => { setFocusReply(!comments); setComments(!comments); }}
-          commentsOpen={comments} onShare={() => void share()} copied={copied} />
-        <Collapsible open={comments} instant={hash.startsWith("#comment-")}>
-          <Discussion key={article.id} kind="article" id={article.id} deepLink visible={comments}
-            focusComposer={comments && focusReply} />
-        </Collapsible>
+        <PublicationActions kind="article" id={article.id} commentsHref="#replies"
+          onShare={() => void share()} copied={copied} />
+        <Discussion key={article.id} kind="article" id={article.id} deepLink />
       </>}
       {article.archived_at && <Discussion key={article.id} kind="article" id={article.id} deepLink readOnly />}
       <Footer reading />

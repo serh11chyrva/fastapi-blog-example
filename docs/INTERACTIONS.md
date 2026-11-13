@@ -278,35 +278,14 @@ account handle stays on its own line below the name.
   retaining native Escape, focus behavior, and photo-viewer scroll locking. Route
   navigation is immediate and does not wait for page-exit animations. Reduced motion
   removes these effects while retaining the same controls and content.
-- Reply/Comments opens a discussion within a card; reading pages open the discussion initially.
-  Both article and post discussions are titled Replies. The root composer stays before
-  root replies. The comment icon opens a focused form immediately below
-  the selected reply's actions and before its children. The comment icon is the single
-  reply action, including in highlighted replies; it does not open the root composer.
-  Show replies appears only for nonempty branches and only toggles that parent's children.
-  Anonymous comment-icon actions toggle the readable branch instead of a write form.
-  Successful nested creation expands the target branch and updates its direct-child count
-  without duplicating the returned entry. There is no Refresh conversation button;
-  failed reads retain their Retry action and loaded pages.
-  Highlighted and full replies share the same thread component, actions, and form placement.
-  Reaction and discussion slots use distinct React keys. Opening/closing a discussion
-  hides its existing panel after the first open, preserving loaded pages and the root
-  draft without accumulating reaction rows. Closing a local reply form similarly
-  preserves its draft and reopening focuses that form. Owner Edit/Delete actions live
-  in the reply's menu rather than adding another toolbar beneath its reactions.
-  Discussion panels, additional highlighted replies, nested branches, and local reply forms expand and collapse
-  over 220 ms while preserving their mounted content after the first open. Closed
-  panels are inert and unavailable to assistive technology; closing from within a
-  panel returns focus to its opening control. Height returns to automatic sizing
-  after expansion, including asynchronously loaded replies. Fast toggles continue
-  from the current height. Reduced motion settles the panel immediately. Reading
-  discussions are initially open without expansion, and comment deep links bypass
-  expansion to keep anchor scrolling stable. Linked comments scroll into view only
-  after the discussion is visible, including comments that were already loaded.
-  A post's Show replies button loads only that parent's children. Reply forms appear only for live
-  parents. Deleted parents retain their existing branches; deeper live descendants remain usable.
-  The article Reply action targets the selected reply. Article pages can
-  load a scoped linked comment directly by ID when it falls outside the current page.
+- Reply/Comments links open the selected publication page at `#replies`, including
+  cards in feeds, profiles, search, saved lists, and discussions. Each reply opens
+  its own page; replies no longer expand nested branches or inline composers.
+  Reading pages keep the discussion open. The selected publication's comment link
+  scrolls to its composer; anonymous readers can read replies and sign in to write.
+  Article `#comment-<id>` links and comment sorting remain supported.
+  Popular reply previews and their per-card requests have been removed.
+
 - Shared publication forms enforce the 280-character limit and one attachment choice,
   allow attachment-only replies, disable repeated submission, and keep drafts on failure. Owned live comments offer Edit and Delete; failed edits can reload the
   latest comment without replacing the local draft. Deletion hides text/author and preserves children.

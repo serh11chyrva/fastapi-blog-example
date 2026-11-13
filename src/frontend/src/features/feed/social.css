@@ -172,9 +172,6 @@
 .viewer-stage figcaption { padding-top: 8px; color: #ddd; font-size: 12px; text-align: center; }
 .viewer-stage .icon-button { color: #fff; }
 
-.highlighted-replies { margin-top: 13px; border-left: 2px solid #e1e1d8; padding: 0 0 0 12px; }
-.highlighted-replies > p { font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
-.highlighted-replies > .discussion-comment { border-top: 0; padding-top: 0; }
 .discussion { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
 .discussion-signin { margin-bottom: 12px; color: var(--muted); font-size: 12px; }
 .discussion .publication-composer, .inline-reply-composer .publication-composer { padding: 12px 0 18px; }

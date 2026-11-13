@@ -6,8 +6,8 @@ import { PublicationByline } from "../publications/PublicationByline";
 import { PostContent } from "../feed/PostContent";
 import { PublicationActions } from "../interactions/PublicationActions";
 
-export function ReplyPublication({ post, onComments, commentsOpen, onChanged, menu, readOnly = false }: {
-  post: MicroPost; readOnly?: boolean; onComments: () => void; commentsOpen?: boolean;
+export function ReplyPublication({ post, onChanged, menu, readOnly = false }: {
+  post: MicroPost; readOnly?: boolean;
   onChanged?: (action: InteractionAction, enabled: boolean) => void; menu?: ReactNode;
 }) {
   const author = post.authors[0];
@@ -19,10 +19,9 @@ export function ReplyPublication({ post, onComments, commentsOpen, onChanged, me
       <PublicationByline author={author} reply={post.reply} href={post.share_url ?? `/posts/${post.id}`}
         publishedAt={post.created_at} updatedAt={post.updated_at} pinnedAt={post.pinned_at} archivedAt={post.archived_at}>{menu}</PublicationByline>
       <PostContent text={post.text} attachments={post.attachments} reply={post.reply} context={false} />
-      {!readOnly && <PublicationActions kind="micro_post" id={post.id} onComments={onComments}
-        commentsOpen={commentsOpen} onChanged={onChanged} />}
-      {readOnly && <button type="button" className="text-link" aria-expanded={commentsOpen} onClick={onComments}>
-        {commentsOpen ? "Hide replies" : "View replies"}</button>}
+      {!readOnly && <PublicationActions kind="micro_post" id={post.id}
+        commentsHref={`${post.share_url ?? `/posts/${post.id}`}#replies`} onChanged={onChanged} />}
+      {readOnly && <Link className="text-link" to={`/posts/${post.id}#replies`}>View replies</Link>}
     </div>
   </div>;
 }
