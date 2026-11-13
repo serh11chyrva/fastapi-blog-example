@@ -153,6 +153,7 @@ export type Article = PublicationBase & {
   body: JSONContent;
   hero_layout: HeroLayout;
   comments_enabled: boolean;
+  search_enabled: boolean;
   thumbnail_url: string | null;
   inline_image_urls: string[];
   status: "draft" | "scheduled" | "published";

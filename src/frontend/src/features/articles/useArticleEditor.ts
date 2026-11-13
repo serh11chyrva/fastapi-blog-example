@@ -18,6 +18,7 @@ export function useArticleEditor() {
   const [title, setTitle] = useState("");
   const [heroLayout, setHeroLayout] = useState<HeroLayout>("cover_title");
   const [commentsEnabled, setCommentsEnabled] = useState(true);
+  const [searchEnabled, setSearchEnabled] = useState(true);
   const [loadedBody, setLoadedBody] = useState<JSONContent | null>(null);
   const [body, setBody] = useState<JSONContent>({ type: "doc", content: [{ type: "paragraph" }] });
   const [article, setArticle] = useState<Article | null>(null);
@@ -60,6 +61,7 @@ export function useArticleEditor() {
         setTitle(value.title);
         setHeroLayout(value.hero_layout ?? "cover_title");
         setCommentsEnabled(value.comments_enabled ?? true);
+        setSearchEnabled(value.search_enabled ?? true);
         setBody(value.body);
         setLoadedBody(value.body);
         if (value.scheduled_at) {
@@ -136,22 +138,25 @@ export function useArticleEditor() {
   async function persist(): Promise<Article> {
     validateContent();
     const currentBody = editor ? fromEditorBody(editor.getJSON()) : body;
-    const payload = { title, body: currentBody, hero_layout: heroLayout, comments_enabled: commentsEnabled };
+    const payload = { title, body: currentBody, hero_layout: heroLayout,
+      comments_enabled: commentsEnabled, search_enabled: searchEnabled };
     let saved = article;
     if (!saved) {
       saved = await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
     } else if (title.trim() !== saved.title || heroLayout !== (saved.hero_layout ?? "cover_title")
       || commentsEnabled !== (saved.comments_enabled ?? true)
+      || searchEnabled !== (saved.search_enabled ?? true)
       || JSON.stringify(currentBody) !== JSON.stringify(saved.body)) {
       saved = await api<Article>(`/articles/${saved.id}`, { method: "PATCH", body: JSON.stringify(payload) });
     }
     setArticle(saved);
     if (thumbnailFile) {
       saved = await uploadImages<Article>(`/articles/${saved.id}/cover`, [thumbnailFile]);
+      saved = await api<Article>(`/articles/${saved.id}`);
       setThumbnailFile(null);
     } else if (coverRemoved && saved.thumbnail_url) {
       await api(`/articles/${saved.id}/cover`, { method: "DELETE" });
-      saved = { ...saved, thumbnail_url: null };
+      saved = await api<Article>(`/articles/${saved.id}`);
     }
     setCoverRemoved(false);
     setArticle(saved);
@@ -169,7 +174,8 @@ export function useArticleEditor() {
       if (!saved) {
         saved = await api<Article>("/articles", {
           method: "POST", body: JSON.stringify({ title: title.trim() || "Untitled",
-            body: editor ? fromEditorBody(editor.getJSON()) : body, hero_layout: heroLayout, comments_enabled: commentsEnabled }),
+            body: editor ? fromEditorBody(editor.getJSON()) : body, hero_layout: heroLayout,
+            comments_enabled: commentsEnabled, search_enabled: searchEnabled }),
         });
         setArticle(saved);
       }
@@ -266,6 +272,7 @@ export function useArticleEditor() {
   useEffect(() => { editor?.setEditable(!saving); }, [editor, saving]);
   const coverPreview = thumbnailPreview || (coverRemoved ? null : article?.thumbnail_url);
   return { loading, loadError, title, setTitle, heroLayout, setHeroLayout, commentsEnabled, setCommentsEnabled, article, error, saving,
+    searchEnabled, setSearchEnabled,
     chooseCover, coverPreview, publishAt, setPublishAt, imageInput, chooseInlineImage, editor,
     inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
 }

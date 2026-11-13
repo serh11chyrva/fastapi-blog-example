@@ -70,7 +70,7 @@ class SearchRepository:
     async def publications(
         query: SearchQuery, sort: SearchSort, after: str | None, limit: int,
     ) -> list[dict[str, Any]]:
-        """Hydrate and authorize Atlas candidates before selecting a visible page.
+        """Authorize Atlas candidates and current article search eligibility before selecting a visible page.
 
         :param query: Normalized words and mandatory exact tags.
         :param sort: Relevance or newest-publication ordering.
@@ -95,6 +95,7 @@ class SearchRepository:
                     "from": "articles", "localField": "source_id", "foreignField": "_id",
                     "let": {"kind": "$source_kind"}, "as": "_article", "pipeline": [{"$match": {
                         "deleted_at": None, "archived_at": None, "status": "published",
+                        "search_enabled": {"$ne": False},
                         "published_at": {"$ne": None}, "$expr": {"$eq": ["$$kind", "article"]},
                     }}],
                 }},

@@ -16,6 +16,7 @@ export function ArticleEditorPage() {
 function ArticleEditorForm() {
   const { loading, loadError, title, setTitle, heroLayout, setHeroLayout, article, error, saving, chooseCover, coverPreview,
     commentsEnabled, setCommentsEnabled,
+    searchEnabled, setSearchEnabled,
     publishAt, setPublishAt, imageInput, chooseInlineImage, editor, inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
   const [dropTop, setDropTop] = useState<number | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
@@ -105,6 +106,9 @@ function ArticleEditorForm() {
         <label className="publish-option"><input type="checkbox" checked={commentsEnabled} disabled={saving}
           onChange={(event) => setCommentsEnabled(event.target.checked)} /><span>Enable comments
             <small>Turning this off hides existing comments and replies until re-enabled.</small></span></label>
+        <label className="publish-option"><input type="checkbox" checked={searchEnabled} disabled={saving}
+          onChange={(event) => setSearchEnabled(event.target.checked)} /><span>Show in site search
+            <small>Your article remains available in feeds, on your profile, and by direct link.</small></span></label>
         <label className="form-label">Schedule for<input className="field" type="datetime-local" disabled={saving}
           value={publishAt} onChange={(event) => setPublishAt(event.target.value)} /></label>
         <div className="publish-actions">

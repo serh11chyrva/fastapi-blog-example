@@ -14,6 +14,7 @@ async def sync_publication(publication: MicroPost | Article, session: AsyncClien
 
     Ancestor visibility is checked at read time, allowing an entire discussion to
     disappear or reappear without rewriting every descendant projection.
+    An article's internal-search opt-out removes only its own projection.
 
     :param publication: Current persisted canonical publication within the transaction.
     :param session: Required session shared with the source mutation and its audit event.
@@ -23,7 +24,12 @@ async def sync_publication(publication: MicroPost | Article, session: AsyncClien
     identity = {"source_kind": "article" if is_article else "micro_post", "source_id": publication.id}
     eligible = publication.deleted_at is None and publication.archived_at is None
     if is_article:
-        eligible = eligible and publication.status == "published" and publication.published_at is not None
+        eligible = (
+            eligible
+            and publication.status == "published"
+            and publication.published_at is not None
+            and publication.search_enabled
+        )
     else:
         eligible = eligible and not publication.pending
     if not eligible:

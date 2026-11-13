@@ -27,6 +27,7 @@ def article_response(article: Article, authors: list[User]) -> ArticleResponse:
         title=article.title,
         hero_layout=article.hero_layout,
         comments_enabled=article.comments_enabled,
+        search_enabled=article.search_enabled,
         summary=article.summary,
         body=article.body,
         thumbnail_url=article_thumbnail_url(article.thumbnail_key),

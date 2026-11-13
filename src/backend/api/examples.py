@@ -169,6 +169,7 @@ ARTICLE_CREATE = {
     "body": ARTICLE_BODY,
     "hero_layout": "cover_title",
     "comments_enabled": True,
+    "search_enabled": True,
 }
 ARTICLE_UPDATE = ARTICLE_CREATE | {"title": "Ten pages before the first meeting", "hero_layout": "title_cover"}
 ARTICLE = {
@@ -203,6 +204,7 @@ ARTICLE_PUBLISHED = ARTICLE | {
     "published_at": "2026-10-13T09:26:41Z",
 }
 ARTICLE_COMMENTS_DISABLED = ARTICLE_PUBLISHED | {"comments_enabled": False}
+ARTICLE_SEARCH_DISABLED = ARTICLE_PUBLISHED | {"search_enabled": False}
 POST_RICH_CREATE = {
     "text": "Reading notes worth continuing.",
     "attachments": [{

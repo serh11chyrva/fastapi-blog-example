@@ -18,6 +18,9 @@ API_DESCRIPTION = """Publish short notes and long-form articles, discover writer
 ### Public search and hashtags
 GET `/api/v1/search/users` searches username, public name, and biography. GET
 `/api/v1/search/publications` searches complete articles, posts, replies, and comments.
+Article search_enabled defaults to true. Setting it to false excludes only the article
+from internal text and hashtag search; feeds, profiles, and direct links are unaffected.
+The source setting is checked before pagination even while Atlas indexing catches up.
 Both are public and accept `q`, `cursor`, and a limit up to 50; publication search
 also accepts `sort=relevance` (default) or `latest`. Every text word must match,
 each #hashtag is an exact filter, and the last word supports prefixes. Matching

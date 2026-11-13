@@ -29,10 +29,17 @@ class ArticleCreate(BaseModel):
         description="Enable the discussion. False hides all existing comments and descendants everywhere until re-enabled.",
         examples=[True, False],
     )
+    search_enabled: bool = Field(
+        default=True,
+        description="Include the published article in internal text and hashtag search. "
+        "Feeds and direct access are unaffected.",
+        examples=[True, False],
+    )
     title: str = Field(
         min_length=1,
         max_length=160,
-        description="Article title, trimmed and nonblank, up to 160 characters; Unicode hashtags are searchable.",
+        description="Article title, trimmed and nonblank, up to 160 characters; "
+        "hashtags participate when search is enabled.",
         examples=[examples.ARTICLE_CREATE["title"]],
     )
     body: ArticleBody = Field(
@@ -100,6 +107,12 @@ class ArticleUpdate(BaseModel):
         description="Enable or hide the entire discussion. False is applied; omission or null preserves the current value.",
         examples=[False],
     )
+    search_enabled: bool | None = Field(
+        default=None,
+        description="Include the article in internal search. False is applied; "
+        "omission or null preserves the current value.",
+        examples=[False],
+    )
 
     attachments: PublicationAttachments | None = Field(
         default=None,
@@ -110,7 +123,7 @@ class ArticleUpdate(BaseModel):
         default=None,
         min_length=1,
         max_length=160,
-        description="Replacement title, trimmed and nonblank, with searchable Unicode hashtags. "
+        description="Replacement title, trimmed and nonblank; hashtags participate when search is enabled. "
         "Omit or use null to keep the current title.",
         examples=[examples.ARTICLE_UPDATE["title"]],
     )
@@ -193,6 +206,7 @@ class ArticleResponse(LinkPresentation, PublicationState):
             "examples": [
                 examples.ARTICLE_PUBLISHED,
                 examples.ARTICLE_COMMENTS_DISABLED,
+                examples.ARTICLE_SEARCH_DISABLED,
                 examples.ARTICLE,
                 examples.ARTICLE_WITH_FEATURED_AUTHORS,
                 examples.ARTICLE_WITH_CONTENT,
@@ -232,6 +246,11 @@ class ArticleResponse(LinkPresentation, PublicationState):
     comments_enabled: bool = Field(
         default=True,
         description="Whether the discussion is visible and accepts comments. False hides all descendants, including media.",
+        examples=[True, False],
+    )
+    search_enabled: bool = Field(
+        default=True,
+        description="Whether this article is eligible for internal search when public. Legacy articles default to true.",
         examples=[True, False],
     )
     summary: str = Field(

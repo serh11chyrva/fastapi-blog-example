@@ -103,3 +103,17 @@ comments and replies at every depth inside the transaction; concurrent changes
 conflict rather than publishing into a disabled discussion. Closed-discussion reads
 return 404 and new comment requests return 403. Existing interaction removal remains
 available for cleaning up one's own inaccessible likes, saves, or reposts.
+
+## Internal search visibility
+
+**Show in site search** defaults to on. Saving it off removes the article from
+internal text and hashtag search while retaining the feed card, profile entry, and
+direct reading link. This is a discovery setting, not private publication access or
+an instruction to external search engines. It applies only to the article itself;
+discussion visibility is controlled separately by **Enable comments**.
+
+Re-enabling restores search eligibility when the article is public, subject to the
+ordinary indexing delay. Source eligibility is rechecked before result pagination
+to exclude stale indexed matches immediately after an opt-out. Existing articles
+need no migration. Cover upload retries reload current article settings so a saved
+media response cannot replace newer publishing preferences in the editor.

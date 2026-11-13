@@ -703,6 +703,15 @@ reads and direct comment/media links return 404; new comments at every depth ret
 403. The article itself remains public and its visible comment count becomes zero.
 See [discussion visibility and concurrency](INTERACTIONS.md) for all affected surfaces.
 
+Article create/update/full responses also support `search_enabled`, defaulting to
+true for new and legacy articles. `PATCH /api/v1/articles/{article_id}` with
+`{"search_enabled":false}` excludes only the article from internal full-text and
+hashtag search. False is applied explicitly; omission or null preserves the setting.
+Feeds, profile entries, direct access, and external indexing remain unchanged.
+Projection deletion/upsert shares the article transaction, and result hydration
+checks the current source setting before pagination despite stale Atlas matches.
+Re-enabling restores eligibility with the usual index delay. See [search consistency](SEARCH.md).
+
 `GET /api/v1/profiles/cards?user_id=68eb7491d37a2f06b8ce9540` resolves typed
 mentions to public account cards. Supply 1–50 repeated `user_id` values, each a
 24-character ObjectId. Duplicate IDs appear once in first-requested order; missing

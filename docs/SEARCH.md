@@ -35,7 +35,8 @@ Hashtags link to `/search?q=%23tag` in posts, replies, article titles and text,
 previews, biographies, and public names. Tags contain one to 64 Unicode letters,
 numbers, combining marks, or underscores. Comparison uses NFC and Unicode case
 folding; rendering preserves saved spelling. HTTP URLs and rich-text code/link
-marks do not create tags. Structured hashtag nodes and attachments remain supported.
+marks do not create tags. Formula sources produce neither searchable text nor tags.
+Structured hashtag nodes and attachments remain supported.
 TipTap decorations recognize tags across formatting without changing saved JSON.
 Editing shows the decoration without navigating; read-only views provide links.
 
@@ -64,6 +65,21 @@ posts, pending uploads, drafts, scheduled articles, and archives are excluded fo
 every viewer, including the owner. Deleted ancestors retain existing tombstone
 semantics. An unavailable discussion original hides its replies. Ancestor archive
 changes do not rewrite all descendant projections.
+
+Article `search_enabled` defaults to true, including when the field is absent from
+legacy documents. Creating or updating an article with `search_enabled: false`
+excludes that article from internal text and hashtag search. The setting leaves
+feeds, public profiles, direct links, and external search-engine indexing unchanged.
+It does not independently hide comments; disabling `comments_enabled` hides the
+whole discussion, including its search results, for every viewer.
+
+An article search opt-out removes its own projection in the content transaction.
+Re-enabling upserts the projection when the article is published and unarchived;
+normal Atlas indexing delay still applies. Candidate hydration also checks the
+current source field before pagination, so a stale indexed projection cannot return
+an opted-out article. Discussion closure is likewise checked through the current
+original article without rewriting descendant projections. No new index or backfill
+is required for these settings.
 
 Article excerpts contain at most 280 characters from current body text near a
 literal/prefix match. Fuzzy-only matches without a literal passage use the usual

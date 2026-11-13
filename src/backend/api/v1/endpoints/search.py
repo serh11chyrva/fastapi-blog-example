@@ -45,7 +45,8 @@ async def users(
     description=(
         "Mixed full-text search of posts, complete article bodies and titles, replies, and comments. "
         "Repost events do not duplicate originals. Drafts, scheduled, deleted, archived, and inaccessible "
-        "discussion content are excluded for every viewer. Visibility is rechecked before pagination; "
+        "discussion content and articles with search_enabled=false are excluded for every viewer. "
+        "Visibility and current search eligibility are rechecked before pagination; "
         "cards and excerpts use current source data. Indexed matching can lag behind recent edits."
     ), responses=documented_responses(422, 503),
 )

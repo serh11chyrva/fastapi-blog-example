@@ -89,6 +89,7 @@ class ArticleService:
             title=payload.title,
             hero_layout=payload.hero_layout,
             comments_enabled=payload.comments_enabled,
+            search_enabled=payload.search_enabled,
             summary=article_summary(payload.body),
             body=payload.body,
             attachments=payload.attachments,
@@ -115,7 +116,7 @@ class ArticleService:
         return article
 
     async def edit_article(self, article_id: str, payload: ArticleUpdate, owner: User) -> Article:
-        """Update content, header and discussion settings, references, and search projection in one transaction.
+        """Update content, publication settings, references, and search eligibility in one audited transaction.
 
         :param article_id: MongoDB identifier of the article.
         :param payload: Validated request data for the operation.
@@ -150,6 +151,9 @@ class ArticleService:
 
             if payload.comments_enabled is not None:
                 article.comments_enabled = payload.comments_enabled
+
+            if payload.search_enabled is not None:
+                article.search_enabled = payload.search_enabled
 
             article.summary = article_summary(article.body)
 
