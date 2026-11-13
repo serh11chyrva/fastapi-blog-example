@@ -42,10 +42,10 @@ export function Attachments({ items, editable = false }: { items: Attachment[]; 
 
   if (!items.length) return null;
   const current = request?.params === params ? request : undefined;
-  const blocks: (Attachment | Extract<Attachment, { type: "image" }>[])[] = [];
+  const blocks: (Attachment | Extract<Attachment, { type: "image" | "gif" }>[])[] = [];
   for (const item of items) {
     const last = blocks.at(-1);
-    if (item.type !== "image") blocks.push(item);
+    if (item.type !== "image" && item.type !== "gif") blocks.push(item);
     else if (Array.isArray(last)) last.push(item);
     else blocks.push([item]);
   }
@@ -68,7 +68,8 @@ export function Attachments({ items, editable = false }: { items: Attachment[]; 
         case "embed":
         case "og_card":
         case "link": return <ResolvedLink key={key} item={item} />;
-        case "image": return null;
+        case "image":
+        case "gif": return null;
         default: return <a key={key} className="simple-attachment" href={item.url} target="_blank" rel="noopener noreferrer">
           <Icon name="link" width={15} height={15} />Open video
           <Icon name="external" width={14} height={14} />

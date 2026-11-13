@@ -58,6 +58,7 @@ class Settings(BaseModel):
     avatar_max_bytes: int = 5 * 1024 * 1024
     article_thumbnail_max_bytes: int = 10 * 1024 * 1024
     publication_image_max_bytes: int = 5 * 1024 * 1024
+    gif_max_bytes: int = 8 * 1024 * 1024
     demo_password: str = Field(default_factory=lambda: environ.get("DEMO_PASSWORD", "DemoPassword123!"))
 
 

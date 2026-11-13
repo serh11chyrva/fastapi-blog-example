@@ -108,7 +108,7 @@ the full application stack; the preview does not provide mock responses.
 
 ## Conventions
 
-- Upload size limits are defined in `src/backend/core/config.py`: 5 MiB per avatar, post image, or inline article image, and 10 MiB per article thumbnail. These limits are not configured through environment variables.
+- Upload size limits are defined in `src/backend/core/config.py`: 5 MiB per JPEG/PNG/WebP avatar, banner, post image, or inline article image; 8 MiB (8,388,608 bytes inclusive) per GIF in posts, comments, or article bodies; and 10 MiB per JPEG/PNG/WebP article thumbnail. GIF is not supported for profiles or article covers. These limits are not configured through environment variables.
 - Base path: `/api/v1`.
 - Application API requests use JSON. Presigned Garage PUT requests send raw file bytes without application cookies.
 - Timestamps are ISO 8601 UTC strings. Account and document IDs are MongoDB ObjectId strings; profile link IDs are UUID strings.
@@ -355,15 +355,15 @@ Image uploads have three steps: prepare with JSON metadata, PUT raw bytes to the
 | POST | `/me/banner/uploads` | Prepare one banner up to 5 MiB |
 | POST | `/me/banner/uploads/{upload_id}/complete` | Replace the banner and return the current own profile |
 | DELETE | `/me/banner` | Detach the current banner and queue cleanup |
-| POST | `/posts/{post_id}/images/uploads` | Prepare one to five gallery images, in display order |
-| POST | `/posts/{post_id}/images/uploads/{upload_id}/complete` | Replace the whole gallery; returns post |
+| POST | `/posts/{post_id}/images/uploads` | Prepare one to five JPEG/PNG/WebP gallery images, or one exclusive GIF |
+| POST | `/posts/{post_id}/images/uploads/{upload_id}/complete` | Replace the whole gallery or sole GIF; returns post |
 | POST | `/articles/{article_id}/cover/uploads` | Prepare one cover |
 | POST | `/articles/{article_id}/cover/uploads/{upload_id}/complete` | Replace cover; returns article with `thumbnail_url` |
 | DELETE | `/articles/{article_id}/cover` | Detach the cover and queue cleanup |
 | POST | `/articles/{article_id}/images/uploads` | Prepare one inline image |
 | POST | `/articles/{article_id}/images/uploads/{upload_id}/complete` | Append inline image; returns `url` and `alt_text` |
 
-JPEG, PNG, and WebP are accepted. Avatars, post images, and inline images allow 5 MiB; covers allow 10 MiB. Articles allow up to 30 inline images, checked again at confirmation. Files must be nonempty and their actual lengths must match the declared sizes. Signature checks reject unsupported bytes or bytes that disagree with the requested MIME type. Presigned PUT alone does not enforce the size limit: confirmation rejects oversized objects before attachment.
+JPEG, PNG, and WebP are accepted. Avatars, banners, post images, and inline images allow 5 MiB; covers allow 10 MiB. GIF87a and GIF89a files allow 8 MiB (8,388,608 bytes inclusive) in posts, comments, and article bodies. A post or comment allows exactly one GIF without images or other attachments. Articles may contain multiple GIF and mix them with other content within the existing total limit of 30 inline files, checked again at confirmation. GIF is rejected for avatars, banners, and article covers with `415`. Files must be nonempty and their actual lengths must match the declared sizes. Signature checks reject unsupported bytes or bytes that disagree with the requested MIME type. GIF bytes are stored and served unchanged, preserving animation. Presigned PUT alone does not enforce the size limit: preparation checks the declared length and confirmation checks the actual length before attachment.
 
 Preparation request:
 
@@ -402,9 +402,30 @@ Confirmation has no request body. Its returned inline image can be inserted into
 {"url":"/static/images/article-images/0123456789abcdef0123456789abcdef.png","alt_text":"figure.png"}
 ```
 
+To upload a GIF for a post or comment, prepare a single file on its owned post or private staging target:
+
+```sh
+curl -b cookies.txt -H "Origin: $BASE" -H "Content-Type: application/json" \
+  -d '{"files":[{"filename":"animation.gif","content_type":"image/gif","size_bytes":8388608}]}' \
+  "$BASE/api/v1/posts/65f0c2a1b2c3d4e5f6071829/images/uploads"
+```
+
+Use the actual GIF length in `size_bytes`; the example illustrates the inclusive 8 MiB boundary.
+Its PUT instructions return `headers: {"Content-Type":"image/gif"}` and `max_size_bytes: 8388608`.
+Upload the original bytes using those instructions and confirm through the matching post endpoint.
+The returned post exposes the file as a separate attachment type:
+
+```json
+{"type":"gif","url":"/static/images/post-images/0123456789abcdef0123456789abcdef.gif","alt":""}
+```
+
+Article body GIF uses the same metadata at `/articles/{article_id}/images/uploads` and its
+matching confirmation endpoint. Insert the returned URL into a TipTap image node or a
+`gif` attachment descriptor. There is no one-GIF or exclusive-attachment rule for articles.
+
 The server validates a separate final copy and attaches it in a transaction with the audit event. Replaying the temporary PUT cannot overwrite that final image. Repeating a completed confirmation does not attach again. Publication confirmations return the original saved result; avatar and banner confirmations return the current own profile and revision, including when replaying a completed upload from an older API format. A failed gallery confirmation leaves existing attachments intact. Concurrent edits can return `409`; retry confirmation while the upload is valid. If it expires, prepare a new upload.
 
-Preparation and PUT URLs last ten minutes. Completion must start before the deadline and has a five-minute processing lease. Missing files, expired sessions, and concurrent confirmations return `409`; missing or inaccessible upload sessions return `404`. Oversized images return `413`, unsupported bytes return `415`, and size mismatch or count limits return `422`. Storage/database failures return `503`. Temporary files and abandoned final copies are queued for cleanup after an hour; replaced and deleted attachments are queued immediately. The worker runs every minute and retries failed deletions. Upload-session results are retained for seven days after expiry.
+Preparation and PUT URLs last ten minutes. Completion must start before the deadline and has a five-minute processing lease. Missing files, expired sessions, and concurrent confirmations return `409`; missing or inaccessible upload sessions return `404`. Oversized files return `413`; unsupported bytes, MIME/signature mismatches, and GIF for profiles or article covers return `415`. Size mismatch, multiple GIF in a post/comment, mixed GIF/image uploads, and attachment count or exclusivity violations return `422`. Storage/database failures return `503`. Temporary files and abandoned final copies are queued for cleanup after an hour; replaced and deleted attachments are queued immediately. The worker runs every minute and retries failed deletions. Upload-session results are retained for seven days after expiry.
 
 Downloads are at the application root, outside `/api/v1`:
 
@@ -416,7 +437,7 @@ Downloads are at the application root, outside `/api/v1`:
 | GET | `/static/images/article-covers/{object_name}` | Published article or its owner |
 | GET | `/static/images/article-images/{object_name}` | Published article or its author |
 
-Only attached images are served. Missing, deleted, or inaccessible images return `404`; unavailable storage returns `503`. Article images use `Cache-Control: private, no-store`, including published articles, so returning an article to draft does not leave a publicly cached copy. Avatars use a one-hour public cache; post images use private, no-store caching and follow archive and ancestor visibility. TipTap image sources must use the new relative article-image paths and belong to the article being saved. Legacy multipart upload routes and `/api/v1/media/` download routes are removed, without migration or redirects.
+Only attached images are served. GIF downloads use `Content-Type: image/gif` and are allowed only in the `post-images` and `article-images` collections. Missing, deleted, or inaccessible images return `404`; unavailable storage returns `503`. Article images use `Cache-Control: private, no-store`, including published articles, so returning an article to draft does not leave a publicly cached copy. Avatars use a one-hour public cache; post images use private, no-store caching and follow archive and ancestor visibility. TipTap image sources must use the new relative article-image paths and belong to the article being saved. Legacy multipart upload routes and `/api/v1/media/` download routes are removed, without migration or redirects.
 
 Following yourself returns `400`. Repeated follow/unfollow requests are safe and return `204`.
 
@@ -563,14 +584,15 @@ Article response adds `id`, `kind: "article"`, `status`, `owner_id`, `authors`, 
 
 Posts and articles store an ordered `attachments` array. Each object is a strict discriminated
 union selected by `type`; unknown types and fields return 422. Articles allow up to 30
-explicit descriptors. Posts and replies allow one gallery of up to five images or
-one player, card, link, or publication reference. Mention and hashtag descriptors
+explicit descriptors. Posts and replies allow one gallery of up to five images,
+one exclusive GIF, or one player, card, link, or publication reference. Mention and hashtag descriptors
 are article-only. Empty post text is allowed with a valid attachment.
 The composer and editor support link cards, publication references, and embedded provider players. The editor preserves supported TipTap nodes during save and reload.
 
 | Type | Fields | Behavior |
 | --- | --- | --- |
-| `image` | `url`, optional `alt` (up to 1,000 characters, default empty) | Same-origin URL of an image uploaded to this exact post or article |
+| `image` | `url`, optional `alt` (up to 1,000 characters, default empty) | Same-origin JPEG/PNG/WebP URL uploaded to this exact post or article; `.gif` URLs are rejected |
+| `gif` | `url`, optional `alt` (up to 1,000 characters, default empty) | Same-origin `.gif` URL uploaded to this exact post or article; posts/comments allow one GIF and no other attachments |
 | `link` | `url`, optional `label` (1–200 characters) | Plain HTTP(S) link |
 | `mention` | `user_id` | 24-character ObjectId of an existing account; no notification is sent |
 | `hashtag` | `tag` | 1–64 Unicode letters, digits, or underscores, without `#`; case is preserved |
@@ -606,19 +628,20 @@ Retaining an existing reference in an edit is allowed
 after its target becomes unavailable. Attachments grant no ownership, private access, featured
 credit, notifications, or automatic hashtag discovery.
 
-Images still use the existing prepare/PUT/confirm upload protocol, with five images per post
-and 30 inline images per article. Reserve a private post with `/posts/drafts`, upload
-images, then PATCH its complete content to publish. Articles upload into an owned
-draft. Optional `image` descriptors provide alternate text or gallery ordering.
-Repeating an image URL within explicit/body descriptors is rejected. Upload inventories
+Images and GIF use the existing prepare/PUT/confirm upload protocol, with up to five ordinary
+images or one exclusive GIF per post/comment, and 30 total inline files per article. Reserve a
+private post with `/posts/drafts`, upload files, then PATCH its complete content to publish.
+Articles upload into an owned draft. Optional `image` and `gif` descriptors provide alternate
+text or explicit placement. Repeating a media URL within explicit/body descriptors is rejected. Upload inventories
 (`image_keys` / `inline_image_keys` in storage) and their cleanup/authorization indexes remain authoritative.
-Post responses expose images only as `type: "image"` entries in `attachments`; the separate `images`
+Post responses expose media only as `type: "image"` or `type: "gif"` entries in `attachments`; the separate `images`
 field is removed, including in feeds, profile publications, shared-post reads, and upload confirmation
 responses. Article responses retain their separate `inline_image_urls` upload inventory.
 Clearing explicit descriptors alone does not delete uploaded files. Send
-`retain_image_urls` to remove post images, or transfer a private `image_draft_id`
-to replace a gallery atomically. Direct upload confirmation rejects mixed gallery
-and non-image attachments; use staging to change attachment types.
+`retain_image_urls` to remove post images or GIF, or transfer a private `image_draft_id`
+to replace media atomically. Direct upload confirmation rejects a gallery combined with
+other attachment types, multiple GIF, or a GIF combined with any other attachment; use
+staging to change attachment types.
 
 Post, article, shared-publication, feed, and profile-publication responses expose `attachments`.
 They retain explicit descriptor order, then append typed descriptors for uploaded images without
@@ -756,7 +779,7 @@ from feeds, profiles, previews, shared links, interactions, and public image rea
 ### Short-publication content rules
 
 Posts and replies accept empty text only when the saved state contains an attachment.
-Choose one gallery (one to five images), one player, one link card, or one publication
+Choose one gallery (one to five images), one exclusive GIF, one player, one link card, or one publication
 reference. This limit does not apply to article body blocks. On PATCH, omitted text and
 attachments are preserved. `retain_image_urls: []` removes the entire gallery; a list
 retains and orders only the owned images listed. `image_draft_id` transfers a completed

@@ -62,6 +62,7 @@ export type OwnProfile = Omit<Profile, "badges"> & {
 export type PublicationKind = "micro_post" | "article";
 export type Attachment =
   | { type: "image"; url: string; alt: string }
+  | { type: "gif"; url: string; alt: string }
   | { type: "link"; url: string; label: string | null }
   | { type: "mention"; user_id: string }
   | { type: "hashtag"; tag: string }

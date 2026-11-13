@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, Response, status
 
+from backend.api import examples
 from backend.api.metadata import ArticleId, Origin, PostId, UploadId, documented_responses
 from backend.articles.schemas import ArticleImageResponse, ArticleResponse
 from backend.audit.dependencies import Audit
@@ -36,14 +37,12 @@ Storage = Annotated[ImageStorageService, Depends(image_service)]
     status_code=status.HTTP_201_CREATED,
     summary="Prepare an avatar upload",
     description=(
-        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
-        "returned headers without application cookies, then confirm. One file is required "
-        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
-        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
-        "unchanged."
+        "Prepare one JPEG, PNG, or WebP avatar up to 5 MiB; GIF is rejected with 415. "
+        "Send JSON metadata for a ten-minute presigned PUT URL, upload raw bytes with the returned "
+        "headers without application cookies, then confirm. Preparation leaves attachments unchanged."
     ),
     tags=["Media"],
-    responses=documented_responses(401, 403, 409, 413, 503),
+    responses=documented_responses(401, 403, 409, 413, 415, 503),
 )
 async def prepare_avatar(
     _origin: Origin,
@@ -103,8 +102,10 @@ async def complete_avatar(
 @router.post(
     "/me/banner/uploads", response_model=ImageUploadResponse, status_code=201,
     summary="Prepare a profile banner upload",
-    description="Prepare a presigned upload for one JPEG, PNG, or WebP banner up to 5 MiB.",
-    tags=["Media"], responses=documented_responses(401, 403, 413, 422, 503),
+    description=(
+        "Prepare a presigned upload for one JPEG, PNG, or WebP banner up to 5 MiB. GIF is rejected with 415."
+    ),
+    tags=["Media"], responses=documented_responses(401, 403, 413, 415, 422, 503),
 )
 async def prepare_banner(
     _origin: Origin, payload: ImageUploadRequest, service: Storage, current_user: CurrentUser,
@@ -148,25 +149,36 @@ async def complete_banner(
     "/posts/{post_id}/images/uploads",
     response_model=ImageUploadResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Prepare a post gallery upload",
+    summary="Prepare post images or one GIF",
     description=(
-        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
-        "returned headers without application cookies, then confirm. One file is required "
-        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
-        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
-        "unchanged."
+        "Prepare one to five JPEG/PNG/WebP images up to 5 MiB each, or exactly one GIF up to "
+        "8 MiB (8388608 bytes inclusive). GIF is a separate attachment type and cannot be combined "
+        "with images or other attachments in a post or comment. Comments use the same private post "
+        "upload drafts. PUT URLs last ten minutes; send raw bytes with the returned headers without "
+        "application cookies, then confirm. Preparation leaves attachments unchanged."
     ),
     tags=["Media"],
-    responses=documented_responses(401, 403, 404, 409, 413, 503),
+    responses={
+        **documented_responses(401, 403, 404, 409, 413, 422, 503),
+        201: {
+            "description": "Prepared image gallery or single GIF upload with per-file size limits.",
+            "content": {"application/json": {"example": examples.GIF_UPLOAD_RESPONSE}},
+        },
+    },
 )
 async def prepare_post_images(
     _origin: Origin,
     post_id: PostId,
-    payload: ImageUploadRequest,
+    payload: Annotated[
+        ImageUploadRequest,
+        Body(openapi_examples={
+            "gif": {"summary": "One exclusive GIF up to 8 MiB", "value": examples.GIF_UPLOAD_REQUEST},
+        }),
+    ],
     service: Storage,
     current_user: CurrentUser,
 ) -> ImageUploadResponse:
-    """Prepare direct uploads for an owned micro-post's images.
+    """Prepare a gallery or one exclusive GIF for an owned post or comment upload draft.
 
     :param _origin: Validated Origin header required by mutating API operations.
     :param post_id: MongoDB identifier of the micro-post.
@@ -181,13 +193,13 @@ async def prepare_post_images(
 @router.post(
     "/posts/{post_id}/images/uploads/{upload_id}/complete",
     response_model=MicroPostResponse,
-    summary="Confirm replacement of a post gallery",
+    summary="Confirm replacement of post images or GIF",
     description=(
         "Confirm all files, validate exact size and image signatures, and attach immutable "
         "final objects. Requires ownership. Replays return the saved typed result without "
-        "attaching again. Galleries replace the existing images; inline article uploads "
-        "append one image. Completion uses a five-minute lease and requires starting before "
-        "upload expiry."
+        "attaching again. A gallery or single GIF replaces existing media. GIF is returned as "
+        "type=gif and cannot coexist with other attachments. Completion uses a five-minute lease "
+        "and starts before upload expiry."
     ),
     tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 415, 422, 503),
@@ -199,7 +211,7 @@ async def complete_post_images(
     service: Storage,
     current_user: CurrentUser,
 ) -> MicroPostResponse:
-    """Confirm uploaded images and replace an owned micro-post's attachments.
+    """Confirm a gallery or single GIF and replace an owned micro-post's media attachments.
 
     Cached link presentations are attached after access checks; missing metadata is queued, not fetched here.
 
@@ -224,14 +236,12 @@ async def complete_post_images(
     status_code=status.HTTP_201_CREATED,
     summary="Prepare an article cover upload",
     description=(
-        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
-        "returned headers without application cookies, then confirm. One file is required "
-        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
-        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
-        "unchanged."
+        "Prepare one JPEG, PNG, or WebP article cover up to 10 MiB; GIF is rejected with 415. "
+        "Send JSON metadata for a ten-minute presigned PUT URL, upload raw bytes with the returned "
+        "headers without application cookies, then confirm. Preparation leaves attachments unchanged."
     ),
     tags=["Media"],
-    responses=documented_responses(401, 403, 404, 409, 413, 503),
+    responses=documented_responses(401, 403, 404, 409, 413, 415, 503),
 )
 async def prepare_cover(
     _origin: Origin,
@@ -298,11 +308,11 @@ async def complete_cover(
     status_code=status.HTTP_201_CREATED,
     summary="Prepare an inline article image upload",
     description=(
-        "Send JSON metadata for ten-minute presigned PUT URLs. Upload raw bytes using "
-        "returned headers without application cookies, then confirm. One file is required "
-        "except post galleries allow one to five. JPEG, PNG, and WebP allow 5 MiB, or 10 MiB "
-        "for covers. Articles allow 30 inline images. Preparation leaves attachments "
-        "unchanged."
+        "Prepare one inline JPEG/PNG/WebP image up to 5 MiB or GIF up to 8 MiB (8388608 bytes inclusive). "
+        "Articles may mix GIF with other content and have multiple GIF within the existing inventory limit "
+        "of 30 inline files. GIF is not allowed for article covers. PUT URLs last ten minutes; "
+        "upload raw bytes with the returned headers without application cookies, then confirm. "
+        "Preparation leaves attachments unchanged."
     ),
     tags=["Media"],
     responses=documented_responses(401, 403, 404, 409, 413, 503),

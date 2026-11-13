@@ -24,7 +24,7 @@ function readingSections(body: JSONContent) {
   }
   function visit(node: JSONContent): JSONContent {
     if (node.type === "image" && typeof node.attrs?.src === "string") images.add(node.attrs.src);
-    if (node.type === "attachment" && node.attrs?.type === "image") images.add(node.attrs.url);
+    if (node.type === "attachment" && (node.attrs?.type === "image" || node.attrs?.type === "gif")) images.add(node.attrs.url);
     if (node.type === "heading") {
       const label = plainText(node).trim();
       if (label) {
@@ -158,7 +158,7 @@ export function ArticlePresentation({ article, owner, onChanged }: {
     <SectionNavigation sections={sections} />
     <div className="reading-prose" id="article">
       <TipTapDocument body={document} />
-      <Attachments items={article.attachments.filter((item) => item.type !== "image" || !images.has(item.url))} />
+      <Attachments items={article.attachments.filter((item) => (item.type !== "image" && item.type !== "gif") || !images.has(item.url))} />
     </div>
     <div className="reader-end">
       <div className="end-mark" aria-hidden="true"><i /><i /><i /></div>

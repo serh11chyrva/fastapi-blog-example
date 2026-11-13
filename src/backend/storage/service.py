@@ -24,7 +24,7 @@ from backend.storage.models import ImagePurpose, ImageUpload, ObjectCleanup, Upl
 from backend.storage.s3 import image_type
 from backend.storage.schemas import ImageUploadRequest, ImageUploadResponse, PresignedImageFile
 
-EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 
 
 class ImageStorageService:
@@ -41,13 +41,20 @@ class ImageStorageService:
         self.audit = audit
         self.attachments = ImageAttachments()
 
-    def max_size(self, purpose: ImagePurpose) -> int:
-        """Select the per-file upload size limit for an image purpose.
+    def max_size(self, purpose: ImagePurpose, content_type: str) -> int:
+        """Select a per-file size limit, rejecting GIF for profile images and article covers.
 
         :param purpose: Immutable image purpose selecting target rules and size limits.
+        :param content_type: Declared image MIME type, checked against the bytes at completion.
         :return: The maximum file size in bytes.
         """
         settings = get_settings()
+
+        if content_type == "image/gif":
+            if purpose not in {"post-images", "article-images"}:
+                raise UnsupportedImage("GIF images are only supported in posts, comments, and article bodies")
+
+            return settings.gif_max_bytes
 
         if purpose in {"avatars", "profile-banners"}:
             return settings.avatar_max_bytes
@@ -88,7 +95,10 @@ class ImageStorageService:
         target_id: str,
         payload: ImageUploadRequest,
     ) -> ImageUploadResponse:
-        """Validate an upload target and persist presigned upload instructions.
+        """Validate an upload target and persist instructions with per-format size limits.
+
+        A post or comment accepts one GIF without other files. Article inline uploads may
+        include GIF within the shared inventory limit; profile images and covers reject GIF.
 
         :param owner: Authenticated account owning or initiating the operation.
         :param purpose: Immutable image purpose selecting target rules and size limits.
@@ -104,10 +114,13 @@ class ImageStorageService:
         if purpose == "article-images" and isinstance(target, Article) and len(target.inline_image_keys) >= 30:
             raise InvalidOperation("An article can contain up to 30 inline images")
 
-        limit = self.max_size(purpose)
+        if purpose == "post-images" and len(payload.files) > 1:
+            if any(file.content_type == "image/gif" for file in payload.files):
+                raise InvalidOperation("Choose one GIF without other images for a post or comment")
 
-        if any(file.size_bytes > limit for file in payload.files):
-            raise ImageTooLarge("Image exceeds the configured size limit")
+        for file in payload.files:
+            if file.size_bytes > self.max_size(purpose, file.content_type):
+                raise ImageTooLarge("Image exceeds the configured size limit")
 
         settings = get_settings()
         now = datetime.now(UTC)
@@ -141,7 +154,7 @@ class ImageStorageService:
                 PresignedImageFile(
                     upload_url=url,
                     headers={"Content-Type": file.content_type},
-                    max_size_bytes=limit,
+                    max_size_bytes=self.max_size(purpose, file.content_type),
                 )
             )
 
@@ -159,7 +172,7 @@ class ImageStorageService:
         return ImageUploadResponse(upload_id=str(upload.id), expires_at=upload.expires_at, files=instructions)
 
     async def _copy_and_validate(self, upload: ImageUpload, keys: list[str]) -> None:
-        """Copy uploads to final keys and validate sizes and image signatures.
+        """Copy uploads unchanged and validate purpose, per-format size, and image signature.
 
         :param upload: Persisted upload session and its immutable file metadata.
         :param keys: Final object keys corresponding to the upload files in order.
@@ -168,6 +181,8 @@ class ImageStorageService:
         client = self.resources.s3
 
         for file, key in zip(upload.files, keys, strict=True):
+            limit = self.max_size(upload.purpose, file.content_type)
+
             try:
                 await asyncio.to_thread(
                     client.copy_object,
@@ -185,7 +200,7 @@ class ImageStorageService:
 
             info = await asyncio.to_thread(client.head_object, Bucket=upload.bucket, Key=key)
 
-            if info["ContentLength"] > self.max_size(upload.purpose):
+            if info["ContentLength"] > limit:
                 raise ImageTooLarge("Image exceeds the configured size limit")
 
             if info["ContentLength"] != file.size_bytes:
@@ -203,7 +218,7 @@ class ImageStorageService:
                 file.content_type,
                 EXTENSIONS[file.content_type],
             ):
-                raise UnsupportedImage("Use JPEG, PNG, or WebP bytes matching the requested content type")
+                raise UnsupportedImage("Use supported image bytes matching the requested content type")
 
     async def complete(self, owner: User, purpose: ImagePurpose, target_id: str, upload_id: str) -> UploadResult:
         """Confirm an owned upload once and replay its validated saved result.

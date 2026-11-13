@@ -142,6 +142,15 @@ replay the saved result; avatar HTTP responses load the current own profile afte
 confirmation. Abandoned copies retain cleanup jobs, and final objects are checked
 for attachments before deletion.
 
+Upload policy selects a limit for each file from its MIME type and purpose: GIF allows
+8 MiB in posts, comments, and article bodies. JPEG/PNG/WebP retain 5 MiB limits, or 10 MiB
+for article covers. Profile images and covers reject GIF. GIF87a/GIF89a signatures are
+checked against the declared MIME type; final copies preserve the original animation.
+The attachment union represents GIF with `type=gif`, separate from image galleries.
+Final-state validation covers explicit descriptors and implicit upload inventories:
+posts and comments allow one GIF without other attachments. Articles allow multiple
+GIF alongside other content within their existing total inventory of 30 inline files.
+
 ## Read contracts
 
 Mixed feeds use post, article, and repost-event response types discriminated by `kind`.
@@ -218,9 +227,10 @@ keys. See [the demo tour](DEMO.md) for coverage and repeat-run behavior.
   a definitive expired/missing upload response discards a pending confirmation; an
   uncertain result retains it. Completed uploads return the server's stored response.
 
-Image metadata is validated before post creation. A later upload failure explicitly
-reports that the note is already public; retry updates that same note. Avatar and inline
-image forms retain failed selections with explicit retry controls. Pending uploads are
+Image metadata is validated before reserving a private post upload draft. A failed upload
+keeps the local draft and retry identity without publishing it. Post/comment forms expose
+GIF as a separate choice and hide other attachment choices until it is removed. Avatar and
+inline image forms retain failed selections with explicit retry controls. Pending uploads are
 kept in memory and are discarded when their form unmounts; after navigation or reload,
 inspect current attachments before starting a replacement upload.
 

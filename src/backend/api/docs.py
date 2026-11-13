@@ -159,7 +159,10 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Micro-posts",
-        "description": "Publish public notes of up to 280 characters. Owners can edit or delete their notes, attach typed content, and upload up to five images.",
+        "description": (
+            "Publish public notes of up to 280 characters. Owners can edit or delete their notes and choose "
+            "up to five images, one GIF up to 8 MiB without other attachments, or one player, card, or publication."
+        ),
     },
     {
         "name": "Articles",
@@ -175,7 +178,12 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Media",
-        "description": "Prepare and confirm direct image uploads, and read JPEG, PNG, or WebP bytes. Avatars and banners are public; publication images enforce archive, discussion, and owner-only private visibility.",
+        "description": (
+            "Prepare and confirm direct JPEG, PNG, WebP, and GIF uploads. GIF allows 8 MiB per file in posts, "
+            "comments, and article bodies; profiles and article covers reject GIF. Posts/comments allow one "
+            "exclusive GIF. Avatars and banners are public; publication media enforces archive, discussion, "
+            "and owner-only private visibility."
+        ),
     },
     {
         "name": "Interactions",

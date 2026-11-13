@@ -376,6 +376,12 @@ Article and post children load incrementally, retaining tombstones.
 
 The publication composer presents mutually exclusive image, URL, and publication
 choices. Images have local thumbnail previews and per-image removal before upload.
+GIF is a separate choice: posts and replies accept one GIF up to 8 MiB without other
+attachments. After selecting it, only removal or replacement with another GIF is offered;
+remove it before choosing images, links, players, or publications. The API enforces the
+same rule on uploads and saved content. Article bodies accept multiple GIF alongside
+other content within the existing limit of 30 inline files; covers do not accept GIF.
+GIF previews and published media preserve animation through the existing viewer.
 Post and reply creation use private staging targets; failed requests keep the local
 draft and retry identity. Text is optional when an attachment is ready.
 

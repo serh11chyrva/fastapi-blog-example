@@ -9,7 +9,7 @@ import { Avatar } from "../../shared/ui/Avatar";
 import { AttachmentComposer } from "./AttachmentComposer";
 import { Attachments } from "./Attachments";
 
-type Image = Extract<Attachment, { type: "image" }>;
+type Media = Extract<Attachment, { type: "image" | "gif" }>;
 
 export function PublicationComposer({ post, replyPath, parentId, onSaved, onCancel, label, ariaLabel, autoFocus = false }: {
   post?: MicroPost; replyPath?: string; parentId?: string;
@@ -19,8 +19,8 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
   const { user } = useApp();
   const submitLabel = label ?? (post ? "Save changes" : replyPath ? "Reply" : "Post");
   const [text, setText] = useState(post?.text ?? "");
-  const [attachment, setAttachment] = useState<Attachment | null>(post?.attachments.find((item) => item.type !== "image") ?? null);
-  const [retained, setRetained] = useState<Image[]>(post?.attachments.filter((item): item is Image => item.type === "image") ?? []);
+  const [attachment, setAttachment] = useState<Attachment | null>(post?.attachments.find((item) => item.type !== "image" && item.type !== "gif") ?? null);
+  const [retained, setRetained] = useState<Media[]>(post?.attachments.filter((item): item is Media => item.type === "image" || item.type === "gif") ?? []);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [mode, setMode] = useState<"link" | "quote" | null>(null);
@@ -32,9 +32,11 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
   const draft = useRef<MicroPost | null>(null);
   const uploadedFiles = useRef<File[]>([]);
   const input = useRef<HTMLInputElement>(null);
+  const gifInput = useRef<HTMLInputElement>(null);
   const textInput = useRef<HTMLTextAreaElement>(null);
   const upload = useImageUploader();
   const hasAttachment = !!attachment || files.length > 0 || retained.length > 0;
+  const hasGif = files.some((file) => file.type === "image/gif") || retained.some((item) => item.type === "gif");
 
   useEffect(() => {
     if (autoFocus) textInput.current?.focus();
@@ -54,7 +56,7 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
     if (!selected?.length) return;
     const next = Array.from(selected);
     try {
-      validateImages("/images", next);
+      validateImages("post-images", next);
       clearAttachment(); setFiles(next);
     } catch (reason) { setError(errorMessage(reason)); }
   }
@@ -82,7 +84,7 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
         text, attachments,
         ...(post ? { expected_updated_at: post.updated_at } : {}),
         ...(post && files.length ? { image_draft_id: draft.current!.id }
-          : { retain_image_urls: files.length ? draft.current!.attachments.filter((item) => item.type === "image").map((item) => item.url) : retained.map((item) => item.url) }),
+          : { retain_image_urls: files.length ? draft.current!.attachments.filter((item) => item.type === "image" || item.type === "gif").map((item) => item.url) : retained.map((item) => item.url) }),
         ...(replyPath ? { image_draft_id: draft.current!.id, ...(parentId ? { parent_id: parentId } : {}) } : {}),
       };
       const saved = !post && !replyPath && draft.current && !draft.current.pending ? draft.current
@@ -118,20 +120,24 @@ export function PublicationComposer({ post, replyPath, parentId, onSaved, onCanc
     {attachment && <Attachments items={[attachment]} />}
     {hasAttachment ? <div className="composer-attachment-actions">
       <button type="button" className="text-link" disabled={busy} onClick={clearAttachment}>Remove attachment</button>
-      {(files.length > 0 || retained.length > 0) && <button type="button" className="text-link" disabled={busy} onClick={() => input.current?.click()}>Replace images</button>}
+      {(files.length > 0 || retained.length > 0) && <button type="button" className="text-link" disabled={busy}
+        onClick={() => (hasGif ? gifInput : input).current?.click()}>{hasGif ? "Replace GIF" : "Replace images"}</button>}
     </div> : <div className="composer-choices" aria-label="Choose one attachment type">
       <button type="button" className="button-quiet" disabled={busy} onClick={() => input.current?.click()}><Icon name="image" /> Images</button>
+      <button type="button" className="button-quiet" disabled={busy} onClick={() => gifInput.current?.click()}>GIF</button>
       <button type="button" className="button-quiet" disabled={busy} onClick={() => setMode("link")}><Icon name="link" /> Link or player</button>
       <button type="button" className="button-quiet" disabled={busy} onClick={() => setMode("quote")}><Icon name="book" /> Publication</button>
     </div>}
     <input ref={input} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy}
+      onChange={(event) => { chooseFiles(event.target.files); event.currentTarget.value = ""; }} />
+    <input ref={gifInput} className="hidden" type="file" accept="image/gif" disabled={busy}
       onChange={(event) => { chooseFiles(event.target.files); event.currentTarget.value = ""; }} />
     {mode && <div className="composer-link-input">
       <AttachmentComposer key={mode} initialMode={mode} disabled={busy} onAdd={(item) => { setAttachment(item); setMode(null); }} />
       <button type="button" className="button-quiet" disabled={busy} onClick={() => setMode(null)}>Cancel attachment</button>
     </div>}
     <div className="comment-compose-actions">
-      <span>{Array.from(text).length} / 280 · One attachment type · Up to 5 images</span>
+      <span>{Array.from(text).length} / 280 · {hasGif ? "One GIF · Up to 8 MiB · No other attachments" : "Up to 5 images (5 MiB each), or one GIF (8 MiB) · One attachment type"}</span>
       <div>{onCancel && <button type="button" className="button-quiet" disabled={busy} onClick={onCancel}>Cancel</button>}
         <button className="button-primary" disabled={busy || !!mode || (!text.trim() && !hasAttachment)}>{busy ? progress : submitLabel}</button>
       </div>

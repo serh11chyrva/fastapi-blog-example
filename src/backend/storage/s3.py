@@ -202,7 +202,7 @@ async def check_storage(client: S3Client, settings: Settings) -> None:
 
 
 def image_type(data: bytes) -> tuple[str, str] | None:
-    """Recognize supported image formats from their leading bytes.
+    """Recognize JPEG, PNG, WebP, and GIF87a/GIF89a from their leading bytes.
 
     :param data: Leading image bytes used to identify the file signature.
     :return: The MIME type and extension, or None for an unsupported signature.
@@ -215,5 +215,8 @@ def image_type(data: bytes) -> tuple[str, str] | None:
 
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp", "webp"
+
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif", "gif"
 
     return None

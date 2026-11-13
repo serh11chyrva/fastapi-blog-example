@@ -22,7 +22,7 @@ from backend.posts.schemas import MicroPostCreate
 from backend.profiles.models import User
 from backend.publications.access import readable_publication
 from backend.publications.attachment_validation import validate_attachment_references
-from backend.publications.attachments import ImageAttachment
+from backend.publications.attachments import GifAttachment, ImageAttachment
 from backend.publications.queries import load_authors
 from backend.search.sync import sync_publication
 from backend.storage.cleanup import queue_deletion
@@ -167,7 +167,7 @@ class PostService:
                 post.image_keys = retained_image_keys(post.image_keys, payload.retain_image_urls)
             available = {publication_image_url(key, "post-images") for key in post.image_keys}
             post.attachments = [item for item in post.attachments
-                                if not isinstance(item, ImageAttachment) or item.url in available]
+                                if not isinstance(item, (ImageAttachment, GifAttachment)) or item.url in available]
 
             if "attachments" in payload.model_fields_set:
                 await validate_attachment_references(

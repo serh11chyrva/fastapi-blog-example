@@ -11,16 +11,19 @@ class ImageFileInput(BaseModel):
         min_length=1,
         max_length=255,
         description="Original filename, used only as suggested alternate text.",
-        examples=["figure.png"],
+        examples=["figure.png", "animation.gif"],
     )
-    content_type: Literal["image/jpeg", "image/png", "image/webp"] = Field(
-        description="Image MIME type; completion checks the actual bytes.",
-        examples=["image/png"],
+    content_type: Literal["image/jpeg", "image/png", "image/webp", "image/gif"] = Field(
+        description="Image MIME type; GIF is allowed in posts, comments, and article bodies only. Bytes are checked.",
+        examples=["image/png", "image/gif"],
     )
     size_bytes: int = Field(
         gt=0,
-        description="Exact file length in bytes, checked again at completion.",
-        examples=[1024],
+        description=(
+            "Exact file length in bytes, checked again at completion. GIF allows up to 8388608 bytes "
+            "in posts, comments, and article bodies only."
+        ),
+        examples=[1024, 8388608],
     )
 
 
@@ -45,7 +48,10 @@ class ImageUploadRequest(BaseModel):
     files: list[ImageFileInput] = Field(
         min_length=1,
         max_length=5,
-        description="One file except for post galleries, which accept one to five files in display order.",
+        description=(
+            "One file, or one to five JPEG/PNG/WebP post gallery files in display order. "
+            "A post/comment GIF must be the only file."
+        ),
     )
 
 
@@ -58,9 +64,12 @@ class PresignedImageFile(BaseModel):
     method: Literal["PUT"] = "PUT"
     headers: dict[str, str] = Field(
         description="Required headers to send unchanged with the PUT request.",
-        examples=[{"Content-Type": "image/png"}],
+        examples=[{"Content-Type": "image/png"}, {"Content-Type": "image/gif"}],
     )
-    max_size_bytes: int = Field(description="Maximum accepted size: 5 MiB, or 10 MiB for article covers.")
+    max_size_bytes: int = Field(
+        description="Maximum for this file: 8 MiB for GIF, 10 MiB for JPEG/PNG/WebP article covers, otherwise 5 MiB.",
+        examples=[5242880, 8388608, 10485760],
+    )
 
 
 class ImageUploadResponse(BaseModel):

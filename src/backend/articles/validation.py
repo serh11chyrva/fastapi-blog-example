@@ -32,7 +32,7 @@ type NodeKind = Literal[
 MAX_ARTICLE_JSON_BYTES = 1_000_000
 MAX_ARTICLE_DEPTH = 64
 MAX_ARTICLE_NODES = 10_000
-IMAGE_SOURCE = re.compile(r"/static/images/article-images/([0-9a-f]{32}\.(?:jpg|png|webp))")
+IMAGE_SOURCE = re.compile(r"/static/images/article-images/([0-9a-f]{32}\.(?:jpg|png|webp|gif))")
 BLOCK_NODES = {
     "paragraph",
     "heading",

@@ -217,7 +217,10 @@ class ArticleResponse(LinkPresentation, PublicationState):
     )
     inline_image_urls: list[str] = Field(
         default_factory=list,
-        description="URLs of images uploaded to this article, including images not yet inserted into its body. Up to 30 images.",
+        description=(
+            "URLs of images and GIF uploaded to this article, including files not yet inserted into its body. "
+            "Up to 30 files in total."
+        ),
         examples=[[examples.ARTICLE_IMAGE["url"]]],
     )
     status: Literal["draft", "scheduled", "published"] = Field(
@@ -256,7 +259,7 @@ class ArticleResponse(LinkPresentation, PublicationState):
 
 
 class ArticleImageResponse(BaseModel):
-    """Uploaded inline image metadata for insertion into an article's TipTap body."""
+    """Uploaded inline image or GIF metadata for insertion into an article's TipTap body."""
 
     model_config = ConfigDict(
         title="Uploaded article image",

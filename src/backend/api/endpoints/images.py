@@ -21,7 +21,8 @@ router = APIRouter()
     summary="Read an attached image",
     description=(
         "Avatars and profile banners are public. Publication images follow archive and discussion visibility; "
-        "private images require their owner's session. Unattached or inaccessible objects return 404."
+        "private images require their owner's session. GIF is served only for posts, comments, and article bodies, "
+        "with animation preserved. Unattached or inaccessible objects return 404."
     ),
     tags=["Media"],
     responses={
@@ -33,6 +34,7 @@ router = APIRouter()
                     "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
                     "image/png": {"schema": {"type": "string", "format": "binary"}},
                     "image/webp": {"schema": {"type": "string", "format": "binary"}},
+                    "image/gif": {"schema": {"type": "string", "format": "binary"}},
                 },
             }
         },
@@ -45,7 +47,7 @@ async def read_image(
     request: Request,
     current_user: OptionalUser,
 ) -> Response:
-    """Serve an image after enforcing the attached resource's visibility.
+    """Serve unchanged image bytes after enforcing visibility and collection format rules.
 
     :param collection: Public image collection used in the API path.
     :param object_name: Image filename within the requested public collection.
@@ -54,7 +56,9 @@ async def read_image(
         access.
     :return: The image bytes with their media type and cache headers.
     """
-    if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", object_name):
+    extensions = "jpg|png|webp|gif" if collection in {"post-images", "article-images"} else "jpg|png|webp"
+
+    if not re.fullmatch(rf"[0-9a-f]{{32}}\.({extensions})", object_name):
         raise HTTPException(404, "Image not found")
 
     key = f"{collection}/{object_name}"

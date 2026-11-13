@@ -55,8 +55,8 @@ ERRORS = {
         "Image exceeds the configured size limit",
     ),
     415: (
-        "Image bytes disagree with a supported requested format.",
-        "Use JPEG, PNG, or WebP bytes matching the requested content type",
+        "The image format is unsupported for this destination, or its bytes disagree with the requested format.",
+        "Use supported image bytes matching the requested content type",
     ),
     422: (
         "Request validation or an application input rule failed.",

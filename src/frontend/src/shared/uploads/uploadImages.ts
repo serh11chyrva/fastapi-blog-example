@@ -12,15 +12,33 @@ type ImageUpload = {
   }[];
 };
 
-export function validateImages(resource: string, files: File[]) {
-  const maxSize = (resource.endsWith("/cover") ? 10 : 5) * 1024 * 1024;
-  if (!files.length || files.length > 5)
-    throw new Error("Choose between one and five images.");
+type ImagePurpose = "avatars" | "profile-banners" | "post-images" | "article-covers" | "article-images";
+
+function imagePurpose(resource: string): ImagePurpose {
+  if (resource === "/me/avatar") return "avatars";
+  if (resource === "/me/banner") return "profile-banners";
+  if (/^\/posts\/[^/]+\/images$/.test(resource)) return "post-images";
+  if (/^\/articles\/[^/]+\/cover$/.test(resource)) return "article-covers";
+  if (/^\/articles\/[^/]+\/images$/.test(resource)) return "article-images";
+  throw new Error("Unsupported image upload destination.");
+}
+
+export function validateImages(purpose: ImagePurpose, files: File[]) {
+  const post = purpose === "post-images";
+  const allowsGif = post || purpose === "article-images";
+  if (!files.length || files.length > (post ? 5 : 1))
+    throw new Error(post ? "Choose between one and five images, or one GIF." : "Choose exactly one file.");
+  if (post && files.length > 1 && files.some((file) => file.type === "image/gif"))
+    throw new Error("Choose one GIF without other images for a post or comment.");
   for (const file of files) {
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
-      throw new Error("Choose JPEG, PNG, or WebP images.");
+    const gif = file.type === "image/gif";
+    if (gif && !allowsGif)
+      throw new Error("GIF images are only supported in posts, comments, and article bodies.");
+    if (!gif && !["image/jpeg", "image/png", "image/webp"].includes(file.type))
+      throw new Error(allowsGif ? "Choose JPEG, PNG, WebP, or GIF files." : "Choose JPEG, PNG, or WebP images.");
+    const maxSize = (gif ? 8 : purpose === "article-covers" ? 10 : 5) * 1024 * 1024;
     if (!file.size || file.size > maxSize)
-      throw new Error(`Each image must be between 1 byte and ${maxSize / (1024 * 1024)} MiB.`);
+      throw new Error(`Each ${gif ? "GIF" : "image"} must be between 1 byte and ${maxSize / (1024 * 1024)} MiB.`);
   }
 }
 
@@ -29,7 +47,7 @@ type PendingUpload = { files: File[]; instructions: ImageUpload; uploaded: boole
 export function useImageUploader() {
   const pending = useRef(new Map<string, PendingUpload>());
   return async function uploadImages<T>(resource: string, files: File[]): Promise<T> {
-    validateImages(resource, files);
+    validateImages(imagePurpose(resource), files);
     let task = pending.current.get(resource);
     if (!task || task.files.length !== files.length || task.files.some((file, index) => file !== files[index])) {
       const instructions = await api<ImageUpload>(`${resource}/uploads`, {

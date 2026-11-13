@@ -117,7 +117,7 @@ export function useArticleEditor() {
   function validateContent() {
     if (!title.trim())
       throw new Error("Add a title before saving your article.");
-    if (thumbnailFile) validateImages("/cover", [thumbnailFile]);
+    if (thumbnailFile) validateImages("article-covers", [thumbnailFile]);
   }
   async function persist(): Promise<Article> {
     validateContent();
@@ -143,7 +143,7 @@ export function useArticleEditor() {
     setSaving(true);
     setError("");
     try {
-      validateImages("/images", [file]);
+      validateImages("article-images", [file]);
       setPendingInlineImage(file);
       let saved = article;
       if (!saved) {

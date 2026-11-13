@@ -113,6 +113,29 @@ POST_WITH_IMAGES = POST | {
     "attachments": [{"type": "image", "url": POST_IMAGE_URL, "alt": ""}],
     "updated_at": "2026-10-12T10:06:14Z",
 }
+POST_WITH_GIF = POST | {
+    "attachments": [{
+        "type": "gif",
+        "url": "/static/images/post-images/74b936dfe1a24c708951c3e628a0fd5b.gif",
+        "alt": "An animated landscape",
+    }],
+}
+GIF_UPLOAD_REQUEST = {
+    "files": [{"filename": "animation.gif", "content_type": "image/gif", "size_bytes": 8388608}],
+}
+GIF_UPLOAD_RESPONSE = {
+    "upload_id": "65f0c2a1b2c3d4e5f6071899",
+    "expires_at": "2026-10-14T12:10:00Z",
+    "files": [{
+        "upload_url": (
+            "http://localhost:3900/blog-publications/temporary/0123456789abcdef0123456789abcdef"
+            "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=example"
+        ),
+        "method": "PUT",
+        "headers": {"Content-Type": "image/gif"},
+        "max_size_bytes": 8388608,
+    }],
+}
 ARTICLE_BODY = {
     "type": "doc",
     "content": [

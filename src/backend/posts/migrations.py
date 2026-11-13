@@ -3,7 +3,7 @@ from beanie import Document, PydanticObjectId
 from pydantic import BaseModel, Field
 
 from backend.posts.content import validate_post_content
-from backend.publications.attachments import ImageAttachment, PublicationAttachment
+from backend.publications.attachments import GifAttachment, ImageAttachment, PublicationAttachment
 
 
 class LegacyPostOwner(BaseModel):
@@ -55,7 +55,9 @@ async def normalize_attachments() -> int:
             backup = AttachmentBackup(id=post.id, attachments=post.attachments)
             await backup.insert()
         if post.image_keys:
-            post.attachments = [item for item in post.attachments if isinstance(item, ImageAttachment)][:5]
+            post.attachments = [
+                item for item in post.attachments if isinstance(item, (ImageAttachment, GifAttachment))
+            ][:5]
         else:
             post.attachments = [item for item in post.attachments
                                 if item.type in {"og_card", "embed", "article", "post", "link"}][:1]

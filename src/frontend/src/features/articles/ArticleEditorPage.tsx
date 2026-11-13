@@ -87,11 +87,12 @@ function ArticleEditorForm() {
       <EditorToolbar editor={editor} workspace={workspace} disabled={saving} onAddImage={chooseInlineImage} />
       {dropTop !== null && <div className="editor-drop-indicator" style={{ top: dropTop }} aria-hidden="true" />}
       <EditorContent editor={editor} />
-      <input ref={imageInput} disabled={saving} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
+      <input ref={imageInput} disabled={saving} className="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => {
         const file = event.target.files?.[0];
         if (file) void uploadInlineImage(file);
         event.currentTarget.value = "";
       }} />
+      <p className="text-xs text-slate-500">Inline images: JPEG, PNG, or WebP up to 5 MiB; GIF up to 8 MiB. Covers do not support GIF.</p>
       {inlinePreview && <figure className="pending-article-image"><img src={inlinePreview} alt="Image awaiting insertion" /><figcaption>{saving ? "Uploading image…" : "Upload pending — retry to insert this image."}</figcaption></figure>}
       {pendingInlineImage && <button type="button" className="button-secondary" disabled={saving}
         onClick={() => void uploadInlineImage(pendingInlineImage)}>Retry image upload</button>}

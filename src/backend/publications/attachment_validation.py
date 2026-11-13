@@ -11,6 +11,7 @@ from backend.profiles.models import User
 from backend.publications.attachments import (
     ArticleAttachment,
     EmbedAttachment,
+    GifAttachment,
     ImageAttachment,
     MentionAttachment,
     PostAttachment,
@@ -33,7 +34,7 @@ async def validate_attachment_references(
     referenced data: readers must resolve IDs through the normal visibility-enforcing endpoints.
 
     :param attachments: Bounded, structurally validated attachment descriptors supplied by the caller.
-    :param image_urls: Uploaded images already belonging to the containing publication; empty on creation.
+    :param image_urls: Uploaded images and GIF already belonging to the publication; empty on creation.
     :param session: MongoDB session for the publication mutation and its audit event.
     :param retained: Previously saved references allowed to remain after an original becomes private.
     :param post_id: Post being edited, when self-quotation must be rejected.
@@ -56,7 +57,7 @@ async def validate_attachment_references(
         if isinstance(item, VideoAttachment):
             raise InvalidOperation("Video attachments are reserved and are not supported yet")
 
-        if isinstance(item, ImageAttachment):
+        if isinstance(item, (ImageAttachment, GifAttachment)):
             if item.url not in image_urls:
                 raise InvalidOperation("Attachment image must be uploaded to this publication")
 

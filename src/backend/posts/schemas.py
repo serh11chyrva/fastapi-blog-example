@@ -39,7 +39,8 @@ class MicroPostCreate(BaseModel):
 
     attachments: PublicationAttachments = Field(
         default_factory=list,
-        description="One attachment choice: up to five gallery images, or one player, card, or publication. "
+        description="One attachment choice: up to five gallery images, one exclusive GIF, "
+        "or one player, card, or publication. "
         "Video is reserved and rejected. On edit, omission preserves attachments; [] clears explicit descriptors.",
     )
     text: str = Field(
@@ -51,11 +52,11 @@ class MicroPostCreate(BaseModel):
     )
 
     retain_image_urls: list[str] | None = Field(
-        default=None, max_length=5, description="On edit, keep only these owned gallery images; [] removes all.",
+        default=None, max_length=5, description="On edit, keep these owned images or the sole GIF; [] removes all.",
     )
     image_draft_id: str | None = Field(
         default=None, pattern=r"^[0-9a-fA-F]{24}$",
-        description="Owned private staging post whose images atomically replace this gallery on save.",
+        description="Owned private staging post whose images or sole GIF atomically replace the saved media on save.",
     )
     expected_updated_at: datetime | None = Field(
         default=None, description="On edit, reject a stale draft with 409 instead of overwriting newer changes.",
@@ -80,7 +81,8 @@ class MicroPostResponse(LinkPresentation, PublicationState):
     model_config = ConfigDict(
         title="Published micro-post",
         json_schema_extra={"examples": [
-            examples.POST_WITH_IMAGES, examples.POST_WITH_FEATURED_AUTHORS, examples.POST_WITH_CONTENT,
+            examples.POST_WITH_IMAGES, examples.POST_WITH_GIF,
+            examples.POST_WITH_FEATURED_AUTHORS, examples.POST_WITH_CONTENT,
             examples.POST_ARCHIVED, examples.POST_PINNED,
         ]},
     )
@@ -105,7 +107,7 @@ class MicroPostResponse(LinkPresentation, PublicationState):
     attachments: list[PublicationAttachment] = Field(
         default_factory=list,
         description="Ordered typed descriptors followed by uploaded images without explicit placement. "
-        "Images appear only here as type=image entries, with up to five uploaded images per post. "
+        "Media appears here as up to five type=image entries, or one type=gif entry without other attachments. "
         "Resolve account and article IDs through their endpoints to apply current visibility rules.",
     )
     text: str = Field(

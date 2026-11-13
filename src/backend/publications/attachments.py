@@ -26,7 +26,18 @@ class ImageAttachment(AttachmentBase):
     type: Literal["image"] = "image"
     url: str = Field(
         pattern=r"^/static/images/(?:post-images|article-images)/[0-9a-f]{32}\.(?:jpg|png|webp)$",
-        description="Same-origin image URL uploaded to this publication; ownership is checked on writes.",
+        description="Same-origin JPEG, PNG, or WebP URL uploaded to this publication; ownership is checked on writes.",
+    )
+    alt: str = Field(default="", max_length=1000)
+
+
+class GifAttachment(AttachmentBase):
+    """Reference an uploaded GIF, preserving its animation independently of image galleries."""
+
+    type: Literal["gif"] = "gif"
+    url: str = Field(
+        pattern=r"^/static/images/(?:post-images|article-images)/[0-9a-f]{32}\.gif$",
+        description="Owned GIF URL; posts and comments allow one GIF without any other attachments.",
     )
     alt: str = Field(default="", max_length=1000)
 
@@ -118,6 +129,7 @@ class VideoAttachment(AttachmentBase):
 
 type PublicationAttachment = Annotated[
     ImageAttachment
+    | GifAttachment
     | LinkAttachment
     | MentionAttachment
     | HashtagAttachment
@@ -132,12 +144,19 @@ type PublicationAttachments = Annotated[list[PublicationAttachment], Field(max_l
 
 
 def display_attachments(attachments: list[PublicationAttachment], image_urls: list[str]) -> list[PublicationAttachment]:
-    """Append uploaded images missing from the explicitly ordered attachment list.
+    """Append uploaded images and GIF missing from the explicitly ordered attachment list.
 
-    :param attachments: Stored ordered descriptors, including optional image placement and alternate text.
-    :param image_urls: Current image inventory belonging to the publication.
-    :return: Descriptors followed by uploaded images that have no explicit placement, including legacy images.
+    :param attachments: Stored ordered descriptors, including optional image or GIF placement and alternate text.
+    :param image_urls: Current image and GIF inventory belonging to the publication.
+    :return: Descriptors followed by unplaced files, using type gif for GIF URLs and type image otherwise.
     """
-    placed = {item.url for item in attachments if isinstance(item, ImageAttachment)}
+    placed = {item.url for item in attachments if isinstance(item, (ImageAttachment, GifAttachment))}
 
-    return [*attachments, *(ImageAttachment(url=url) for url in image_urls if url not in placed)]
+    return [
+        *attachments,
+        *(
+            GifAttachment(url=url) if url.endswith(".gif") else ImageAttachment(url=url)
+            for url in image_urls
+            if url not in placed
+        ),
+    ]

@@ -121,7 +121,7 @@ export function ProfileSettingsPage() {
     setNotice("");
     setError("");
     try {
-      validateImages(`/me/${kind}`, [file]);
+      validateImages(kind === "avatar" ? "avatars" : "profile-banners", [file]);
       setCrop({ kind, file });
     } catch (reason) {
       setError(errorMessage(reason));

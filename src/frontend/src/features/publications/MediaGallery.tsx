@@ -2,9 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { Attachment } from "../../shared/api/types";
 import { Icon } from "../../shared/ui/Icon";
 
-type Image = Extract<Attachment, { type: "image" }>;
+type Media = Extract<Attachment, { type: "image" | "gif" }>;
 
-export function MediaGallery({ images }: { images: Image[] }) {
+export function MediaGallery({ images }: { images: Media[] }) {
   const track = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
