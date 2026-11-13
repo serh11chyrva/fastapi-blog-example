@@ -15,6 +15,7 @@ from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.feeds.cache import invalidate_public_feed
 from backend.links.cache import enqueue_attachments
+from backend.notifications.service import NotificationService
 from backend.posts.content import retained_image_keys, validate_post_content
 from backend.posts.models import MicroPost
 from backend.posts.repository import PostRepository
@@ -226,7 +227,12 @@ class PostService:
         return post, await load_authors(post.author_ids)
 
     async def delete(self, resource_id: str, owner: User) -> None:
-        """Soft-delete an owned publication, remove its search projection, and queue image cleanup.
+        """Soft-delete owned content, withdraw reply creation notifications, and queue image cleanup atomically.
+
+        Existing notifications about other actions on this target retain a content-free
+        placeholder. Reply creation events are retracted for every recipient in this
+        same transaction, including deletions through compatibility comment routes.
+        The public search projection is removed alongside the soft deletion.
 
         :param resource_id: String identifier of the publication to load or mutate.
         :param owner: Authenticated account owning or initiating the operation.
@@ -240,6 +246,9 @@ class PostService:
                 item.text = ""
             await item.save(session=session)
             await sync_publication(item, session)
+
+            if item.reply is not None:
+                await NotificationService(self.resources).retract("comment", item.id, session)
 
             keys = item.image_keys
 

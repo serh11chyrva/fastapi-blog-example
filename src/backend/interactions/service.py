@@ -17,6 +17,8 @@ from backend.feeds.schemas import ArticleFeedItem, PostFeedItem, RepostPage
 from backend.interactions.models import InteractionKind, PublicationInteraction
 from backend.interactions.repository import InteractionRepository
 from backend.interactions.schemas import InteractionSummary, SavedPage, SavedPublication
+from backend.notifications.models import NotificationTarget
+from backend.notifications.service import NotificationService
 from backend.posts.models import MicroPost
 from backend.profiles.models import User
 from backend.profiles.repository import ProfileRepository
@@ -45,11 +47,13 @@ class InteractionService:
         enabled: bool,
         owner: User,
     ) -> None:
-        """Set an interaction state once, committing any change and its audit event together.
+        """Set an interaction state once, committing the edge, audit, and notification changes together.
 
         Creation requires a public original and writes a visibility guard on it. Removal is also
         allowed after deletion or unpublishing, so accounts can clear inaccessible saved content.
         Repeated desired states are no-ops. Concurrent requests may receive 409 and must reload.
+        Likes and reposts notify the object's owner except for self-actions; undoing
+        either action retracts its source event. Private saves never create notifications.
 
         :param kind: Original publication type.
         :param publication_id: Original publication identifier.
@@ -67,18 +71,19 @@ class InteractionService:
         try:
             async with transaction(self.resources.mongo) as session:
                 if enabled:
-                    await public_publication(kind, publication_id, session, touch=True)
+                    publication = await public_publication(kind, publication_id, session, touch=True)
 
                 edge = await self.repository.get(kind, resource_id, owner.id, action, session)
 
                 if enabled and edge is None:
-                    await PublicationInteraction(
+                    edge = PublicationInteraction(
                         publication_kind=kind,
                         publication_id=resource_id,
                         user_id=owner.id,
                         action=action,
                         created_at=datetime.now(UTC),
-                    ).insert(session=session)
+                    )
+                    await edge.insert(session=session)
                     changed = True
                 elif not enabled and edge is not None:
                     await edge.delete(session=session)
@@ -90,6 +95,16 @@ class InteractionService:
                     )
 
                 if changed:
+                    if action in {"like", "repost"}:
+                        notifications = NotificationService(self.resources)
+                        if enabled:
+                            await notifications.emit(
+                                recipient_id=publication.owner_id, actor_id=owner.id, kind=action,
+                                source_kind="interaction", source_id=edge.id, occurred_at=edge.created_at,
+                                target=NotificationTarget(kind=kind, id=resource_id), session=session,
+                            )
+                        else:
+                            await notifications.retract("interaction", edge.id, session)
                     await record_audit(
                         self.audit,
                         f"PUBLICATION_{action.upper()}_{'ADDED' if enabled else 'REMOVED'}",

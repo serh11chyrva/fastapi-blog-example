@@ -18,6 +18,15 @@ An account can change only its own likes, saves, reposts, and comment text. Publ
 ownership does not grant moderation or editing rights over other accounts' comments.
 Liking, saving, reposting, and commenting on one's own public publication are allowed.
 
+Likes and reposts notify the object's owner, excluding self-actions. New comments
+notify the original publication owner; nested replies additionally notify the
+immediate parent owner. Recipients are deduplicated, preferring the reply category
+when both owners are the same. Featured authors receive no automatic notifications.
+Creation, notification changes, and the existing audit commit together. Undoing a
+like/repost retracts its notification event; deleting a reply through either post
+or compatibility routes retracts the events about its creation. Edits create no
+new event. Private saves never notify anyone. See [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
 Articles expose `comments_enabled` in full responses and feed cards. It defaults to
 true, including when absent from older documents. Creating an article can set it;
 `PATCH /articles/{article_id}` with `{"comments_enabled":false}` hides the complete

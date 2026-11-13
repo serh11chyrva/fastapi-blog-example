@@ -15,6 +15,8 @@ from backend.core.resources import AppResources
 from backend.core.transactions import transaction
 from backend.feeds.cache import invalidate_public_feed
 from backend.links.cache import enqueue_attachments
+from backend.notifications.models import NotificationKind, NotificationTarget
+from backend.notifications.service import NotificationService
 from backend.posts.content import retained_image_keys, validate_post_content
 from backend.posts.models import MicroPost, ReplyMetadata
 from backend.posts.service import PostService
@@ -51,10 +53,12 @@ class CommentService:
         owner: User,
         parent_id: str | None = None,
     ) -> Discussion:
-        """Create and index a reply with its audit event, guarding discussion availability in one transaction.
+        """Create and index a reply with its audit and notifications in one visibility-guarded transaction.
 
         Disabled article discussions reject new comments with 403 even when replying
         through a descendant post. Guard writes conflict with concurrent setting changes.
+        Notify the original owner and immediate parent owner once each, excluding
+        the initiator. A shared recipient receives the more specific reply event.
 
         :param kind: Containing publication type.
         :param publication_id: Public post or article identifier.
@@ -114,6 +118,17 @@ class CommentService:
             else:
                 await comment.insert(session=session)
             await sync_publication(comment, session)
+            root = await public_publication(context_kind, str(context_id), session) if original else publication
+            recipients: dict[PydanticObjectId, NotificationKind] = {root.owner_id: "comment"}
+            if parent is not None:
+                recipients[parent.owner_id] = "reply"
+            notifications = NotificationService(self.resources)
+            for recipient_id, notification_kind in recipients.items():
+                await notifications.emit(
+                    recipient_id=recipient_id, actor_id=owner.id, kind=notification_kind,
+                    source_kind="comment", source_id=comment.id, occurred_at=now,
+                    target=NotificationTarget(kind="micro_post", id=comment.id), session=session,
+                )
             await record_audit(
                 self.audit,
                 "COMMENT_CREATED",

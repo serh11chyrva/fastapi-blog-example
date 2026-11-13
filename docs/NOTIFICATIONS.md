@@ -100,3 +100,26 @@ their issued sequences. Later inserted groups remain unread. Concurrent writes t
 selected groups may return 409; clients reconcile and require an explicit retry
 instead of replaying the whole operation. Database failures can have uncertain
 commit outcomes, so refresh before retrying. Other recipients are never selected.
+
+## Social event sources
+
+`InteractionService.set_state` emits for a newly created like or post repost,
+including reactions on reply posts. Only the target's owner receives the event;
+featured authors and the initiator are excluded. Repeated PUT operations create
+no extra event. Removing the edge retracts its notification source even when its
+publication is no longer public. Re-adding creates a new source event in the
+appropriate current UTC-day group. Private saves do not create notifications.
+
+`CommentService.create` notifies the original publication owner with `comment`.
+When there is an immediate parent, its owner also receives `reply`; the reply
+category wins when both recipients are the same. The author is always excluded.
+This uses immutable original/parent metadata, including requests through a reply's
+post route. Reusing an already published upload draft returns the existing reply
+without emitting again. Edits change the current preview without another event.
+
+`PostService.delete` retracts the deleted reply's creation source for all recipients,
+including deletion through compatibility comment routes. Other action events
+whose target becomes unavailable remain as placeholders. Source mutation, search
+updates where applicable, notifications, and the existing audit are committed in
+the same transaction. Archiving, unpublishing, or closing a discussion retains
+events and changes only their current target availability.

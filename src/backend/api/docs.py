@@ -133,6 +133,10 @@ are ignored. PUT `/me/notifications/read-all` marks the current transaction snap
 request body. Concurrent writes can return 409; reconcile before explicitly retrying.
 All inbox endpoints require a session, mutations require Origin, and responses are private, no-store.
 Actor cards and target previews use current public records. Unavailable targets have no preview or URL.
+New likes and reposts notify the target owner; new comments notify the original owner and nested
+replies also notify the immediate parent owner. Recipients are deduplicated and social self-actions
+are excluded. Undoing likes/reposts and deleting comments retract their source events transactionally.
+Private saves and content edits create no notification.
 
 ### Pagination and conventions
 Feeds return newest-first pages. Pass `next_cursor` unchanged as the next request's
