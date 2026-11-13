@@ -9,6 +9,7 @@ from backend.api.v1.endpoints import (
     feeds,
     interactions,
     links,
+    notifications,
     posts,
     profiles,
     search,
@@ -28,6 +29,7 @@ router.include_router(publications.router)
 router.include_router(publication_state.router)
 router.include_router(feeds.router)
 router.include_router(interactions.router)
+router.include_router(notifications.router)
 router.include_router(comments.router)
 router.include_router(uploads.router)
 

@@ -806,6 +806,16 @@ can edit/delete only their own content. Deleted comments retain null-text, null-
 and preserve descendants. Viewer state and saved lists are never publicly cached. Existing
 publication response shapes stay unchanged; feeds add a `kind: "repost"` variant.
 
+## Notifications
+
+The private [notification inbox](NOTIFICATIONS.md#api) exposes four session-only
+routes: `GET /me/notifications`, `GET /me/notifications/summary`,
+`PUT /me/notifications/read`, and `PUT /me/notifications/read-all` under `/api/v1`.
+The guide includes grouped rows, version-bounded receipts, unavailable placeholders,
+pagination, and concurrent read-all semantics. The Scalar `Notifications` section
+contains typed request and response examples. All inbox responses are private,
+no-store, and receipt mutations require Origin.
+
 ## Health and error envelope
 
 `GET /health` returns `{"status":"ok","database":"ok","redis":"ok","object_storage":"ok"}` when all dependencies answer; otherwise it returns `503`.

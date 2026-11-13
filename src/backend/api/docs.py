@@ -120,7 +120,19 @@ including descendant posts, archive cards, shared links, search results, and med
 Discussion reads return 404 and new comments at any depth return 403 until re-enabled. Existing
 data is retained; the article itself, its likes, and its saves remain available with zero visible comments.
 Interaction removal remains available for inaccessible originals.
-All mutations require a session and Origin and commit audit events in the same transaction.
+All publication mutations require a session and Origin and commit audit events in the same transaction.
+
+### Private notification inbox
+GET `/me/notifications` returns typed private inbox rows, ordered by latest surviving event time
+and group ID descending, with an opaque cursor and a default limit of 20 (maximum 50).
+GET `/me/notifications/summary` counts unread rows, including unavailable content placeholders.
+Likes and reposts group by publication and UTC calendar day; comments, replies, and logins are individual.
+PUT `/me/notifications/read` accepts up to 50 `{id, through_version}` items inside `items`.
+It marks only observed event versions read; newer events remain unread. Missing and foreign rows
+are ignored. PUT `/me/notifications/read-all` marks the current transaction snapshot read with no
+request body. Concurrent writes can return 409; reconcile before explicitly retrying.
+All inbox endpoints require a session, mutations require Origin, and responses are private, no-store.
+Actor cards and target previews use current public records. Unavailable targets have no preview or URL.
 
 ### Pagination and conventions
 Feeds return newest-first pages. Pass `next_cursor` unchanged as the next request's
@@ -138,6 +150,13 @@ using their IDs in live requests, and choose a future time when scheduling an ar
 """
 
 OPENAPI_TAGS = [
+    {
+        "name": "Notifications",
+        "description": (
+            "Read your private grouped notification inbox and unread row count. Mark observed versions or "
+            "the current server snapshot read without consuming later events."
+        ),
+    },
     {
         "name": "Search",
         "description": (

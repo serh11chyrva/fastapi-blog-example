@@ -8,8 +8,12 @@ from pymongo.errors import DuplicateKeyError
 
 from backend.core.errors import Conflict
 from backend.core.resources import AppResources
+from backend.core.transactions import transaction
+from backend.notifications.cursors import NotificationCursor
 from backend.notifications.models import LoginDetails, NotificationKind, NotificationTarget, SourceKind
+from backend.notifications.presenters import notification_items
 from backend.notifications.repository import NotificationRepository
+from backend.notifications.schemas import NotificationPage, NotificationReadRequest, NotificationSummary
 
 
 class NotificationService:
@@ -23,6 +27,52 @@ class NotificationService:
         """
         self.resources = resources
         self.repository = NotificationRepository()
+
+    async def page(self, recipient_id: PydanticObjectId, cursor: str | None, limit: int) -> NotificationPage:
+        """Read current public previews inside a recipient-owned chronological inbox page.
+
+        :param recipient_id: Authenticated account whose inbox is requested.
+        :param cursor: Previous opaque timeline position, or None for the first page.
+        :param limit: Validated page size from one to fifty groups.
+        :return: Typed inbox rows and an opaque continuation cursor when more rows exist.
+        """
+        rows = await self.repository.page(recipient_id, NotificationCursor.decode(cursor), limit)
+        page = rows[:limit]
+        next_cursor = None
+        if len(rows) > limit:
+            last = page[-1]
+            next_cursor = NotificationCursor(time=last.last_event_at, id=last.id).encode()
+        return NotificationPage(items=await notification_items(page), next_cursor=next_cursor)
+
+    async def summary(self, recipient_id: PydanticObjectId) -> NotificationSummary:
+        """Read the recipient's current unread group count.
+
+        :param recipient_id: Authenticated inbox owner.
+        :return: Unread rows, including rows with unavailable targets.
+        """
+        return NotificationSummary(unread_count=await self.repository.unread_count(recipient_id))
+
+    async def mark_read(self, recipient_id: PydanticObjectId, payload: NotificationReadRequest) -> None:
+        """Commit a bounded batch of monotonic read receipts in one inbox transaction.
+
+        :param recipient_id: Account allowed to mark only its own groups.
+        :param payload: Observed versions, with duplicate group IDs combined using their maximum version.
+        :return: None.
+        """
+        versions = {}
+        for item in payload.items:
+            versions[item.id] = max(versions.get(item.id, 0), item.through_version)
+        async with transaction(self.resources.mongo) as session:
+            await self.repository.mark_read(recipient_id, versions, session)
+
+    async def mark_all_read(self, recipient_id: PydanticObjectId) -> None:
+        """Mark the current server snapshot read, preserving the application's no-replay conflict policy.
+
+        :param recipient_id: Authenticated inbox owner.
+        :return: None.
+        """
+        async with transaction(self.resources.mongo) as session:
+            await self.repository.mark_all_read(recipient_id, session)
 
     async def emit(
         self, *, recipient_id: PydanticObjectId, actor_id: PydanticObjectId | None,

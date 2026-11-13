@@ -1,10 +1,12 @@
 """Transactional Beanie persistence for notification membership and inbox projections."""
 
 from datetime import datetime
+from typing import Any
 
 from beanie import PydanticObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from backend.notifications.cursors import NotificationCursor
 from backend.notifications.models import (
     LoginDetails, NotificationEvent, NotificationGroup, NotificationKind, NotificationTarget, SourceKind,
 )
@@ -12,6 +14,67 @@ from backend.notifications.models import (
 
 class NotificationRepository:
     """Maintain source events and their grouped recipient projections in caller transactions."""
+
+    @staticmethod
+    async def page(
+        recipient_id: PydanticObjectId, cursor: NotificationCursor | None, limit: int,
+    ) -> list[NotificationGroup]:
+        """Read a bounded descending inbox page owned by one account.
+
+        :param recipient_id: Account whose private inbox is requested.
+        :param cursor: Previous timeline position, or None for the first page.
+        :param limit: Page size; one additional group detects continuation.
+        :return: At most limit plus one groups, including rows with unavailable content.
+        """
+        conditions: dict[str, Any] = {"recipient_id": recipient_id}
+        if cursor is not None:
+            conditions.update(cursor.conditions())
+        return await NotificationGroup.find(conditions).sort(
+            ("last_event_at", -1), ("_id", -1),
+        ).limit(limit + 1).to_list()
+
+    @staticmethod
+    async def unread_count(recipient_id: PydanticObjectId) -> int:
+        """Count unread rows without resolving potentially unavailable targets.
+
+        :param recipient_id: Account owning the private inbox.
+        :return: The number of unread groups, counting each grouped row once.
+        """
+        return await NotificationGroup.find({"recipient_id": recipient_id, "is_read": False}).count()
+
+    @staticmethod
+    async def mark_read(
+        recipient_id: PydanticObjectId, versions: dict[PydanticObjectId, int], session: AsyncClientSession,
+    ) -> None:
+        """Advance owned read boundaries without consuming events newer than the observed versions.
+
+        :param recipient_id: Account allowed to change only its own inbox receipts.
+        :param versions: Group identifiers mapped to their highest observed event sequence.
+        :param session: Inbox mutation transaction; concurrent group changes can abort it with 409.
+        :return: None; missing and foreign group IDs are ignored without revealing their existence.
+        """
+        groups = await NotificationGroup.find({
+            "recipient_id": recipient_id, "_id": {"$in": list(versions)},
+        }, session=session).to_list()
+        for group in groups:
+            boundary = max(group.read_through_sequence, min(versions[group.id], group.sequence))
+            if boundary == group.read_through_sequence:
+                continue
+            group.read_through_sequence = boundary
+            group.is_read = group.latest_sequence <= boundary
+            await group.replace(session=session)
+
+    @staticmethod
+    async def mark_all_read(recipient_id: PydanticObjectId, session: AsyncClientSession) -> None:
+        """Mark the transaction's current unread group snapshot without replaying after a conflict.
+
+        :param recipient_id: Account owning the inbox; other recipients are never selected.
+        :param session: Snapshot transaction that excludes later inserts and conflicts with concurrent row updates.
+        :return: None.
+        """
+        await NotificationGroup.find({"recipient_id": recipient_id, "is_read": False}, session=session).update_many(
+            [{"$set": {"is_read": True, "read_through_sequence": "$sequence"}}], session=session,
+        )
 
     @staticmethod
     async def append(
