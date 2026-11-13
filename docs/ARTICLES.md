@@ -27,3 +27,16 @@ automatic strike formatting. Block controls follow the hovered block, remain
 keyboard accessible, and share the same add-button appearance. The writing surface
 has no focus outline; buttons and inputs retain their focus indicators. Image
 restrictions are still enforced when choosing or uploading files.
+
+## Links, hashtags, and mentions
+
+Article prose and feed text share URL, Unicode hashtag, and handle recognition and
+link styling. External links open a new tab; hashtags open exact-tag search and
+handles open profiles. Formatting boundaries do not split tokens. Code and existing
+link marks are excluded from automatic recognition. Editing shows the same styling
+without navigating on ordinary clicks, and decorations do not change stored JSON.
+
+Typed mention nodes retain their account ID in JSON and display the current handle
+from a public card. Requests are deduplicated, batched in groups of at most 50, and
+cached for one minute. Missing accounts display "Account unavailable" without an ID.
+Explicit hashtag blocks use ordinary hashtag links in article bodies.

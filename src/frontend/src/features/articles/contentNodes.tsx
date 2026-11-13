@@ -5,11 +5,12 @@ import type { NodeViewProps } from "@tiptap/react";
 import type { Attachment } from "../../shared/api/types";
 import { Attachments } from "../publications/Attachments";
 import { hashtagHref } from "../../shared/text/hashtags";
+import { Mention } from "../../shared/text/Mention";
 
 function AttachmentView({ node, editor }: NodeViewProps) {
   const descriptor = node.attrs.descriptor as Attachment | null;
   return <NodeViewWrapper contentEditable={false}>
-    {descriptor ? <Attachments items={[descriptor]} editable={editor.isEditable} /> : <span>Attachment unavailable</span>}
+    {descriptor ? <Attachments items={[descriptor]} editable={editor.isEditable} article /> : <span>Attachment unavailable</span>}
   </NodeViewWrapper>;
 }
 
@@ -26,9 +27,16 @@ export const ArticleMention = Node.create({
   addAttributes() { return { user_id: { default: null } }; },
   parseHTML() { return []; },
   renderHTML({ node }) {
-    return ["span", { class: "pill", title: String(node.attrs.user_id ?? "") }, "Account mention"];
+    return ["span", { class: "content-link mention", "data-mention": String(node.attrs.user_id ?? "") }, "Account mention"];
   },
+  addNodeView() { return ReactNodeViewRenderer(MentionView); },
 });
+
+function MentionView({ node, editor }: NodeViewProps) {
+  return <NodeViewWrapper as="span" contentEditable={false}>
+    <Mention userId={String(node.attrs.user_id ?? "")} editable={editor.isEditable} />
+  </NodeViewWrapper>;
+}
 
 export const ArticleHashtag = Node.create<{ editable: boolean }>({
   name: "hashtag", group: "inline", inline: true, atom: true,
@@ -37,8 +45,8 @@ export const ArticleHashtag = Node.create<{ editable: boolean }>({
   parseHTML() { return []; },
   renderHTML({ node }) {
     const tag = String(node.attrs.tag ?? "");
-    return this.options.editable ? ["span", { class: "pill hashtag" }, `#${tag}`]
-      : ["a", { class: "pill hashtag", href: hashtagHref(tag), "data-search-hashtag": tag }, `#${tag}`];
+    return this.options.editable ? ["span", { class: "content-link hashtag" }, `#${tag}`]
+      : ["a", { class: "content-link hashtag", href: hashtagHref(tag), "data-content-internal": "" }, `#${tag}`];
   },
 });
 

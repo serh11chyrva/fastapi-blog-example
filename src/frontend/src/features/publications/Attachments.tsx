@@ -8,6 +8,7 @@ import { ResolvedLink } from "./ResolvedLink";
 import { MediaGallery } from "./MediaGallery";
 import { publicationStateEvent } from "../interactions/events";
 import { PreviewCard } from "./PreviewCard";
+import { Mention } from "../../shared/text/Mention";
 
 function reference(item: Attachment): string | null {
   if (item.type === "article") return `article:${item.article_id.toLowerCase()}`;
@@ -15,7 +16,7 @@ function reference(item: Attachment): string | null {
   return null;
 }
 
-export function Attachments({ items, editable = false }: { items: Attachment[]; editable?: boolean }) {
+export function Attachments({ items, editable = false, article = false }: { items: Attachment[]; editable?: boolean; article?: boolean }) {
   const query = new URLSearchParams();
   for (const ref of new Set(items.map(reference))) {
     if (ref) query.append("ref", ref);
@@ -62,9 +63,9 @@ export function Attachments({ items, editable = false }: { items: Attachment[]; 
           return card ? <PreviewCard key={key} item={card} /> : <p key={key} className="attachment-placeholder">
             {current ? "Publication unavailable" : "Loading publication…"}
           </p>;
-        case "hashtag": return editable ? <span className="attachment-tag hashtag" key={key}>#{item.tag}</span>
-          : <Link className="attachment-tag hashtag" key={key} to={hashtagHref(item.tag)}>#{item.tag}</Link>;
-        case "mention": return <span className="attachment-tag" title={item.user_id} key={key}>Account mention · {item.user_id.slice(-6)}</span>;
+        case "hashtag": return editable ? <span className={article ? "content-link hashtag" : "attachment-tag hashtag"} key={key}>#{item.tag}</span>
+          : <Link className={article ? "content-link hashtag" : "attachment-tag hashtag"} key={key} to={hashtagHref(item.tag)}>#{item.tag}</Link>;
+        case "mention": return <Mention key={key} userId={item.user_id} editable={editable} />;
         case "embed":
         case "og_card":
         case "link": return <ResolvedLink key={key} item={item} />;

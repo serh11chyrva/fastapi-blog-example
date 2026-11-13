@@ -683,6 +683,23 @@ unreachable candidates are skipped and no usable image yields a text-only card.
 
 ### TipTap references and embedded content
 
+`GET /api/v1/profiles/cards?user_id=68eb7491d37a2f06b8ce9540` resolves typed
+mentions to public account cards. Supply 1–50 repeated `user_id` values, each a
+24-character ObjectId. Duplicate IDs appear once in first-requested order; missing
+accounts are omitted. Invalid IDs or batch sizes return 422. The public response
+is cacheable for 60 seconds and contains no email or viewer-specific state:
+
+```json
+[
+  {
+    "id": "68eb7491d37a2f06b8ce9540",
+    "username": "maya_bennett",
+    "display_name": "Maya Bennett",
+    "avatars": {"original": null}
+  }
+]
+```
+
 Text may carry an `underline` mark. Paragraphs and headings accept `attrs.textAlign`
 (`left`, `center`, `right`, or `justify`). Blockquotes accept `attrs.citation` up to 200
 characters. Code blocks accept a language identifier such as `javascript`.

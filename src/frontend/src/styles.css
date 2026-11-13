@@ -112,3 +112,8 @@ summary::-webkit-details-marker { display: none; }
 /* Hashtags share their appearance across publication and profile text. */
 .post-copy .hashtag, .tiptap-content .hashtag, .hashtag { color: #42634b; font-weight: 650; overflow-wrap: anywhere; }
 a.hashtag:hover { text-decoration: underline; text-underline-offset: 3px; }
+.content-link, .tiptap-content .content-link { color: #30302b; font-weight: 650; text-decoration: none; overflow-wrap: anywhere; }
+.content-link.hashtag, .tiptap-content .content-link.hashtag { color: #42634b; }
+a.content-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.external-link::after { content: "↗"; display: inline; margin-inline: 2px; font-size: .85em; }
+.mention-unavailable { color: var(--muted); font-size: .9em; }

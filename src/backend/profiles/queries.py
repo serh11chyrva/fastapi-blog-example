@@ -40,6 +40,17 @@ class ProfileQueries:
 
         return user
 
+    async def cards(self, user_ids: list[PydanticObjectId]) -> list[ProfileUserResponse]:
+        """Resolve public mention cards in first-requested order without private account data.
+
+        :param user_ids: Validated account identifiers; duplicates are returned only once.
+        :return: Public cards for existing accounts, omitting missing identifiers.
+        """
+        ordered = list(dict.fromkeys(user_ids))
+        users = {user.id: user for user in await self.repository.users_by_ids(ordered)}
+
+        return [user_card(users[user_id]) for user_id in ordered if user_id in users]
+
     async def definitions(self, user: User) -> dict[str, BadgeDefinition]:
         """Load all badge definitions required by a user's assignments.
 

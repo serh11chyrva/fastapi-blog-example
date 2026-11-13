@@ -2,8 +2,11 @@
 
 from typing import Annotated
 
+from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, Query, Response
+from pydantic import StringConstraints
 
+from backend.api import examples
 from backend.api.metadata import Origin, Username, documented_responses
 from backend.audit.dependencies import Audit
 from backend.auth.dependencies import CurrentUser, OptionalUser
@@ -37,6 +40,37 @@ def get_profile_service(resources: Resources, audit: Audit) -> ProfileService:
 
 
 Profiles = Annotated[ProfileService, Depends(get_profile_service)]
+ProfileCardId = Annotated[str, StringConstraints(pattern=r"^[0-9a-fA-F]{24}$")]
+
+
+@router.get(
+    "/profiles/cards",
+    response_model=list[ProfileUserResponse],
+    summary="Resolve public account cards",
+    description=(
+        "Resolve between 1 and 50 repeated user_id query values for typed mentions. "
+        "Duplicates are returned once in first-requested order; missing accounts are omitted. "
+        "Only public card fields are returned, without email or session-specific state."
+    ),
+    tags=["Profiles"],
+    responses=documented_responses(422, 503, examples=[([examples.AUTHOR], "Existing public mention cards")]),
+)
+async def get_profile_cards(
+    user_id: Annotated[
+        list[ProfileCardId],
+        Query(min_length=1, max_length=50, description="Repeated 24-character account ObjectIds to resolve."),
+    ],
+    response: Response,
+) -> list[ProfileUserResponse]:
+    """Resolve a bounded batch of public cards for mention rendering.
+
+    :param user_id: One to fifty account identifiers, including optional duplicates.
+    :param response: HTTP response receiving the public one-minute cache policy.
+    :return: Existing public account cards in first-requested order.
+    """
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    return await queries.cards([PydanticObjectId(value) for value in user_id])
 
 
 @router.get(

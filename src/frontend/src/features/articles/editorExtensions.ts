@@ -4,7 +4,7 @@ import LinkExtension from "@tiptap/extension-link";
 import { EditorialCode, EditorialQuote } from "./EditorialBlocks";
 import { ArticleAttachment, ArticleHashtag, ArticleMention } from "./contentNodes";
 import { ArticleImage } from "./ArticleImage";
-import { ArticleTextHashtags } from "./hashtagExtension";
+import { ArticleTextLinks } from "./hashtagExtension";
 import { ArticleSectionAnchors } from "./ArticleSections";
 
 const LegacyStrike = Mark.create({
@@ -45,7 +45,9 @@ export function createEditorExtensions(editable = true, navigate?: (href: string
     ArticleAttachment,
     ArticleMention,
     ArticleHashtag.configure({ editable }),
-    ArticleTextHashtags.configure({ navigate }),
-    LinkExtension.configure({ openOnClick: !editable, HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" } }),
+    ArticleTextLinks.configure({ navigate }),
+    LinkExtension.configure({ openOnClick: !editable, HTMLAttributes: {
+      class: "content-link external-link", rel: "noopener noreferrer nofollow", target: "_blank",
+    } }),
   ];
 }
