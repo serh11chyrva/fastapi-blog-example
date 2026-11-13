@@ -37,7 +37,6 @@ export function PreviewCard({ item: initialItem, standalone = false, onChanged, 
       </div>}
       <p><HashtagText text={item.text} href={href} /></p>
       {item.thumbnail_url && <Link to={href}><img src={item.thumbnail_url} alt="" className="quote-image" loading="lazy" /></Link>}
-      <Link className="text-link quote-open" to={href}>View post <Icon name="right" width={13} height={13} /></Link>
     </div>;
   }
   return <div className={`card-surface article-surface${standalone ? " motion-enter" : ""}`}>
