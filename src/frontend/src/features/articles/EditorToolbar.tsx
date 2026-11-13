@@ -5,6 +5,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { Transaction } from "@tiptap/pm/state";
 import { Selection, TextSelection } from "@tiptap/pm/state";
 import { Icon } from "../../shared/ui/Icon";
+import type { IconName } from "../../shared/ui/Icon";
 import { AttachmentComposer } from "../publications/AttachmentComposer";
 
 export const articleBlockDragType = "application/x-blog-article-block";
@@ -45,6 +46,8 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
   const insertion = useRef<InsertionRange | null>(null);
   const selection = useRef<InsertionRange | null>(null);
   const menuElement = useRef<HTMLDivElement>(null);
+  const bubbleElement = useRef<HTMLDivElement>(null);
+  const hoveredBlock = useRef<number | null>(null);
   const [gaps, setGaps] = useState<{ top: number; from: number }[]>([]);
   const [menuTop, setMenuTop] = useState(0);
   const [link, setLink] = useState<string | null>(null);
@@ -56,7 +59,7 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     const area = workspace.current;
     if (!editor || !area || editor.isDestroyed) return;
     const { selection, doc } = editor.state;
-    const index = Math.min(selection.$from.index(0), doc.childCount - 1);
+    const index = Math.min(hoveredBlock.current ?? selection.$from.index(0), doc.childCount - 1);
     if (index < 0) return;
     let from = 0;
     for (let cursor = 0; cursor < index; cursor++) from += doc.child(cursor).nodeSize;
@@ -74,10 +77,15 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     const first = editor.view.coordsAtPos(selection.from);
     const element = editor.view.nodeDOM(from);
     const top = element instanceof HTMLElement ? element.getBoundingClientRect().top : first.top;
+    const bubbleHeight = bubbleElement.current?.offsetHeight ?? 70;
+    const selectionTop = first.top - bubbleHeight - 8 < 8
+      ? first.bottom - boundary.top + 8 : first.top - boundary.top - bubbleHeight - 8;
     setPosition({
       top: Math.max(0, top - boundary.top), index, after: from + doc.child(index).nodeSize,
-      selectionTop: first.top - boundary.top - 43, selectionLeft: Math.max(0, Math.min(first.left - boundary.left, boundary.width - 285)),
-      selected: selection instanceof TextSelection && !selection.empty && !editor.isActive("codeBlock"),
+      selectionTop, selectionLeft: Math.max(0, Math.min(first.left - boundary.left, boundary.width - 285)),
+      selected: selection instanceof TextSelection && !selection.empty && !editor.isActive("codeBlock")
+        && editor.isEditable && document.hasFocus()
+        && (editor.isFocused || !!bubbleElement.current?.contains(document.activeElement)),
     });
   }, [editor, workspace]);
 
@@ -86,9 +94,40 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     const area = workspace.current;
     const observer = new ResizeObserver(update);
     if (area) observer.observe(area);
-    editor.on("selectionUpdate", update).on("update", update).on("focus", update).on("blur", update);
+    let focusFrame = 0;
+    function focusChanged() {
+      cancelAnimationFrame(focusFrame);
+      focusFrame = requestAnimationFrame(update);
+    }
+    function selectionChanged() {
+      hoveredBlock.current = null;
+      update();
+    }
+    function pointerMoved(event: PointerEvent) {
+      if (!editor || !area || menu || rich || link !== null
+        || !(event.target instanceof Element) || event.target.closest(".block-tools, .block-menu, .selection-bubble")) return;
+      let hovered: number | null = null;
+      editor.state.doc.forEach((_node, offset, index) => {
+        if (hovered !== null) return;
+        const element = editor.view.nodeDOM(offset);
+        if (!(element instanceof HTMLElement)) return;
+        const rect = element.getBoundingClientRect();
+        if (event.clientY >= rect.top && event.clientY <= rect.bottom) hovered = index;
+      });
+      if (hovered !== null && hovered !== hoveredBlock.current) {
+        hoveredBlock.current = hovered;
+        update();
+      }
+    }
+    function pointerLeft() {
+      if (menu || rich || link !== null) return;
+      hoveredBlock.current = null;
+      update();
+    }
+    editor.on("selectionUpdate", selectionChanged).on("update", update).on("focus", focusChanged).on("blur", focusChanged);
     const frame = requestAnimationFrame(update);
     function mapPositions({ transaction }: { transaction: Transaction }) {
+      if (transaction.docChanged) hoveredBlock.current = null;
       if (insertion.current) insertion.current = {
         from: transaction.mapping.map(insertion.current.from, -1), to: transaction.mapping.map(insertion.current.to, 1),
       };
@@ -114,18 +153,29 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     }
     editor.on("transaction", mapPositions);
     editor.view.dom.addEventListener("keydown", keydown, true);
+    area?.addEventListener("pointermove", pointerMoved);
+    area?.addEventListener("pointerleave", pointerLeft);
+    document.addEventListener("focusin", focusChanged);
+    window.addEventListener("blur", focusChanged);
+    window.addEventListener("focus", focusChanged);
     window.addEventListener("scroll", update, true);
     window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
       editor.off("transaction", mapPositions);
       editor.view.dom.removeEventListener("keydown", keydown, true);
+      area?.removeEventListener("pointermove", pointerMoved);
+      area?.removeEventListener("pointerleave", pointerLeft);
+      document.removeEventListener("focusin", focusChanged);
+      window.removeEventListener("blur", focusChanged);
+      window.removeEventListener("focus", focusChanged);
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("resize", update);
       cancelAnimationFrame(frame);
-      editor.off("selectionUpdate", update).off("update", update).off("focus", update).off("blur", update);
+      cancelAnimationFrame(focusFrame);
+      editor.off("selectionUpdate", selectionChanged).off("update", update).off("focus", focusChanged).off("blur", focusChanged);
     };
-  }, [editor, update, workspace, disabled]);
+  }, [editor, update, workspace, disabled, menu, rich, link]);
 
   useEffect(() => {
     if (!menu || disabled) return;
@@ -173,12 +223,19 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     { label: "Bold", text: "B", active: editor.isActive("bold"), run: () => chain().toggleBold().run() },
     { label: "Italic", text: "I", active: editor.isActive("italic"), run: () => chain().toggleItalic().run() },
     { label: "Underline", text: "U", active: editor.isActive("underline"), run: () => chain().toggleUnderline().run() },
-    { label: "Strike", text: "S", active: editor.isActive("strike"), run: () => chain().toggleStrike().run() },
   ];
+  const alignments: { value: string; label: string; icon: IconName }[] = [
+    { value: "left", label: "Align left", icon: "alignLeft" },
+    { value: "center", label: "Align center", icon: "alignCenter" },
+    { value: "right", label: "Align right", icon: "alignRight" },
+    { value: "justify", label: "Justify", icon: "alignJustify" },
+  ];
+  const alignmentType = editor.isActive("heading") ? "heading" : "paragraph";
+  const alignment = editor.getAttributes(alignmentType).textAlign ?? (alignmentType === "paragraph" ? "justify" : "left");
 
   return <>
     {gaps.map((gap) => <div key={gap.from} className="editor-insert-gap" style={{ top: gap.top }}>
-      <button type="button" aria-label={gap.from === 0 ? "Insert before first block" : "Insert block here"}
+      <button type="button" className="block-plus" aria-label={gap.from === 0 ? "Insert before first block" : "Insert block here"}
         onMouseDown={(event) => event.preventDefault()} onClick={() => {
           const node = editor.state.doc.nodeAt(gap.from);
           insertion.current = { from: gap.from, to: node?.type.name === "paragraph" && !node.content.size ? gap.from + node.nodeSize : gap.from };
@@ -196,9 +253,10 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
       </button>
       <button type="button" className="block-plus" aria-label="Add a block" aria-expanded={menu === "blocks"}
         onMouseDown={(event) => event.preventDefault()} onClick={() => {
-          const current = editor.state.selection;
-          insertion.current = current.$from.depth === 1 && current.$from.parent.type.name === "paragraph" && !current.$from.parent.content.size
-            ? { from: current.$from.before(), to: current.$from.after() } : { from: position.after, to: position.after };
+          const node = editor.state.doc.child(position.index);
+          const from = position.after - node.nodeSize;
+          insertion.current = node.type.name === "paragraph" && !node.content.size
+            ? { from, to: position.after } : { from: position.after, to: position.after };
           setMenuTop(position.top + 29); setMenu(menu === "blocks" ? undefined : "blocks");
         }}>
         <Icon name="plus" width={17} height={17} />
@@ -257,7 +315,8 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
       <button type="button" onClick={() => { setLink(null); editor.commands.focus(); }}>Cancel</button>
       {linkError && <p role="alert">{linkError}</p>}
     </form>}
-    {position.selected && !menu && !rich && link === null && <div className="selection-bubble" role="toolbar" aria-label="Text formatting"
+    {position.selected && !menu && !rich && link === null && <div ref={bubbleElement} className="selection-bubble" role="toolbar" aria-label="Text formatting"
+      onPointerDownCapture={() => { selection.current = { from: editor.state.selection.from, to: editor.state.selection.to }; }}
       style={{ top: position.selectionTop, left: position.selectionLeft }}>
       <select aria-label="Text style" value={editor.isActive("heading") ? String(editor.getAttributes("heading").level) : "paragraph"}
         onChange={(event) => {
@@ -275,13 +334,10 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
         selection.current = { from: editor.state.selection.from, to: editor.state.selection.to };
         setLink(editor.getAttributes("link").href || "https://"); setLinkError("");
       }}><Icon name="link" width={16} height={16} /></button>
-      <select aria-label="Text alignment" value="" onChange={(event) => {
-        const type = editor.isActive("heading") ? "heading" : "paragraph";
-        chain().updateAttributes(type, { textAlign: event.currentTarget.value }).run();
-      }}>
-        <option value="" disabled>Align</option><option value="left">Left</option><option value="center">Center</option>
-        <option value="right">Right</option><option value="justify">Justify</option>
-      </select>
+      {alignments.map(({ value, label, icon }) => <button type="button" key={value} aria-label={label} title={label}
+        aria-pressed={alignment === value} onMouseDown={(event) => event.preventDefault()} onClick={() => {
+          chain().updateAttributes("paragraph", { textAlign: value }).updateAttributes("heading", { textAlign: value }).run();
+        }}><Icon name={icon} width={16} height={16} /></button>)}
     </div>}
   </>;
 }

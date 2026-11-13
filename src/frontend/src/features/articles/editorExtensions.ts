@@ -1,4 +1,4 @@
-import { Extension } from "@tiptap/core";
+import { Extension, Mark } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
 import { EditorialCode, EditorialQuote } from "./EditorialBlocks";
@@ -6,6 +6,14 @@ import { ArticleAttachment, ArticleHashtag, ArticleMention } from "./contentNode
 import { ArticleImage } from "./ArticleImage";
 import { ArticleTextHashtags } from "./hashtagExtension";
 import { ArticleSectionAnchors } from "./ArticleSections";
+
+const LegacyStrike = Mark.create({
+  name: "strike",
+  inclusive: false,
+  parseHTML() { return []; },
+  renderHTML() { return ["s", 0]; },
+});
+
 const ArticleFormatting = Extension.create({
   name: "articleFormatting",
   addGlobalAttributes() {
@@ -27,7 +35,8 @@ const ArticleFormatting = Extension.create({
 
 export function createEditorExtensions(editable = true, navigate?: (href: string) => void) {
   return [
-    StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, trailingNode: false, blockquote: false, codeBlock: false }),
+    StarterKit.configure({ heading: { levels: [1, 2, 3] }, strike: false, link: false, trailingNode: false, blockquote: false, codeBlock: false }),
+    LegacyStrike,
     ArticleFormatting,
     ArticleSectionAnchors,
     EditorialQuote,
