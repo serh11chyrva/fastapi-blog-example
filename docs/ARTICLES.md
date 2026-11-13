@@ -69,3 +69,21 @@ extraction. Superscript text remains ordinary searchable and summarizable text.
 
 The backend must support `blockMath` and `superscript` before deploying the frontend
 that creates them. Existing article bodies require no migration.
+
+## Header blocks and publishing
+
+The header contains exactly one title and an optional cover. Drag the header grip
+onto the other header block, use its up/down buttons, or press Alt+ArrowUp/ArrowDown
+on the grip to change their order. Header blocks stay outside the body and cannot
+be duplicated or moved into prose. Removing the cover leaves a compact add action
+in the editor and no image placeholder on the published page or feed card.
+
+The publishing dialog exposes the title, cover preview and controls, header order,
+and schedule. Header and dialog controls edit the same state. **Save changes**,
+**Publish now**, and **Schedule** save content and header settings before completing
+any cover upload/removal and publication transition. Cover removal is staged until
+saving. A failed upload or save retains pending input, stops the transition, and
+can be retried without creating another draft. Covers are never required.
+
+The `hero_layout` field defaults to `cover_title` for existing articles. No body
+rewrite or database migration is needed.

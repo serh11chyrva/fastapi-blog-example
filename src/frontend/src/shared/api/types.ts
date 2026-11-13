@@ -144,11 +144,13 @@ export type ContextPost = MicroPost | ReplyTombstone;
 export type PostContext = {
   post: ContextPost; original: OriginalFeedItem | null; ancestors: ContextPost[]; read_only: boolean;
 };
+export type HeroLayout = "cover_title" | "title_cover";
 export type Article = PublicationBase & {
   kind: "article";
   title: string;
   summary: string;
   body: JSONContent;
+  hero_layout: HeroLayout;
   thumbnail_url: string | null;
   inline_image_urls: string[];
   status: "draft" | "scheduled" | "published";

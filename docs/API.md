@@ -683,6 +683,17 @@ unreachable candidates are skipped and no usable image yields a text-only card.
 
 ### TipTap references and embedded content
 
+Article create, update, and full responses support `hero_layout`: `cover_title`
+(default, including legacy documents) or `title_cover`. It changes the header order
+without moving the title or cover into the TipTap body. An omitted or null PATCH
+value preserves the saved order. The title remains required and the cover remains
+optional for draft saving, immediate publication, and scheduled publication.
+
+For example, `PATCH /api/v1/articles/{article_id}` with
+`{"hero_layout":"title_cover"}` puts the title before the optional cover. Cover
+upload and deletion continue to use the existing media endpoints. The full article
+response includes the saved order and a null `thumbnail_url` when no cover exists.
+
 `GET /api/v1/profiles/cards?user_id=68eb7491d37a2f06b8ce9540` resolves typed
 mentions to public account cards. Supply 1–50 repeated `user_id` values, each a
 24-character ObjectId. Duplicate IDs appear once in first-requested order; missing

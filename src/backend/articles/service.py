@@ -87,6 +87,7 @@ class ArticleService:
         article = Article(
             owner_id=owner.id,
             title=payload.title,
+            hero_layout=payload.hero_layout,
             summary=article_summary(payload.body),
             body=payload.body,
             attachments=payload.attachments,
@@ -113,7 +114,7 @@ class ArticleService:
         return article
 
     async def edit_article(self, article_id: str, payload: ArticleUpdate, owner: User) -> Article:
-        """Update article fields, references, and its search projection in one audited transaction.
+        """Update article content, header order, references, and search projection in one audited transaction.
 
         :param article_id: MongoDB identifier of the article.
         :param payload: Validated request data for the operation.
@@ -142,6 +143,9 @@ class ArticleService:
 
             if payload.title is not None:
                 article.title = payload.title
+
+            if payload.hero_layout is not None:
+                article.hero_layout = payload.hero_layout
 
             article.summary = article_summary(article.body)
 

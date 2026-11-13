@@ -31,6 +31,7 @@ class Article(Document, PublicationAuthors):
     title: str
     summary: str = ""
     body: ArticleBody
+    hero_layout: Literal["cover_title", "title_cover"] = "cover_title"
     thumbnail_key: str | None = None
     inline_image_keys: list[str] = Field(default_factory=list)
     status: Literal["draft", "scheduled", "published"] = "draft"

@@ -167,8 +167,9 @@ ARTICLE_BODY = {
 ARTICLE_CREATE = {
     "title": "A reading habit that fits into a busy week",
     "body": ARTICLE_BODY,
+    "hero_layout": "cover_title",
 }
-ARTICLE_UPDATE = ARTICLE_CREATE | {"title": "Ten pages before the first meeting"}
+ARTICLE_UPDATE = ARTICLE_CREATE | {"title": "Ten pages before the first meeting", "hero_layout": "title_cover"}
 ARTICLE = {
     "id": "68ebb250c39a6184f027de93",
     "kind": "article",

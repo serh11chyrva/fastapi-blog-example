@@ -25,6 +25,7 @@ def article_response(article: Article, authors: list[User]) -> ArticleResponse:
         ),
         share_url=share_path(authors[0].username, article.title, article.share_id),
         title=article.title,
+        hero_layout=article.hero_layout,
         summary=article.summary,
         body=article.body,
         thumbnail_url=article_thumbnail_url(article.thumbnail_key),

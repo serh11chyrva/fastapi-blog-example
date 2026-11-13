@@ -44,6 +44,11 @@ class ArticleCreate(BaseModel):
         ),
         examples=[examples.ARTICLE_BODY, examples.ARTICLE_RICH_CREATE["body"]],
     )
+    hero_layout: Literal["cover_title", "title_cover"] = Field(
+        default="cover_title",
+        description="Header block order: cover_title shows the optional cover first; title_cover shows the title first.",
+        examples=["cover_title", "title_cover"],
+    )
 
     @field_validator("title")
     @classmethod
@@ -79,6 +84,11 @@ class ArticleUpdate(BaseModel):
     model_config = ConfigDict(
         title="Article changes", extra="forbid",
         json_schema_extra={"examples": [examples.ARTICLE_UPDATE]},
+    )
+    hero_layout: Literal["cover_title", "title_cover"] | None = Field(
+        default=None,
+        description="Replacement header block order. Omit or use null to keep the current order.",
+        examples=["title_cover"],
     )
 
     attachments: PublicationAttachments | None = Field(
@@ -202,6 +212,11 @@ class ArticleResponse(LinkPresentation, PublicationState):
     title: str = Field(
         description="Article title without surrounding whitespace.",
         examples=[examples.ARTICLE_CREATE["title"]],
+    )
+    hero_layout: Literal["cover_title", "title_cover"] = Field(
+        default="cover_title",
+        description="Order of the title and optional cover in the article header. Legacy articles use cover_title.",
+        examples=["cover_title", "title_cover"],
     )
     summary: str = Field(
         max_length=280,

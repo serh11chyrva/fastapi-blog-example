@@ -6,6 +6,7 @@ import { Icon } from "../../shared/ui/Icon";
 import { articleBlockDragType, EditorToolbar, moveArticleBlock } from "./EditorToolbar";
 import { useArticleEditor } from "./useArticleEditor";
 import { ArticleSectionNavigation } from "./ArticleSections";
+import { ArticleCoverControl, ArticleHeroEditor } from "./ArticleHeroEditor";
 
 export function ArticleEditorPage() {
   const { articleId } = useParams();
@@ -13,7 +14,7 @@ export function ArticleEditorPage() {
 }
 
 function ArticleEditorForm() {
-  const { loading, loadError, title, setTitle, article, error, saving, setThumbnailFile, thumbnailPreview,
+  const { loading, loadError, title, setTitle, heroLayout, setHeroLayout, article, error, saving, chooseCover, coverPreview,
     publishAt, setPublishAt, imageInput, chooseInlineImage, editor, inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction } = useArticleEditor();
   const [dropTop, setDropTop] = useState<number | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
@@ -36,7 +37,7 @@ function ArticleEditorForm() {
     return gaps.reduce<{ index: number; y: number } | null>((best, gap) =>
       !best || Math.abs(gap.y - clientY) < Math.abs(best.y - clientY) ? gap : best, null);
   }
-  const preview = thumbnailPreview || article?.thumbnail_url;
+  const cover = <ArticleCoverControl preview={coverPreview} disabled={saving} onChoose={chooseCover} onRemove={removeCover} />;
   const status = article?.status ?? "draft";
   return <article className="writer">
     <ArticleSectionNavigation editor={editor} />
@@ -45,26 +46,8 @@ function ArticleEditorForm() {
       <button type="button" className="button-secondary" disabled={saving} onClick={() => void runAction("save")}>Save</button>
       <button type="button" className="button-primary" disabled={saving} onClick={() => publishDialog.current?.showModal()}>Publish</button>
     </div>
-    <header className="writer-hero">
-      {preview ? <figure className="article-cover writer-cover">
-        <img src={preview} alt="Article cover" />
-        <div className="cover-edit">
-          <label className="cover-change">Change cover
-            <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={saving}
-              onChange={(event) => { const file = event.target.files?.[0]; if (file) setThumbnailFile(file); event.target.value = ""; }} />
-          </label>
-          <button type="button" className="cover-change" aria-label="Remove cover" disabled={saving} onClick={() => void removeCover()}>
-            <Icon name="close" width={16} height={16} />
-          </button>
-        </div>
-      </figure> : <label className="add-cover"><Icon name="plus" width={17} height={17} /> Add a cover
-        <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={saving}
-          onChange={(event) => { const file = event.target.files?.[0]; if (file) setThumbnailFile(file); event.target.value = ""; }} />
-      </label>}
-      <textarea aria-label="Article title" className="writer-title" disabled={saving} maxLength={160}
-        placeholder="Untitled" rows={1} value={title} onChange={(event) => setTitle(event.target.value)}
-        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); editor?.commands.focus("start"); } }} />
-    </header>
+    <ArticleHeroEditor title={title} onTitleChange={setTitle} layout={heroLayout} onLayoutChange={setHeroLayout}
+      cover={cover} disabled={saving} onEnterBody={() => { editor?.commands.focus("start"); }} />
     <div className="writer-body" ref={workspace}
       onDragOverCapture={(event) => {
         if (event.dataTransfer.types.includes(articleBlockDragType)) {
@@ -111,9 +94,17 @@ function ArticleEditorForm() {
         <p className="writer-state">Status · {article?.archived_at ? "archived" : status}</p>
         {article?.archived_at && <p>Unarchive this article from its page before changing publication settings.</p>}
         {article?.scheduled_at && <p className="writer-state">Scheduled for {new Date(article.scheduled_at).toLocaleString()}</p>}
+        <label className="form-label">Article title<input className="field" value={title} maxLength={160}
+          disabled={saving} required onChange={(event) => setTitle(event.target.value)} /></label>
+        <div className="publish-cover"><p className="form-label">Cover image (optional)</p>{cover}</div>
+        <label className="form-label">Header order<select className="field" value={heroLayout} disabled={saving}
+          onChange={(event) => setHeroLayout(event.target.value as typeof heroLayout)}>
+          <option value="cover_title">Cover, then title</option><option value="title_cover">Title, then cover</option>
+        </select></label>
         <label className="form-label">Schedule for<input className="field" type="datetime-local" disabled={saving}
           value={publishAt} onChange={(event) => setPublishAt(event.target.value)} /></label>
         <div className="publish-actions">
+          <button type="button" className="button-secondary" disabled={saving} onClick={() => void runAction("save")}>Save changes</button>
           <button type="button" className="button-primary" disabled={saving || !!article?.archived_at} onClick={() => void runAction("publish")}>Publish now</button>
           <button type="button" className="button-secondary" disabled={saving || !!article?.archived_at || !publishAt} onClick={() => void runAction("schedule")}>Schedule</button>
           {article && status !== "draft" && <button type="button" className="button-secondary" disabled={saving || !!article.archived_at}

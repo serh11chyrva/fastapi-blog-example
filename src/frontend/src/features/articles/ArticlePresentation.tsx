@@ -103,21 +103,25 @@ export function ArticlePresentation({ article, owner, onChanged }: {
     } catch (reason) { setError(errorMessage(reason)); }
   }
 
+  const cover = article.thumbnail_url && <figure className="article-cover"><img src={article.thumbnail_url} alt="" /></figure>;
+  const heading = <div className="reader-heading">
+    <div className="reader-meta">
+      {owner && <Link to={`/articles/${article.id}/edit`} className="text-link"><Icon name="write" width={14} height={14} /> Edit article</Link>}
+      <ArticleDates article={article} />
+      <PublicationStatus pinnedAt={article.pinned_at} archivedAt={article.archived_at} />
+      {owner && <PublicationMenu item={article} onReconciled={(updated) => {
+        if (updated.kind === "article") onChanged?.(updated);
+      }} onChanged={(updated) => {
+        if (updated.kind === "article") onChanged?.(updated);
+      }}><Link to={`/articles/${article.id}/edit`}>Edit article</Link></PublicationMenu>}
+    </div>
+    <h1><HashtagText text={article.title} /></h1>
+  </div>;
+
   return <article className="reader motion-fade">
     <a className="skip-link" href="#article">Skip to article</a>
     <header className="reader-hero">
-      {article.thumbnail_url && <figure className="article-cover"><img src={article.thumbnail_url} alt="" /></figure>}
-      <div className="reader-meta">
-        {owner && <Link to={`/articles/${article.id}/edit`} className="text-link"><Icon name="write" width={14} height={14} /> Edit article</Link>}
-        <ArticleDates article={article} />
-        <PublicationStatus pinnedAt={article.pinned_at} archivedAt={article.archived_at} />
-        {owner && <PublicationMenu item={article} onReconciled={(updated) => {
-          if (updated.kind === "article") onChanged?.(updated);
-        }} onChanged={(updated) => {
-          if (updated.kind === "article") onChanged?.(updated);
-        }}><Link to={`/articles/${article.id}/edit`}>Edit article</Link></PublicationMenu>}
-      </div>
-      <h1><HashtagText text={article.title} /></h1>
+      {article.hero_layout === "title_cover" ? <>{heading}{cover}</> : <>{cover}{heading}</>}
     </header>
     <div className="reading-prose" id="article">
       <TipTapDocument body={article.body} sectionNavigation />

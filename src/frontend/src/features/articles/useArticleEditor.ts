@@ -2,7 +2,7 @@ import { useApp } from "../../app/AuthProvider";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
-import type { Article } from "../../shared/api/types";
+import type { Article, HeroLayout } from "../../shared/api/types";
 import { useEditor } from "@tiptap/react";
 import { createEditorExtensions } from "./editorExtensions";
 import { replaceArticleImageEvent } from "./ArticleImage";
@@ -16,6 +16,7 @@ export function useArticleEditor() {
   const { user } = useApp();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
+  const [heroLayout, setHeroLayout] = useState<HeroLayout>("cover_title");
   const [loadedBody, setLoadedBody] = useState<JSONContent | null>(null);
   const [body, setBody] = useState<JSONContent>({ type: "doc", content: [{ type: "paragraph" }] });
   const [article, setArticle] = useState<Article | null>(null);
@@ -26,6 +27,7 @@ export function useArticleEditor() {
   const [pendingInlineImage, setPendingInlineImage] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
+  const [coverRemoved, setCoverRemoved] = useState(false);
   const [publishAt, setPublishAt] = useState("");
   const imageInput = useRef<HTMLInputElement>(null);
   const imageAttributes = useRef<{ alt: string; title: string | null } | null>(null);
@@ -55,6 +57,7 @@ export function useArticleEditor() {
         }
         setArticle(value);
         setTitle(value.title);
+        setHeroLayout(value.hero_layout ?? "cover_title");
         setBody(value.body);
         setLoadedBody(value.body);
         if (value.scheduled_at) {
@@ -119,21 +122,35 @@ export function useArticleEditor() {
       throw new Error("Add a title before saving your article.");
     if (thumbnailFile) validateImages("article-covers", [thumbnailFile]);
   }
+  function chooseCover(file: File) {
+    try {
+      validateImages("article-covers", [file]);
+      setThumbnailFile(file);
+      setCoverRemoved(false);
+      setError("");
+      setNotice("");
+    } catch (reason) { setError(errorMessage(reason)); }
+  }
   async function persist(): Promise<Article> {
     validateContent();
     const currentBody = editor ? fromEditorBody(editor.getJSON()) : body;
-    const payload = { title, body: currentBody };
+    const payload = { title, body: currentBody, hero_layout: heroLayout };
     let saved = article;
     if (!saved) {
       saved = await api<Article>("/articles", { method: "POST", body: JSON.stringify(payload) });
-    } else if (title.trim() !== saved.title || JSON.stringify(currentBody) !== JSON.stringify(saved.body)) {
+    } else if (title.trim() !== saved.title || heroLayout !== (saved.hero_layout ?? "cover_title")
+      || JSON.stringify(currentBody) !== JSON.stringify(saved.body)) {
       saved = await api<Article>(`/articles/${saved.id}`, { method: "PATCH", body: JSON.stringify(payload) });
     }
     setArticle(saved);
     if (thumbnailFile) {
       saved = await uploadImages<Article>(`/articles/${saved.id}/cover`, [thumbnailFile]);
       setThumbnailFile(null);
+    } else if (coverRemoved && saved.thumbnail_url) {
+      await api(`/articles/${saved.id}/cover`, { method: "DELETE" });
+      saved = { ...saved, thumbnail_url: null };
     }
+    setCoverRemoved(false);
     setArticle(saved);
     return saved;
   }
@@ -148,7 +165,8 @@ export function useArticleEditor() {
       let saved = article;
       if (!saved) {
         saved = await api<Article>("/articles", {
-          method: "POST", body: JSON.stringify({ title: title.trim() || "Untitled", body: editor ? fromEditorBody(editor.getJSON()) : body }),
+          method: "POST", body: JSON.stringify({ title: title.trim() || "Untitled",
+            body: editor ? fromEditorBody(editor.getJSON()) : body, hero_layout: heroLayout }),
         });
         setArticle(saved);
       }
@@ -176,27 +194,12 @@ export function useArticleEditor() {
       setSaving(false);
     }
   }
-  async function removeCover() {
+  function removeCover() {
     if (operation.current) return;
-    if (!article?.thumbnail_url) {
-      setThumbnailFile(null);
-      return;
-    }
-    operation.current = true;
-    setSaving(true);
+    setThumbnailFile(null);
+    setCoverRemoved(true);
     setError("");
-    setNotice("");
-    try {
-      await api(`/articles/${article.id}/cover`, { method: "DELETE" });
-      setThumbnailFile(null);
-      setArticle({ ...article, thumbnail_url: null });
-      setNotice("Cover removed.");
-    } catch (reason) {
-      setError(errorMessage(reason));
-    } finally {
-      operation.current = false;
-      setSaving(false);
-    }
+    setNotice("Cover will be removed when you save.");
   }
 
   async function runAction(action: "save" | "draft" | "delete" | "publish" | "schedule") {
@@ -258,5 +261,8 @@ export function useArticleEditor() {
     }
   }
   useEffect(() => { editor?.setEditable(!saving); }, [editor, saving]);
-  return { loading, loadError, title, setTitle, article, error, saving, thumbnailFile, setThumbnailFile, thumbnailPreview, publishAt, setPublishAt, imageInput, chooseInlineImage, editor, inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
+  const coverPreview = thumbnailPreview || (coverRemoved ? null : article?.thumbnail_url);
+  return { loading, loadError, title, setTitle, heroLayout, setHeroLayout, article, error, saving,
+    chooseCover, coverPreview, publishAt, setPublishAt, imageInput, chooseInlineImage, editor,
+    inlinePreview, pendingInlineImage, uploadInlineImage, removeCover, notice, runAction };
 }

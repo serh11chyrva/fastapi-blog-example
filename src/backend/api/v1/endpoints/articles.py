@@ -85,7 +85,8 @@ async def delete_article(
     status_code=201,
     summary="Create an article draft",
     description=(
-        "Creates a private-to-owner draft with optional typed attachments. TipTap supports inline mentions and "
+        "Creates a private-to-owner draft with optional typed attachments and configurable header order. "
+        "Covers are optional for saving, publishing, and scheduling. TipTap supports inline mentions and "
         "hashtags, superscript text, standalone blockMath formulas, and block attachment descriptors. "
         "Mentioned accounts must exist; referenced articles must be published. "
         "Video descriptors are reserved and rejected."
