@@ -5,6 +5,7 @@ import { EditorialCode, EditorialQuote } from "./EditorialBlocks";
 import { ArticleAttachment, ArticleHashtag, ArticleMention } from "./contentNodes";
 import { ArticleImage } from "./ArticleImage";
 import { ArticleTextHashtags } from "./hashtagExtension";
+import { ArticleSectionAnchors } from "./ArticleSections";
 const ArticleFormatting = Extension.create({
   name: "articleFormatting",
   addGlobalAttributes() {
@@ -20,16 +21,6 @@ const ArticleFormatting = Extension.create({
           },
         },
       },
-      {
-        types: ["heading"],
-        attributes: {
-          sectionId: {
-            default: null,
-            renderHTML: ({ sectionId }) => typeof sectionId === "string" && /^section-\d+$/.test(sectionId)
-              ? { id: sectionId } : {},
-          },
-        },
-      },
     ];
   },
 });
@@ -38,6 +29,7 @@ export function createEditorExtensions(editable = true, navigate?: (href: string
   return [
     StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, trailingNode: false, blockquote: false, codeBlock: false }),
     ArticleFormatting,
+    ArticleSectionAnchors,
     EditorialQuote,
     EditorialCode,
     ArticleImage,

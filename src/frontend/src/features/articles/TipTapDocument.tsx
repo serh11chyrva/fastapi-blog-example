@@ -4,10 +4,12 @@ import { createEditorExtensions } from "./editorExtensions";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { fromEditorBody, toEditorBody } from "./contentNodes";
-export function TipTapDocument({ body, editable = false, onChange }: {
+import { ArticleSectionNavigation } from "./ArticleSections";
+export function TipTapDocument({ body, editable = false, onChange, sectionNavigation = false }: {
   body: JSONContent;
   editable?: boolean;
   onChange?: (body: JSONContent) => void;
+  sectionNavigation?: boolean;
 }) {
   const navigate = useNavigate();
   const editor = useEditor({
@@ -21,5 +23,5 @@ export function TipTapDocument({ body, editable = false, onChange }: {
     if (editor && JSON.stringify(fromEditorBody(editor.getJSON())) !== JSON.stringify(body))
       editor.commands.setContent(toEditorBody(body), { emitUpdate: false });
   }, [editor, body]);
-  return <EditorContent editor={editor} />;
+  return <>{sectionNavigation && <ArticleSectionNavigation editor={editor} />}<EditorContent editor={editor} /></>;
 }

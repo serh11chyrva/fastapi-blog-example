@@ -16,26 +16,15 @@ import { Attachments } from "../publications/Attachments";
 import { TipTapDocument } from "./TipTapDocument";
 import { HashtagText } from "../../shared/text/HashtagText";
 
-function readingSections(body: JSONContent) {
-  const sections: { id: string; label: string }[] = [];
+function articleImages(body: JSONContent) {
   const images = new Set<string>();
-  function plainText(node: JSONContent): string {
-    return node.text ?? (node.content?.map(plainText).join("") || "");
-  }
-  function visit(node: JSONContent): JSONContent {
+  function visit(node: JSONContent) {
     if (node.type === "image" && typeof node.attrs?.src === "string") images.add(node.attrs.src);
     if (node.type === "attachment" && (node.attrs?.type === "image" || node.attrs?.type === "gif")) images.add(node.attrs.url);
-    if (node.type === "heading") {
-      const label = plainText(node).trim();
-      if (label) {
-        const id = `section-${sections.length + 1}`;
-        sections.push({ id, label });
-        return { ...node, attrs: { ...node.attrs, sectionId: id } };
-      }
-    }
-    return node.content ? { ...node, content: node.content.map(visit) } : node;
+    node.content?.forEach(visit);
   }
-  return { document: visit(body), sections, images };
+  visit(body);
+  return images;
 }
 
 function ArticleAuthors({ authors }: { authors: ProfileCard[] }) {
@@ -73,18 +62,19 @@ function ArticleAuthors({ authors }: { authors: ProfileCard[] }) {
   if (!author) return null;
   return <aside className="reader-author" aria-label="About the authors">
     <Link to={`/@${author.username}`}><Avatar src={author.avatars.original} name={author.display_name} size="md" /></Link>
-    <div>
+    <div className="reader-author-copy">
       <p className="eyebrow">Written by</p>
-      <h2><HashtagText text={author.display_name} href={`/@${author.username}`} /></h2>
+      <div className="reader-author-name"><h2><HashtagText text={author.display_name} href={`/@${author.username}`} /></h2>
+        <Link className="author-details" to={`/@${author.username}`}>@{author.username}</Link></div>
       {profile?.bio && <p className="author-bio"><HashtagText text={profile.bio} /></p>}
-      <p className="author-details">{profile?.location && `${profile.location} · `}@{author.username}</p>
+      {profile?.location && <p className="author-details">{profile.location}</p>}
       {featured.length > 0 && <p className="author-details">With {featured.map((person, index) => <span key={person.id}>
         {index > 0 && ", "}<HashtagText text={person.display_name} href={`/@${person.username}`} />
       </span>)}</p>}
-      {profile && user && profile.id !== user.id && <button className="button-secondary reader-follow" disabled={busy}
-        aria-pressed={profile.is_following} onClick={() => void toggleFollow()}>{profile.is_following ? "Following" : "Follow"}</button>}
       {error && <p role="alert" className="notice-error">{error}</p>}
     </div>
+    {profile && user && profile.id !== user.id && <button className="button-secondary reader-follow" disabled={busy}
+      aria-pressed={profile.is_following} onClick={() => void toggleFollow()}>{profile.is_following ? "Following" : "Follow"}</button>}
   </aside>;
 }
 
@@ -98,37 +88,12 @@ function ArticleDates({ article }: { article: Article }) {
   </span>;
 }
 
-function SectionNavigation({ sections }: { sections: ReturnType<typeof readingSections>["sections"] }) {
-  const [current, setCurrent] = useState<string | undefined>();
-  useEffect(() => {
-    if (!sections.length) return;
-    function update() {
-      const active = sections.filter(({ id }) => {
-        const section = document.getElementById(id);
-        return section && section.getBoundingClientRect().top < 150;
-      }).at(-1);
-      setCurrent(active?.id ?? sections[0].id);
-    }
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, [sections]);
-  return sections.length > 0 && <nav className="section-nav" aria-label="Article sections">
-    {sections.map(({ id, label }) => <a href={`#${id}`} key={id} aria-label={label}
-      title={label} aria-current={id === current ? "location" : undefined}><span>{label}</span></a>)}
-  </nav>;
-}
-
 export function ArticlePresentation({ article, owner, onChanged }: {
   article: Article; owner: boolean; onChanged?: (article: Article) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
-  const { document, sections, images } = useMemo(() => readingSections(article.body), [article.body]);
+  const images = useMemo(() => articleImages(article.body), [article.body]);
 
 
   async function share() {
@@ -153,12 +118,11 @@ export function ArticlePresentation({ article, owner, onChanged }: {
         }}><Link to={`/articles/${article.id}/edit`}>Edit article</Link></PublicationMenu>}
       </div>
       <h1><HashtagText text={article.title} /></h1>
-      {article.summary && <p className="reader-deck"><HashtagText text={article.summary} /></p>}
     </header>
-    <SectionNavigation sections={sections} />
     <div className="reading-prose" id="article">
-      <TipTapDocument body={document} />
-      <Attachments items={article.attachments.filter((item) => (item.type !== "image" && item.type !== "gif") || !images.has(item.url))} />
+      <TipTapDocument body={article.body} sectionNavigation />
+      <Attachments items={article.attachments.filter((item) => item.type !== "hashtag"
+        && ((item.type !== "image" && item.type !== "gif") || !images.has(item.url)))} />
     </div>
     <div className="reader-end">
       <div className="end-mark" aria-hidden="true"><i /><i /><i /></div>

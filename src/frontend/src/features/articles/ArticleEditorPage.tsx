@@ -5,6 +5,7 @@ import { usePageTitle } from "../../app/usePageTitle";
 import { Icon } from "../../shared/ui/Icon";
 import { articleBlockDragType, EditorToolbar, moveArticleBlock } from "./EditorToolbar";
 import { useArticleEditor } from "./useArticleEditor";
+import { ArticleSectionNavigation } from "./ArticleSections";
 
 export function ArticleEditorPage() {
   const { articleId } = useParams();
@@ -38,6 +39,7 @@ function ArticleEditorForm() {
   const preview = thumbnailPreview || article?.thumbnail_url;
   const status = article?.status ?? "draft";
   return <article className="writer">
+    <ArticleSectionNavigation editor={editor} />
     <div className="writer-actions">
       <span className="writer-state">{saving ? "Saving…" : article?.archived_at ? "archived" : status}</span>
       <button type="button" className="button-secondary" disabled={saving} onClick={() => void runAction("save")}>Save</button>
