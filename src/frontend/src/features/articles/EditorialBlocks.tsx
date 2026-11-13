@@ -1,9 +1,19 @@
 import { useState } from "react";
 import Blockquote from "@tiptap/extension-blockquote";
-import CodeBlock from "@tiptap/extension-code-block";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { common, createLowlight } from "lowlight";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { Icon } from "../../shared/ui/Icon";
+
+const languages = createLowlight(common);
+const codeHighlighter = {
+  ...languages,
+  registered: (language: string) => languages.registered(language.toLowerCase()),
+  highlight: (language: string, text: string) => languages.registered(language.toLowerCase())
+    ? languages.highlight(language.toLowerCase(), text) : { children: [] },
+  highlightAuto: () => ({ children: [] }),
+};
 
 function QuoteBlock({ editor, node, updateAttributes }: NodeViewProps) {
   const citation = String(node.attrs.citation ?? "");
@@ -52,6 +62,6 @@ export const EditorialQuote = Blockquote.extend({
   addNodeView() { return ReactNodeViewRenderer(QuoteBlock); },
 });
 
-export const EditorialCode = CodeBlock.extend({
+export const EditorialCode = CodeBlockLowlight.extend({
   addNodeView() { return ReactNodeViewRenderer(CodeBlockView); },
-});
+}).configure({ lowlight: codeHighlighter, defaultLanguage: "plaintext" });

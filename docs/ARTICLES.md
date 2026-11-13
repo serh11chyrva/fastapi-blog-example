@@ -40,3 +40,15 @@ Typed mention nodes retain their account ID in JSON and display the current hand
 from a public card. Requests are deduplicated, batched in groups of at most 50, and
 cached for one minute. Missing accounts display "Account unavailable" without an ID.
 Explicit hashtag blocks use ordinary hashtag links in article bodies.
+
+## Code blocks
+
+Code blocks use CodeBlockLowlight with the common Lowlight language set in both
+editing and reading views. Enter a registered language or alias, such as `python`,
+`javascript`, `typescript`, `json`, or `css`, in the block header. Language names
+are recognized without case sensitivity. An empty or unsupported language displays
+plain text; automatic language guessing is disabled. Copying returns only source
+text, and syntax decorations are never stored in the article body.
+
+Frontend dependency changes require rebuilding the frontend development image
+before the next Docker Compose development run.

@@ -47,6 +47,13 @@
 .embed-bar button:hover { color: var(--ink); }
 .tiptap-content pre { overflow: auto; margin: 0; padding: 16px; color: #3e3e34; font: 12px/1.65 ui-monospace, Consolas, monospace; }
 .tiptap-content pre code { white-space: pre; }
+.code-embed .hljs-comment, .code-embed .hljs-quote { color: #858575; font-style: italic; }
+.code-embed .hljs-keyword, .code-embed .hljs-selector-tag, .code-embed .hljs-literal { color: #79507b; }
+.code-embed .hljs-string, .code-embed .hljs-regexp, .code-embed .hljs-addition { color: #426b4c; }
+.code-embed .hljs-number, .code-embed .hljs-attr, .code-embed .hljs-symbol { color: #94613c; }
+.code-embed .hljs-title, .code-embed .hljs-section, .code-embed .hljs-type { color: #3e657c; }
+.code-embed .hljs-built_in, .code-embed .hljs-meta { color: #79652d; }
+.code-embed .hljs-deletion { color: #9b4e43; }
 .reading-prose .attachment-stack, .writer-body .attachment-stack { margin: 23px 0 28px; font-family: var(--ui-font); }
 .reading-prose :is(.og-card, .embed-card, .longread-card, .quote-card), .writer-body :is(.og-card, .embed-card, .longread-card, .quote-card) { border-radius: 4px; }
 .reading-prose .og-card.has-thumbnail { grid-template-columns: 160px minmax(0, 1fr); }
