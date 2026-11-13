@@ -4,6 +4,7 @@ from backend.auth.models import AuthIdentity, AuthSession
 from backend.comments.conversion import ReplyMapping
 from backend.comments.models import ArticleComment, CommentLike, PostReply
 from backend.interactions.models import PublicationInteraction
+from backend.notifications.models import NotificationEvent, NotificationGroup
 from backend.posts.migrations import AttachmentBackup
 from backend.posts.models import MicroPost
 from backend.profiles.models import BadgeAssignment, BadgeDefinition, Follow, User
@@ -23,6 +24,8 @@ DOCUMENT_MODELS = [
     MicroPost,
     Article,
     PublicationInteraction,
+    NotificationEvent,
+    NotificationGroup,
     PostReply,
     ArticleComment,
     CommentLike,

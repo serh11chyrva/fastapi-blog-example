@@ -300,6 +300,11 @@ Frontend author cards, ownership checks, and profile images use `authors`, `owne
 
 ## Interactions and discussions
 
+`notifications/` owns private recipient inbox events and grouped rows. Source
+services create or retract events in their own MongoDB transactions. Group-local
+sequences preserve read boundaries through additions and retractions; likes and
+reposts group by publication and UTC day. See [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
 `interactions/` stores one `PublicationInteraction` document per publication type, publication ID,
 action, and account, protected by a unique index. Like/repost totals are queried from edges;
 private save totals are never public. Viewer flags and `/me/saved` use uncached private responses,
