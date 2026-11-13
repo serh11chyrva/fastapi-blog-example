@@ -5,6 +5,7 @@
 @import "./features/articles/editorial.css";
 @import "./features/auth/auth.css";
 @import "./features/profiles/settings.css";
+@import "./features/notifications/notifications.css";
 @import "./shared/ui/skeleton.css";
 @import "./shared/ui/motion.css";
 

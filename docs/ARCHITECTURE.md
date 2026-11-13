@@ -342,6 +342,14 @@ See [INTERACTIONS.md](INTERACTIONS.md) for concrete routes, response examples, a
 
 ## Frontend interactions and discussions
 
+`features/notifications` adds a protected inbox and an account-scoped provider
+shared by standard and reading layouts. The provider polls unread row counts,
+batches observed group-version receipts, retains failed batches for explicit
+retry, and cancels requests on identity changes. The inbox refreshes at the top
+while preserving older-page reading until Refresh. Visibility observers require
+continuous focused viewing before acknowledging a row. API unions distinguish
+social groups from readable login snapshots; see [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
 `features/interactions/PublicationActions` loads uncached public counts and viewer flags for an
 original publication, sends explicit PUT/DELETE desired states, and disables conflicting actions
 while requests or reconciliation reads are pending. A local browser event refreshes other mounted

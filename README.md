@@ -12,6 +12,7 @@ A demo microblog built with FastAPI, MongoDB, Redis, React, and Garage.
 - Likes, saves, reposts, and discussions.
 - Unlimited owner-only archives and up to five profile pins shared across posts, replies, and published articles.
 - Profile editing and active session management.
+- A private Notifications inbox with grouped likes/reposts, comments, replies, and successful login alerts.
 - Public full-text search across people, posts, articles, replies, and comments, with linked Unicode hashtags.
 
 The shared footer links to the [GitHub repository](https://github.com/serh11chyrva/fastapi-blog-example),

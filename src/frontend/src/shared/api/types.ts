@@ -8,6 +8,33 @@ export type ProfileCard = {
 export type User = ProfileCard & {
   email: string;
 };
+export type NotificationBase = {
+  id: string;
+  version: number;
+  is_read: boolean;
+  last_event_at: string;
+};
+export type SocialNotification = NotificationBase & {
+  kind: "like" | "comment" | "reply" | "repost";
+  event_count: number;
+  actors: ProfileCard[];
+  target: {
+    kind: "micro_post" | "article";
+    id: string;
+    available: boolean;
+    label: "post" | "comment" | "article" | "publication";
+    url: string | null;
+    preview: string | null;
+  };
+};
+export type LoginNotification = NotificationBase & {
+  kind: "login";
+  login: { client_type: "web" | "mobile" | "desktop"; device: string; location: string };
+  url: "/settings/sessions";
+};
+export type NotificationItem = SocialNotification | LoginNotification;
+export type NotificationSummary = { unread_count: number };
+export type NotificationReceipt = { id: string; through_version: number };
 export type SearchUser = ProfileCard & { bio: string };
 export type SearchPublicationHit = { publication: OriginalFeedItem; excerpt: string | null };
 export type ProfileLinkInput = {

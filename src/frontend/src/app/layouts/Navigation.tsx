@@ -10,6 +10,7 @@ import type { IconName } from "../../shared/ui/Icon";
 import { PostComposer } from "../../features/feed/PostComposer";
 import { publicationEvent } from "../../features/interactions/events";
 import { HashtagText } from "../../shared/text/HashtagText";
+import { NotificationBadge, useNotifications } from "../../features/notifications/NotificationsProvider";
 
 export function Brand({ reading = false }: { reading?: boolean }) {
   return <Link to="/" className="site-brand" aria-label={`${siteName} home`}>
@@ -28,6 +29,7 @@ const publicLinks: NavigationLink[] = [
 
 export function Navigation({ reading = false }: { reading?: boolean }) {
   const { status, user, setUser } = useApp();
+  const { unreadCount } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(reading);
@@ -40,6 +42,7 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
   const signIn = { from: location.pathname + location.search + location.hash };
   const privateLinks: NavigationLink[] = [
     { to: profile, label: "Profile", icon: "user" },
+    { to: "/notifications", label: "Notifications", icon: "bell" },
     { to: "/my-articles", label: "My articles", icon: "book" },
     { to: "/saved", label: "Bookmarks", icon: "bookmark" },
     { to: "/settings", label: "Settings", icon: "settings", end: false },
@@ -97,6 +100,7 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
         {navLinks.map(({ to, label, icon, end = true }) => <NavLink key={to} end={end} to={to}
           className={({ isActive }) => `sidebar-link ${isActive ? "is-active" : ""}`}>
           <Icon name={icon} />{label}
+          {to === "/notifications" && <NotificationBadge />}
         </NavLink>)}
       </nav>
       <button type="button" className="sidebar-compose" onClick={compose}><Icon name="plus" />New post</button>
@@ -137,10 +141,17 @@ export function Navigation({ reading = false }: { reading?: boolean }) {
       </NavLink>
       {user && <NavLink to="/saved" aria-label="Bookmarks"><Icon name="bookmark" width={22} height={22} /></NavLink>}
       <details className="mobile-more">
-        <summary aria-label="More navigation"><Icon name="menu" width={21} height={21} /></summary>
+        <summary aria-label={`More navigation${user && unreadCount ? `, ${unreadCount} unread notifications` : ""}`}>
+          <Icon name="menu" width={21} height={21} />{user && <NotificationBadge />}
+        </summary>
         <div>
           {user ? <>
-            <Link to="/write">Write an article</Link><Link to="/my-articles">My articles</Link>
+            <Link to="/write">Write an article</Link>
+            <NavLink to="/notifications" className="notification-menu-link"
+              onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}>
+              Notifications <NotificationBadge />
+            </NavLink>
+            <Link to="/my-articles">My articles</Link>
             <Link to="/settings">Settings</Link>
             <button type="button" disabled={logoutBusy} onClick={() => void logout()}>Sign out</button>
             {logoutError && <p className="notice-error" role="alert">{logoutError}</p>}

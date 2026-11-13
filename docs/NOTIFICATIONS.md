@@ -159,3 +159,42 @@ Example login row:
 
 System categories extend the typed inbox union and internal emission service;
 clients cannot supply arbitrary notification payloads through a public endpoint.
+
+## Frontend inbox
+
+The protected `/notifications` page appears between Profile and My articles in
+the shared sidebar. Mobile More navigation includes Notifications before My
+articles, with an unread indicator on More itself. The badge counts unread rows,
+shows `99+` above ninety-nine, and retains the last known count during errors.
+An unavailable count has an explanatory indicator and can be retried in the inbox.
+
+One account-scoped provider polls the summary every thirty seconds and on visible
+tab/window return or reconnection. Hidden tabs and offline browsers make no polling
+requests. Account changes, logout, and expired sessions replace the provider,
+clear local counts/receipts, and abort old requests. The provider also serves
+reading layouts, so navigation never starts a second polling loop.
+
+The inbox loads twenty rows at a time using cursor pagination and merges group
+IDs without duplicates. While within 120 pixels of the top, polling refreshes
+the first page and restarts continuation pagination. While reading older rows,
+the list stays in place and the persistent Refresh button highlights after a
+poll. Refresh explicitly returns to the top and loads a fresh first page.
+Returning to the top also applies a pending refresh. Background errors retain
+existing rows; initial, continuation, summary, and receipt failures expose Retry.
+
+A row is automatically viewed after at least half of it is visible continuously
+for one second in a visible, focused browser window. The observer excludes the
+fixed navigation/toolbar areas; leaving the threshold, hiding the tab, or losing
+focus resets the timer. Opening a target also queues a receipt for that displayed
+version. Read receipts are debounced for 200 milliseconds, sent in batches of at
+most fifty, and acknowledged only after successful persistence. Failed batches
+remain pending until an explicit retry. Later group versions remain unread.
+Browsers without IntersectionObserver retain opening and Mark all as read actions.
+
+Mark all as read operates on the server snapshot, acknowledges only the displayed
+versions locally, and refreshes the summary. It does not replay automatically on
+errors. List polling and further receipt submission pause during this action;
+notifications viewed during it can be submitted afterward. Newer events are never
+locally marked through an older displayed version. Rows include current actor
+names, a readable action, a text preview or unavailable placeholder, and relative
+time with an exact timestamp tooltip. Login entries link to session settings.

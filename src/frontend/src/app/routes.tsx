@@ -15,6 +15,7 @@ import { SharedPublicationPage } from "../features/articles/SharedPublicationPag
 import { ArticleEditorPage } from "../features/articles/ArticleEditorPage";
 import { SessionsPage } from "../features/profiles/sessions/SessionsPage";
 import { SavedPage } from "../features/interactions/SavedPage";
+import { NotificationsPage } from "../features/notifications/NotificationsPage";
 import { PostPage } from "../features/feed/PostPage";
 import { ThreadPage } from "../features/feed/ThreadPage";
 import { LegalPage } from "../features/legal/LegalPage";
@@ -46,6 +47,8 @@ export function AppRoutes() {
         <Route path="following" element={<FeedPage following />} />
 
         <Route path="saved" element={<SavedPage />} />
+
+        <Route path="notifications" element={<NotificationsPage />} />
 
         <Route path="my-articles" element={<MyArticlesPage />} />
 
