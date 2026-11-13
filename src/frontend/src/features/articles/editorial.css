@@ -54,6 +54,15 @@
 .code-embed .hljs-title, .code-embed .hljs-section, .code-embed .hljs-type { color: #3e657c; }
 .code-embed .hljs-built_in, .code-embed .hljs-meta { color: #79652d; }
 .code-embed .hljs-deletion { color: #9b4e43; }
+.tiptap-content sup { font-size: .72em; line-height: 0; vertical-align: super; }
+.equation-node { margin: 26px 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.equation-node.is-selected { outline: 2px solid #969c88; outline-offset: 3px; }
+.equation-source { display: block; padding: 12px; font: 12px/1.5 var(--ui-font); }
+.equation-source textarea { font-family: ui-monospace, Consolas, monospace; resize: vertical; }
+.equation-preview { overflow-x: auto; padding: 12px 16px; }
+.equation-fallback { color: var(--muted); font: 13px/1.6 var(--ui-font); }
+.equation-error { color: #804e42; overflow-wrap: anywhere; }
+.equation-fallback pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .reading-prose .attachment-stack, .writer-body .attachment-stack { margin: 23px 0 28px; font-family: var(--ui-font); }
 .reading-prose :is(.og-card, .embed-card, .longread-card, .quote-card), .writer-body :is(.og-card, .embed-card, .longread-card, .quote-card) { border-radius: 4px; }
 .reading-prose .og-card.has-thumbnail { grid-template-columns: 160px minmax(0, 1fr); }

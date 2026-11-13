@@ -10,7 +10,7 @@ def article_content(document: dict[str, Any]) -> tuple[str, list[str]]:
     """Read full article text and tags, preserving words split by formatting marks.
 
     Code remains searchable text but does not create hashtags. Existing links and
-    URLs do not create tags. Structured hashtag nodes contribute their visible text.
+    URLs do not create tags. Formula sources are excluded. Structured hashtag nodes contribute their visible text.
 
     :param document: Validated TipTap document, never modified by extraction.
     :return: Normalized full text and sorted unique normalized hashtags.
@@ -36,7 +36,7 @@ def article_content(document: dict[str, Any]) -> tuple[str, list[str]]:
             return "#" + tag, " "
         if kind in {"hardBreak", "horizontalRule"}:
             return " ", " "
-        if kind in {"image", "attachment", "mention"}:
+        if kind in {"image", "attachment", "mention", "blockMath"}:
             return " ", " "
         children = [visit(child, tags_allowed and kind != "codeBlock") for child in node.get("content", [])]
         separator = "" if kind in {"paragraph", "heading", "codeBlock"} else " "

@@ -34,11 +34,13 @@ class ArticleCreate(BaseModel):
         description=(
             "TipTap JSON document, up to 1,000,000 UTF-8 bytes, 64 levels, and 10,000 nodes. Malformed node shapes "
             "and parent-child structures are rejected. Supports paragraphs, headings (levels 1-3), lists, blockquotes, "
-            "code blocks, breaks, rules, uploaded images, inline mention/hashtag nodes, and block attachment nodes "
-            "(typed descriptors in attrs, up to 30 per body); marks: bold, italic, strike, code, and HTTP(S) links. "
+            "code blocks, blockMath formulas with a string attrs.latex, breaks, rules, uploaded images, "
+            "inline mention/hashtag nodes, and block attachment nodes (typed descriptors in attrs, up to 30 per body); "
+            "marks: bold, italic, underline, superscript, legacy strike, code, and HTTP(S) links. "
             "Image sources must reference images uploaded to this article. Mention and article references are checked "
             "on writes; video is reserved and rejected. Plain-text Unicode hashtags are recognized across formatting "
-            "marks without changing the document; code and existing links do not produce hashtags."
+            "marks without changing the document; code, formulas, and existing links do not produce hashtags. "
+            "Formula source is excluded from summaries and search text; invalid LaTeX remains editable."
         ),
         examples=[examples.ARTICLE_BODY, examples.ARTICLE_RICH_CREATE["body"]],
     )

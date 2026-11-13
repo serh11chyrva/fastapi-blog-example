@@ -1,11 +1,13 @@
 import { Extension, Mark } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
+import Superscript from "@tiptap/extension-superscript";
 import { EditorialCode, EditorialQuote } from "./EditorialBlocks";
 import { ArticleAttachment, ArticleHashtag, ArticleMention } from "./contentNodes";
 import { ArticleImage } from "./ArticleImage";
 import { ArticleTextLinks } from "./hashtagExtension";
 import { ArticleSectionAnchors } from "./ArticleSections";
+import { ArticleEquation } from "./ArticleEquation";
 
 const LegacyStrike = Mark.create({
   name: "strike",
@@ -37,10 +39,12 @@ export function createEditorExtensions(editable = true, navigate?: (href: string
   return [
     StarterKit.configure({ heading: { levels: [1, 2, 3] }, strike: false, link: false, trailingNode: false, blockquote: false, codeBlock: false }),
     LegacyStrike,
+    Superscript,
     ArticleFormatting,
     ArticleSectionAnchors,
     EditorialQuote,
     EditorialCode,
+    ArticleEquation,
     ArticleImage,
     ArticleAttachment,
     ArticleMention,

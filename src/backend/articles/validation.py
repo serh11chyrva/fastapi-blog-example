@@ -22,6 +22,7 @@ type NodeKind = Literal[
     "listItem",
     "blockquote",
     "codeBlock",
+    "blockMath",
     "hardBreak",
     "horizontalRule",
     "image",
@@ -40,6 +41,7 @@ BLOCK_NODES = {
     "orderedList",
     "blockquote",
     "codeBlock",
+    "blockMath",
     "horizontalRule",
     "image",
     "attachment",
@@ -52,7 +54,7 @@ class TiptapMark(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    type: Literal["bold", "italic", "strike", "code", "link", "underline"]
+    type: Literal["bold", "italic", "strike", "code", "link", "underline", "superscript"]
     attrs: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -167,6 +169,9 @@ def validate_tiptap_document(document: ArticleBody) -> None:
             citation = node.attrs.get("citation")
             if citation is not None and (not isinstance(citation, str) or len(citation) > 200):
                 raise ValueError("Quote citation must be text up to 200 characters")
+
+        if node.type == "blockMath" and not isinstance(node.attrs.get("latex"), str):
+            raise ValueError("Block formulas require a LaTeX string in attrs.latex")
 
         if node.type == "codeBlock":
             language = node.attrs.get("language")

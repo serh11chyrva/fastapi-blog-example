@@ -226,6 +226,7 @@ ARTICLE_RICH_CREATE = ARTICLE_CREATE | {
                     {"type": "mention", "attrs": {"user_id": PROFILE_USER["id"]}},
                     {"type": "text", "text": " "},
                     {"type": "hashtag", "attrs": {"tag": "reading"}},
+                    {"type": "text", "text": "1", "marks": [{"type": "superscript"}]},
                 ],
             },
             {
@@ -236,10 +237,11 @@ ARTICLE_RICH_CREATE = ARTICLE_CREATE | {
                     "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
                 },
             },
+            {"type": "blockMath", "attrs": {"latex": "E = mc^2"}},
         ],
     },
 }
-ARTICLE_WITH_CONTENT = ARTICLE | ARTICLE_RICH_CREATE | {"summary": "Discussed with"}
+ARTICLE_WITH_CONTENT = ARTICLE | ARTICLE_RICH_CREATE | {"summary": "Discussed with 1"}
 ARTICLE_UPDATED = (
     ARTICLE
     | ARTICLE_UPDATE

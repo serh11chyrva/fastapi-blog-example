@@ -86,7 +86,8 @@ async def delete_article(
     summary="Create an article draft",
     description=(
         "Creates a private-to-owner draft with optional typed attachments. TipTap supports inline mentions and "
-        "hashtags and block attachment descriptors. Mentioned accounts must exist; referenced articles must be published. "
+        "hashtags, superscript text, standalone blockMath formulas, and block attachment descriptors. "
+        "Mentioned accounts must exist; referenced articles must be published. "
         "Video descriptors are reserved and rejected."
     ),
     tags=["Articles"],

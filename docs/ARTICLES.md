@@ -52,3 +52,20 @@ text, and syntax decorations are never stored in the article body.
 
 Frontend dependency changes require rebuilding the frontend development image
 before the next Docker Compose development run.
+
+## Formulas and manual notes
+
+Choose **LaTeX formula** from the block menu to insert a standalone equation. Its
+source and preview appear together while editing; **Done** hides the source and
+**Edit formula** opens it again. Formula blocks support the usual block movement
+and deletion controls. Rendering errors display an escaped message and the source
+inside that block; they do not discard input or prevent saving the rest of the
+article. KaTeX runs with `trust: false` and bounded expansion and output size.
+
+Use **Superscript** in the selection toolbar for manual notes such as `1` or `[1]`.
+It is ordinary marked text, without automatic numbering or a generated note list.
+Formula sources are not included in summaries, full-text search, or hashtag
+extraction. Superscript text remains ordinary searchable and summarizable text.
+
+The backend must support `blockMath` and `superscript` before deploying the frontend
+that creates them. Existing article bodies require no migration.

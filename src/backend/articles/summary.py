@@ -7,7 +7,7 @@ def article_summary(document: ArticleBody) -> str:
     """Extract the first 280 characters of normalized text in document order.
 
     Inline formatting does not introduce spaces inside words. Block boundaries and
-    hard breaks separate text; media attributes and other metadata are excluded.
+    hard breaks separate text; formula sources, media attributes, and other metadata are excluded.
 
     :param document: Validated article body to summarize.
     :return: At most 280 Unicode characters, or an empty string for a textless body.
@@ -26,7 +26,7 @@ def article_summary(document: ArticleBody) -> str:
         kind = node.get("type")
         if kind == "text":
             fragments.append(str(node.get("text", "")))
-        elif kind == "hardBreak":
+        elif kind in {"hardBreak", "blockMath"}:
             fragments.append(" ")
         else:
             children = node.get("content", [])

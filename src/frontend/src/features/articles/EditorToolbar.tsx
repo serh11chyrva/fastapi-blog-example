@@ -34,6 +34,7 @@ const blocks: { label: string; glyph: string; node: JSONContent }[] = [
   { label: "Bulleted list", glyph: "•", node: { type: "bulletList", content: [{ type: "listItem", content: [{ type: "paragraph" }] }] } },
   { label: "Numbered list", glyph: "1.", node: { type: "orderedList", content: [{ type: "listItem", content: [{ type: "paragraph" }] }] } },
   { label: "Code", glyph: "</>", node: { type: "codeBlock" } },
+  { label: "LaTeX formula", glyph: "∑", node: { type: "blockMath", attrs: { latex: "" } } },
   { label: "Divider", glyph: "—", node: { type: "horizontalRule" } },
 ];
 
@@ -194,7 +195,7 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     if (!editor || !position) return;
     const range = insertion.current ?? { from: position.after, to: position.after };
     insertion.current = null;
-    const atomic = ["attachment", "image", "horizontalRule"].includes(node.type ?? "");
+    const atomic = ["attachment", "image", "horizontalRule", "blockMath"].includes(node.type ?? "");
     editor.chain().focus().insertContentAt(range, atomic ? [node, { type: "paragraph" }] : node).run();
     const inserted = editor.state.doc.nodeAt(range.from);
     const offset = atomic ? (inserted?.nodeSize ?? 1) + 1 : ["blockquote"].includes(node.type ?? "") ? 2
@@ -223,6 +224,7 @@ export function EditorToolbar({ editor, workspace, onAddImage, disabled }: {
     { label: "Bold", text: "B", active: editor.isActive("bold"), run: () => chain().toggleBold().run() },
     { label: "Italic", text: "I", active: editor.isActive("italic"), run: () => chain().toggleItalic().run() },
     { label: "Underline", text: "U", active: editor.isActive("underline"), run: () => chain().toggleUnderline().run() },
+    { label: "Superscript", text: "x²", active: editor.isActive("superscript"), run: () => chain().toggleSuperscript().run() },
   ];
   const alignments: { value: string; label: string; icon: IconName }[] = [
     { value: "left", label: "Align left", icon: "alignLeft" },

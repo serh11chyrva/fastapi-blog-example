@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 @import "./app/layouts/shell.css";
 @import "./features/feed/social.css";
 @import "./features/articles/editorial.css";

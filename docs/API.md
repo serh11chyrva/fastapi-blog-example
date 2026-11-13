@@ -704,6 +704,26 @@ Text may carry an `underline` mark. Paragraphs and headings accept `attrs.textAl
 (`left`, `center`, `right`, or `justify`). Blockquotes accept `attrs.citation` up to 200
 characters. Code blocks accept a language identifier such as `javascript`.
 
+The `superscript` mark stores manual raised text without automatic note numbering.
+A standalone formula is a `blockMath` leaf node with a required string `attrs.latex`.
+Empty or syntactically invalid LaTeX may be saved and edited; malformed node shapes
+are rejected with 422. Formula nodes accept no children, text, or marks and count
+toward the existing document limits. Their source does not contribute to summaries,
+search text, or hashtags. Superscript text contributes like ordinary text:
+
+```json
+{
+  "type": "doc",
+  "content": [
+    {"type": "paragraph", "content": [
+      {"type": "text", "text": "A manual note"},
+      {"type": "text", "text": "1", "marks": [{"type": "superscript"}]}
+    ]},
+    {"type": "blockMath", "attrs": {"latex": "E = mc^2"}}
+  ]
+}
+```
+
 In addition to existing nodes and marks, paragraphs and headings support inline `mention`
 and `hashtag` leaf nodes. Their `attrs` contain `user_id` or `tag` respectively, without `type`.
 Block positions support an `attachment` leaf whose `attrs` contain a complete typed descriptor.
